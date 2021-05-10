@@ -1,2 +1,5 @@
 # figures directory
-./figures/
+figures/*
+
+# ipynb checkpoints
+ipynb/.ipynb_checkpoints/*
