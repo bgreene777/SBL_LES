@@ -3,3 +3,4 @@ figures/*
 
 # ipynb checkpoints
 ipynb/.ipynb_checkpoints/*
+python/.ipynb_checkpoints/*
