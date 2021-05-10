@@ -1,0 +1,2 @@
+simdir,fslurm,task,f90exec,interpdim
+/home/bgreene/simulations/F_192_interp/,slurm-2103.out,stats,interp3d_F192.exe,192
