@@ -8,6 +8,7 @@
 # for comparisons
 # --------------------------------
 import os
+import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rc
@@ -224,7 +225,6 @@ class simulation():
         return
     
 # --------------------------------
-
 # initialize simulation objects
 # A
 s128A = simulation("/home/bgreene/simulations/A_128_interp/output/average_statistics.csv",
@@ -244,6 +244,9 @@ for s in s_all:
     s.read_csv()
     s.calc_Ri()
     s.calc_most()
+    # save as pickle files
+    with open(f"/home/bgreene/SBL_LES/output/pickle/{s.stab}{s.lab}.pickle", "wb") as fn:
+        pickle.dump(s, fn)
     
 # --------------------------------
 # Begin plotting
