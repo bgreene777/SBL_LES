@@ -15,7 +15,7 @@ from numpy.fft import fft, ifft
 import matplotlib.pyplot as plt
 from matplotlib import rc
 from datetime import datetime
-# from numba import jit, float64, vectorize, int64, njit
+from numba import jit, float64, vectorize, int64, njit
 
 dt0 = datetime.utcnow()
 
@@ -38,7 +38,6 @@ def read_f90_bin(path,nx,ny,nz,precision):
     return dat
 # --------------------------------
 # @vectorize(float64(float64, float64, float64, int64, int64))
-# @njit
 def lengthscale_filter(f, delta_x, Lx, nx, nz):
     """
     -input-
@@ -53,12 +52,11 @@ def lengthscale_filter(f, delta_x, Lx, nx, nz):
     # get length of delta_x for number of filter widths
     ndelta = len(delta_x)
     
-    # setup arrays for sigma_f
+    # initialize arrays for sigma_f, f_fft, f_filtered
     sigma_f = np.zeros((nz,ndelta), dtype=np.float64)
     
     # loop through filter sizes
     for k in range(ndelta):
-        dt0 = datetime.utcnow()
         # filter f at scale delta_x[k]
         # wavenumber increment
         dk = 2.*np.pi / Lx
@@ -77,17 +75,23 @@ def lengthscale_filter(f, delta_x, Lx, nx, nz):
         f_filtered = np.fft.ifft(f_fft, axis=0)
         # calc standard deviation
         # std only along x, which returns 2d in y,z; take mean along y, new axis=0
-        sigma_f[:,k] = np.mean(np.std(f_filtered, axis=0), axis=0)
-        dt1 = datetime.utcnow()
-    
-#     # fit power law to stdev of local filtered f
-#     A = delta_x ** -0.5
-    
-#     # reshape sigma_f and A into shape(1, nf) to enable least sqaures solution
-#     C_wc = np.dot(sigma_f.reshape(1,-1), np.linalg.pinv(A.reshape(1,-1)))[0][0]
+        sigma_f[:,k] = calc_meanstd(np.real(f_filtered),nx,nz)
+#         sigma_f[:,k] = np.mean(np.std(f_filtered, axis=0), axis=0)
     
     return sigma_f
     
+# --------------------------------
+@njit
+def calc_meanstd(f,nx,nz):
+    std_yz = np.zeros((nx,nz), dtype=np.float64)
+    to_return = np.zeros(nz, dtype=np.float64)
+    
+    for k in range(nz):
+        for j in range(nx):
+            std_yz[j,k] = np.std(f[:,j,k])
+        to_return[k] = np.mean(std_yz[:,k])
+
+    return to_return
 # --------------------------------
 # output directory
 fdir = "/home/bgreene/simulations/A_192_interp/output/"
@@ -112,8 +116,8 @@ theta_scale = 300.
 # define filter min and max
 # delta_x_min = 4.*dx
 # delta_x_max = Lx/10.
-delta_x_min = Lx/6.
-# delta_x_min = dx
+# delta_x_min = Lx/6.
+delta_x_min = dx
 delta_x_max = Lx
 # number of filter sizes
 ndelta = 50
@@ -152,7 +156,7 @@ for i in range(nt):
     sigma_theta_all[:,:,i] = lengthscale_filter(theta_in, delta_x, Lx, nx, nz)
 
     dt3 = datetime.utcnow()
-    print(f"Duration for timestep {timesteps[i]:07d}: {(dt3-dt2).total_seconds()/60.:5.1f} min")
+    print(f"Duration for timestep {timesteps[i]:07d}: {(dt3-dt2).total_seconds()} sec")
 
 # average sigma_f over all t
 sigma_u = np.mean(sigma_u_all, axis=2)
@@ -174,7 +178,7 @@ len_u = (C_u**2.) / (2.*Uvar)
 len_theta = (C_theta**2.) / (2.*thetavar)
     
 # save npz file
-fsave = f"filtered_lengthscale_A_192.npz"
+fsave = f"../output/filtered_lengthscale_A_192_full.npz"
 np.savez(fsave, delta_x=delta_x, dx=dx, Lx=Lx,
          C_u=C_u, len_u=len_u, sigma_u=sigma_u,
          C_theta=C_theta, len_theta=len_theta, sigma_theta=sigma_theta)
