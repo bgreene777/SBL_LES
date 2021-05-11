@@ -58,10 +58,10 @@ def run_interp3d(fdir,exe,dimsize):
     print(f"Creating new directory: {fnew}")
    
     # rsync spinup directory into new one
-    os.system(f"rsync -avr {fdir} {fnew} --exclude-from={fdir}output/*")
+    os.system(f"rsync -avr --exclude 'output/*' {fdir} {fnew}")
     
     # move everything up one level 
-    os.system(f"mv {fnew}{spinup[0]}_spinup/* {fnew}")
+#     os.system(f"mv {fnew}{spinup[0]}_spinup/* {fnew}")
     
     # create the new fields_3d directory
     os.system(f"mkdir {fnew}output/fields_3d/")
@@ -73,7 +73,7 @@ def run_interp3d(fdir,exe,dimsize):
     os.system(f"/home/bgreene/SBL_LES/fortran/executables/{exe}")
     
     # spit out interp3d.txt file so this isn't repreated
-    np.savetxt(f"{fdir}interp3d.txt",
+    np.savetxt(f"{fdir}interp3d_{dimsize}.txt",
            [f"interp3d complete! Time: {datetime.utcnow()}"], fmt="%s")
     
     print(f"Finished run_interp3d! Time: {datetime.utcnow()}")
