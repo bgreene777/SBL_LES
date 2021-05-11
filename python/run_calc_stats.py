@@ -136,6 +136,10 @@ dsim = np.genfromtxt(fsim, delimiter=",", dtype=str, skip_header=1)
 fyaml = "/home/bgreene/SBL_LES/python/sms.yaml"
 
 if __name__ == "__main__":
-    main(dsim)
+    if dsim.ndim >= 2:
+        for job in dsim:
+            main(job)
+    else:
+        main(dsim)
 
 print(f"Finished! Time: {datetime.utcnow()} UTC")
