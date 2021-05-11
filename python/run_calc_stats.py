@@ -8,11 +8,10 @@
 # --------------------------------
 import numpy as np
 import os
+import yaml
+import smtplib
+import ssl
 from datetime import datetime
-from argparse import ArgumentParser
-
-parser = ArgumentParser()
-parser.add_argument()
 
 # --------------------------------
 # Define functions for processing
@@ -47,8 +46,8 @@ def calc_stats(fdir,exe):
     os.system(f"/home/bgreene/SBL_LES/fortran/executables/{exe}")
     
     # spit out a calc_stats.txt file so this isn't repeated
-    np.savetxt(f"{fdir}calc_stats.txt", fmt="%s",
-               [f"Calc stats complete! Time: {datetime.utcnow()}"])
+    np.savetxt(f"{fdir}calc_stats.txt", 
+               [f"Calc stats complete! Time: {datetime.utcnow()}"], fmt="%s")
     
     return
 # --------------------------------
@@ -74,11 +73,24 @@ def run_interp3d(fdir,exe,dimsize):
     os.system(f"/home/bgreene/SBL_LES/fortran/executables/{exe}")
     
     # spit out interp3d.txt file so this isn't repreated
-    np.savetxt(f"{fdir}interp3d.txt", fmt="%s",
-           [f"interp3d complete! Time: {datetime.utcnow()}"])
+    np.savetxt(f"{fdir}interp3d.txt",
+           [f"interp3d complete! Time: {datetime.utcnow()}"], fmt="%s")
     
     print(f"Finished run_interp3d! Time: {datetime.utcnow()}")
     
+    return
+# --------------------------------
+def send_sms(config, message):
+    # load yaml file with sms information
+    with open(config, "r") as f:
+        info = yaml.safe_load(f)
+    
+    # send text message
+    context = ssl.create_default_context()
+    with smtplib.SMTP_SSL(info["smtp_server"], info["port"], context=context) as server:
+        server.login(info["sender_email"], info["password"])
+        server.sendmail(info["sender_email"], info["receiver_email"], message)
+
     return
 # --------------------------------
 def main(dsim):
@@ -97,22 +109,33 @@ def main(dsim):
         return
     elif (sim_finished & (not task_complete)):
         # task not complete -- decide which to do
-        
-        return
+        if dsim[2] == "stats":
+            # run calc_stats
+            calc_stats(dsim[0], dsim[3])
+            send_sms(fyaml, f"Finished running calc_stats using {dsim[3]}")
+            return
+        elif dsim[2] == "interp3d":
+            # run interp3d
+            run_interp3d(dsim[0], dsim[3], dsim[4])
+            send_sms(fyaml, f"Finished running interp3d using {dsim[3]}")
+            return
+        else:
+            print("Check for typo in simulations.txt")
     
     else:
         print("idk how you got here")
         
-
+    return
 
 # --------------------------------
-# Load simulations.txt to determine tasks
+# Load simulations.txt and run main()
 # --------------------------------
 
 fsim = "/home/bgreene/SBL_LES/python/simulations.txt"
-dsim = np.genfromtxt(fsim, delimiter=",", dtype=str, skip_headers=1)
+dsim = np.genfromtxt(fsim, delimiter=",", dtype=str, skip_header=1)
+fyaml = "/home/bgreene/SBL_LES/python/sms.yaml"
 
-
-
+if __name__ == "__main__":
+    main(dsim)
 
 print(f"Finished! Time: {datetime.utcnow()} UTC")

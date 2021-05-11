@@ -4,3 +4,7 @@ figures/*
 # ipynb checkpoints
 ipynb/.ipynb_checkpoints/*
 python/.ipynb_checkpoints/*
+fortran/.ipynb_checkpoints/*
+
+# yaml file
+python/sms.yaml

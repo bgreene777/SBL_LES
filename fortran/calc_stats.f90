@@ -2,7 +2,7 @@ program calc_stats
 
 implicit none
 
-integer, parameter :: nx = 128, ny = 128, nz = 128
+integer, parameter :: nx = 160, ny = 160, nz = 160
 integer, parameter :: nt = 180
 integer, parameter :: t0 = 1080000, dnt = 1000 ! starting file and spacing
 real(8), parameter :: Lx=800, Ly=800, Lz=400
@@ -29,7 +29,7 @@ real(8) :: z_scale = Lz
 integer :: i
 logical, parameter :: calc_TKE = .true.
 
-fdir = "/home/bgreene/simulations/F_128_interp/output/"
+fdir = "/home/bgreene/simulations/F_160_interp/output/"
 if (.not. calc_TKE) then
     dissip = 0.
     dissip_mean = 0.
