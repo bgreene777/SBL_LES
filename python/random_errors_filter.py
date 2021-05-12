@@ -94,7 +94,7 @@ def calc_meanstd(f,nx,nz):
     return to_return
 # --------------------------------
 # output directory
-fdir = "/home/bgreene/simulations/A_192_interp/output/"
+fdir = "/home/bgreene/simulations/A_160_interp/output/"
 
 # load average statistics to get <U> and <V>
 fstat = f"{fdir}average_statistics.csv"
@@ -105,7 +105,7 @@ Vbar = dstat[:,2]
 thetabar = dstat[:,4]
 thetavar = dstat[:,18]
 # dimensions
-nx, ny, nz = 192, 192, 192
+nx, ny, nz = 160, 160, 160
 Lx, Ly, Lz = 800., 800., 400.
 dx, dy, dz = Lx/(nx-1), Ly/(ny-1), Lz/(nz-1)
 timesteps = np.arange(1081000, 1261000, 1000, dtype=int)
@@ -178,7 +178,7 @@ len_u = (C_u**2.) / (2.*Uvar)
 len_theta = (C_theta**2.) / (2.*thetavar)
     
 # save npz file
-fsave = f"../output/filtered_lengthscale_A_192_full.npz"
+fsave = f"../output/filtered_lengthscale_A_160_full.npz"
 np.savez(fsave, delta_x=delta_x, dx=dx, Lx=Lx,
          C_u=C_u, len_u=len_u, sigma_u=sigma_u,
          C_theta=C_theta, len_theta=len_theta, sigma_theta=sigma_theta)
