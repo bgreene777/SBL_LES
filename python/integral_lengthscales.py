@@ -5,6 +5,7 @@
 # Created: 13 April 2021
 # Purpose: Read volumetric output from LES to calculate autocorrelations,
 # integral length scales, and random error profiles
+# Updates: 12 May 2021 - fix u_scale->T_scale for theta
 # --------------------------------
 
 import numpy as np
@@ -108,7 +109,7 @@ def lengthscale(fdir, timesteps, nx, ny, nz, Lx, scale, str1, str2=None):
 # TODO: convert this to loop over the different sim resolutions
 # array of resolutions to be used in looping
 # resolutions = ["096", "128", "160", "192", "256"]
-resolutions = ["192"]
+resolutions = ["128", "160", "192"]
 # for 096, use first one; else use second
 # timesteps_all = [np.arange(901000, 991000, 1000, dtype=int), 
 #                  np.arange(991000, 1171000, 1000, dtype=int)]
@@ -136,21 +137,22 @@ for i, res in enumerate(resolutions):
 #         fdir = f"/home/bgreene/simulations/C_{res}_interp/output/"
 #         timesteps = timesteps_all[1]
     fdir = f"/home/bgreene/simulations/A_{res}_interp/output/"
+    print(f"Calculating autocorrelation lengthscales for {fdir.split('/')[-3]}")
     timesteps = timesteps_all[0]
     print(f"Timestep range {timesteps[0]} -- {timesteps[-1]}")
     # sim params
     nx, ny, nz = int(res), int(res), int(res)
-    dx, dy, dz = Lx/(nx-1), Ly/(ny-1), Lz/(nz-1)
-    z = np.linspace(0.,Lz,nz)
-    x = np.linspace(0.,Lx,nx)
+    dx, dy, dz = Lx/nx, Ly/ny, Lz/nz
+    z = np.linspace(dz,Lz-dz,nz)
+    x = np.linspace(0.,Lx-dx,nx)
 
     # call lengthscale for u, w, theta
     corr[res]["u"], length[res]["u"] = lengthscale(fdir, timesteps, nx, ny, nz, Lx, u_scale, "u_", "v_")
-    corr[res]["w"], length[res]["w"] = lengthscale(fdir, timesteps, nx, ny, nz, Lx, u_scale, "w_")
-    corr[res]["theta"], length[res]["theta"] = lengthscale(fdir, timesteps, nx, ny, nz, Lx, u_scale, "theta_")
+#     corr[res]["w"], length[res]["w"] = lengthscale(fdir, timesteps, nx, ny, nz, Lx, u_scale, "w_")
+    corr[res]["theta"], length[res]["theta"] = lengthscale(fdir, timesteps, nx, ny, nz, Lx, T_scale, "theta_")
 
     # save output for error calcs and plotting in another script
-    fsave = f"./lengthscales_A_{res}.npz"
+    fsave = f"/home/bgreene/SBL_LES/output/lengthscales_A_{res}.npz"
     np.savez(fsave, z=z, u_corr=corr[res]["u"], u_len=length[res]["u"], 
-             w_corr=corr[res]["w"], w_len=length[res]["w"],
+#              w_corr=corr[res]["w"], w_len=length[res]["w"],
              theta_corr=corr[res]["theta"], theta_len=length[res]["theta"])
