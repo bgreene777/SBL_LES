@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from matplotlib import rc
 from matplotlib.ticker import MultipleLocator
 from datetime import datetime, timedelta
+from simulation import simulation
 
 # Configure plots
 rc('font',weight='normal',size=20,family='serif',serif='Computer Modern Roman')
