@@ -106,14 +106,15 @@ def lengthscale(fdir, timesteps, nx, ny, nz, Lx, scale, str1, str2=None):
     return [corr_xx, var_len]
 # ---------------------------------
 
-# TODO: convert this to loop over the different sim resolutions
 # array of resolutions to be used in looping
 # resolutions = ["096", "128", "160", "192", "256"]
-resolutions = ["128", "160", "192"]
+# resolutions = ["128", "160", "192"]
+resolutions = ["192"]
 # for 096, use first one; else use second
 # timesteps_all = [np.arange(901000, 991000, 1000, dtype=int), 
 #                  np.arange(991000, 1171000, 1000, dtype=int)]
 timesteps_all = [np.arange(1081000, 1261000, 1000, dtype=int)]
+# timesteps_all = [np.arange(901000, 1081000, 1000, dtype=int)]
 # common parameters
 Lx, Ly, Lz = 800., 800., 400.
 u_scale = 0.4
@@ -136,7 +137,7 @@ for i, res in enumerate(resolutions):
 #     else:
 #         fdir = f"/home/bgreene/simulations/C_{res}_interp/output/"
 #         timesteps = timesteps_all[1]
-    fdir = f"/home/bgreene/simulations/A_{res}_interp/output/"
+    fdir = f"/home/bgreene/simulations/F_{res}_interp/output/"
     print(f"Calculating autocorrelation lengthscales for {fdir.split('/')[-3]}")
     timesteps = timesteps_all[0]
     print(f"Timestep range {timesteps[0]} -- {timesteps[-1]}")
@@ -152,7 +153,7 @@ for i, res in enumerate(resolutions):
     corr[res]["theta"], length[res]["theta"] = lengthscale(fdir, timesteps, nx, ny, nz, Lx, T_scale, "theta_")
 
     # save output for error calcs and plotting in another script
-    fsave = f"/home/bgreene/SBL_LES/output/lengthscales_A_{res}.npz"
+    fsave = f"/home/bgreene/SBL_LES/output/lengthscales_F_{res}.npz"
     np.savez(fsave, z=z, u_corr=corr[res]["u"], u_len=length[res]["u"], 
 #              w_corr=corr[res]["w"], w_len=length[res]["w"],
              theta_corr=corr[res]["theta"], theta_len=length[res]["theta"])
