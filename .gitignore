@@ -8,3 +8,6 @@ fortran/.ipynb_checkpoints/*
 
 # yaml file
 python/sms.yaml
+
+# output figures
+output/*
