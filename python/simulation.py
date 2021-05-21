@@ -8,6 +8,21 @@
 import os
 import numpy as np
 
+# ---------------------------------------------
+def read_f90_bin(path,nx,ny,nz,precision):
+    print(f"Reading file: {path}")
+    f=open(path,'rb')
+    if (precision==4):
+        dat=np.fromfile(f,dtype='float32',count=nx*ny*nz)
+    elif (precision==8):
+        dat=np.fromfile(f,dtype='float64',count=nx*ny*nz)
+    else:
+        raise ValueError('Precision must be 4 or 8')
+    dat=np.reshape(dat,(nx,ny,nz),order='F')
+    f.close()
+    return dat
+# ---------------------------------------------
+
 class simulation():
     """Contains simulation parameters and can read averaged csv files
     
@@ -54,6 +69,7 @@ class simulation():
         self.tke = {} # tke budget terms
         self.flen = {} # filtered lengthscale data from .npz files
         self.len = None # autocorr lengthscale data from .npz files
+        self.spec = None # spectra data from .npz files
         
         # initialize empty z variable
         self.z = None
@@ -216,4 +232,8 @@ class simulation():
         
     def read_auto_len(self, npz):
         self.len = np.load(npz)
+        return
+    
+    def read_spectra(self, npz):
+        self.spec = np.load(npz)
         return
