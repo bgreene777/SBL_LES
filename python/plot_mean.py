@@ -37,12 +37,14 @@ s192A = simulation("/home/bgreene/simulations/A_192_interp/output/average_statis
 # F
 s128F = simulation("/home/bgreene/simulations/F_128_interp/output/average_statistics.csv",
                   128, 128, 128, 800., 800., 400., "F")
+s160F = simulation("/home/bgreene/simulations/F_160_interp/output/average_statistics.csv",
+                  160, 160, 160, 800., 800., 400., "F")
 s192F = simulation("/home/bgreene/simulations/F_192_interp/output/average_statistics.csv",
                   192, 192, 192, 800., 800., 400., "F")
 
 # put everything into a list for looping
 # s_all = [s128A, s160A, s192A]
-s_all = [s128F, s192F]
+s_all = [s128F, s160F, s192F]
 for s in s_all:
     s.read_csv()
     s.calc_Ri()
