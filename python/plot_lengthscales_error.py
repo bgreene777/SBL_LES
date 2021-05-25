@@ -196,3 +196,38 @@ fsave3 = f"{fdir_save}{s.stab}_u_theta_lengthscales.pdf"
 print(f"Saving figure: {fsave3}")
 fig3.savefig(fsave3, format="pdf", bbox_inches="tight")
 plt.close(fig3)
+
+#
+# Figure 4: MSE{x~_delta}/var{x} vs. delta/T_H, x=u
+# Loop over s_all and create unique plot for each
+#
+if filt:
+    for s in s_all:
+        fig4, ax4 = plt.subplots(1, figsize=(12, 8))
+        imax = int(np.sqrt(s.i_h))
+        # loop over heights in s, up to maximum of imax
+        for i, jz in enumerate(np.arange(imax, dtype=int)**2):
+            ax4.plot(s.flen["full"]["delta_x"]/s.T_H[jz], (s.flen["full"]["sigma_u"][jz,:]**2.)/s.var["u_var_tot"][jz],
+                     fstr[i], label=f"jz={jz}")
+#             # also plot Lo for reference
+#             # find closest value of sigma_u at given value of Lo to plot on curve
+#             i_dx = np.argmin([abs(s.Ri["Lo"][jz] - xx) for xx in s.flen["full"]["delta_x"]])
+#             ax1.plot(s.Ri["Lo"][jz], s.flen["full"]["sigma_u"][jz,i_dx], "ok")
+#         # plot the last Lo again to get in legend (bc I'm lazy)
+#         ax1.plot(s.Ri["Lo"][jz], s.flen["full"]["sigma_theta"][jz,i_dx], "ok",
+#                  label="$L_o (jz)$")
+
+        # clean up figure
+        ax4.set_xscale("log")
+        ax4.set_yscale("log")
+#         ax4.set_xlim([0.1, 1000])
+        ax4.legend(loc="lower left")
+        ax4.grid()
+        ax4.set_xlabel("$\Delta_x / \mathcal{T}_H$")
+        ax4.set_ylabel("$\sigma_u^2(\Delta_x) / Var\{u\}$")
+        ax4.set_title(f"{s.stab} {s.lab} u")
+        # save and close
+        fsave4 = f"{fdir_save}{s.stab}{s.lab}_u_RFM.pdf"
+        print(f"Saving figure: {fsave4}")
+        fig4.savefig(fsave4, format="pdf", bbox_inches="tight")
+        plt.close(fig4)

@@ -75,6 +75,9 @@ class simulation():
         self.z = None
         self.h = None
         
+        # initialize T_H as empty array of zeros
+        self.T_H = np.zeros(self.nz, dtype=float)
+        
     def read_csv(self):
         print(f"--Beginning loading data for {self.nx}^3 simulation--")
         print(f"Reading file: {self.path}")
@@ -230,8 +233,25 @@ class simulation():
         self.flen[label] = np.load(npz)
         return
         
-    def read_auto_len(self, npz):
+    def read_auto_len(self, npz, calc_TH=True):
+        # read npz file of autocorrelation lengthscale
         self.len = np.load(npz)
+        if calc_TH:
+            x = np.linspace(0., self.Lx, self.nx)
+            # calculate T_H from autocorrelation (only for u) at each z
+            for jz in range(self.nz):
+                # Bartlett large-lag standard error
+                # determine equivalent of Q*delta_t = 5 min in spatial coords
+                Qdx = (5.*60.) / self.xytavg["ws"][jz]
+                iQdx = np.where(x <= Qdx)[0][-1]
+                imid = len(self.len["u_corr"][:,jz]) // 2
+                # calculate standard error
+                varB = (1. + 2.*np.sum(self.len["u_corr"][imid:iQdx,jz]**2.)) / self.nx
+                # now look at autocorrelation to find spatial lag eta for T_H
+                errB = np.sqrt(varB)
+                # grab first instance of autocorr dipping below errB - this is T_H
+                iTH = np.where(abs(self.len["u_corr"][imid:,jz]) <= errB)[0][0]
+                self.T_H[jz] = x[iTH]
         return
     
     def read_spectra(self, npz):
