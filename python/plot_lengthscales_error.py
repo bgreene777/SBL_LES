@@ -26,7 +26,7 @@ colors = [(225./255, 156./255, 131./255),
           (0., 85./255, 80./255), (20./255, 33./255, 61./255), (252./255, 193./255, 219./255)]
 
 # toggle for plotting filtered lengthscales
-filt = True
+filt = False
 
 #
 # Create simulation objects
@@ -41,12 +41,15 @@ s192A = simulation("/home/bgreene/simulations/A_192_interp/output/average_statis
 # F
 s128F = simulation("/home/bgreene/simulations/F_128_interp/output/average_statistics.csv",
                   128, 128, 128, 800., 800., 400., "F")
+s160F = simulation("/home/bgreene/simulations/F_160_interp/output/average_statistics.csv",
+                  160, 160, 160, 800., 800., 400., "F")
 s192F = simulation("/home/bgreene/simulations/F_192_interp/output/average_statistics.csv",
                   192, 192, 192, 800., 800., 400., "F")
 
 # put everything into a list for looping
 # s_all = [s128A, s160A, s192A]
-s_all = [s128F, s192F]
+# s_all = [s128F, s160F, s192F]
+s_all = [s192F]
 for s in s_all:
     s.read_csv()
     s.calc_Ri()
@@ -55,6 +58,7 @@ for s in s_all:
         s.read_filt_len(npz=f"/home/bgreene/SBL_LES/output/filtered_lengthscale_{s.stab}_{s.lab}_full.npz",
                         label="full")
     s.read_auto_len(f"/home/bgreene/SBL_LES/output/lengthscales_{s.stab}_{s.lab}.npz")
+    s.read_RFM(f"/home/bgreene/SBL_LES/output/RFM_{s.stab}{s.lab}.npz")
     
 # --------------------------------
 # Begin plotting
@@ -207,7 +211,7 @@ if filt:
         imax = int(np.sqrt(s.i_h))
         # loop over heights in s, up to maximum of imax
         for i, jz in enumerate(np.arange(imax, dtype=int)**2):
-            ax4.plot(s.flen["full"]["delta_x"]/s.T_H[jz], (s.flen["full"]["sigma_u"][jz,:]**2.)/s.var["u_var_tot"][jz],
+            ax4.plot(s.flen["full"]["delta_x"]/s.L_H[jz], (s.flen["full"]["sigma_u"][jz,:]**2.)/s.var["u_var_tot"][jz],
                      fstr[i], label=f"jz={jz}")
 #             # also plot Lo for reference
 #             # find closest value of sigma_u at given value of Lo to plot on curve
@@ -223,7 +227,7 @@ if filt:
 #         ax4.set_xlim([0.1, 1000])
         ax4.legend(loc="lower left")
         ax4.grid()
-        ax4.set_xlabel("$\Delta_x / \mathcal{T}_H$")
+        ax4.set_xlabel("$\Delta_x / \mathcal{L}_H$")
         ax4.set_ylabel("$\sigma_u^2(\Delta_x) / Var\{u\}$")
         ax4.set_title(f"{s.stab} {s.lab} u")
         # save and close
@@ -231,3 +235,23 @@ if filt:
         print(f"Saving figure: {fsave4}")
         fig4.savefig(fsave4, format="pdf", bbox_inches="tight")
         plt.close(fig4)
+        
+#
+# Figure 5: compare rel rand err for u from RFM and autocorr
+# Loop over s_all and create unique plot for each
+#
+for s in s_all:
+    fig5, ax5 = plt.subplots(1, figsize=(12, 8))
+    ax5.plot(s.RFM["err_u"]*100., s.RFM["z"][s.RFM["isbl"]], "-k", label="RFM")
+    ax5.plot(s.len["err_u"][s.RFM["isbl"]]*100., s.RFM["z"][s.RFM["isbl"]], "-r", label="autocorr")
+    
+    # clean up figure
+    ax5.grid()
+    ax5.legend()
+    ax5.set_xlabel("$\epsilon_u$ [$\%$]")
+    ax5.set_ylabel("$z$ [m]")
+    ax5.set_title("Relative Random Error in u, F192, $T=3$s")
+    # save figure
+    fsave5 = f"{fdir_save}{s.stab}{s.lab}_u_err.pdf"
+    fig5.savefig(fsave5, format="pdf", bbox_inches="tight")
+    plt.close(fig5)
