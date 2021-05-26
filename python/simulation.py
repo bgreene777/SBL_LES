@@ -68,15 +68,16 @@ class simulation():
         self.most = {}
         self.tke = {} # tke budget terms
         self.flen = {} # filtered lengthscale data from .npz files
-        self.len = None # autocorr lengthscale data from .npz files
+        self.len = {} # autocorr lengthscale data from .npz files
         self.spec = None # spectra data from .npz files
+        self.RFM = {} # relaxed filter for random errors from .npz files
         
         # initialize empty z variable
         self.z = None
         self.h = None
         
         # initialize T_H as empty array of zeros
-        self.T_H = np.zeros(self.nz, dtype=float)
+        self.L_H = np.zeros(self.nz, dtype=float)
         
     def read_csv(self):
         print(f"--Beginning loading data for {self.nx}^3 simulation--")
@@ -233,27 +234,39 @@ class simulation():
         self.flen[label] = np.load(npz)
         return
         
-    def read_auto_len(self, npz, calc_TH=True):
+    def read_auto_len(self, npz, calc_LH=False):
         # read npz file of autocorrelation lengthscale
-        self.len = np.load(npz)
-        if calc_TH:
+        dat = np.load(npz)
+        for key in dat.keys():
+            self.len[key] = dat[key]
+        # calculate err_u from u_len
+        L_samp = 3. * self.xytavg["ws"]
+        self.len["err_u"] = np.sqrt((2.*self.len["u_len"]*self.var["u_var_tot"])/(L_samp*self.xytavg["ws"]**2.))
+            
+        if calc_LH:
             x = np.linspace(0., self.Lx, self.nx)
-            # calculate T_H from autocorrelation (only for u) at each z
+            # calculate L_H from autocorrelation (only for u) at each z
             for jz in range(self.nz):
                 # Bartlett large-lag standard error
                 # determine equivalent of Q*delta_t = 5 min in spatial coords
-                Qdx = (5.*60.) / self.xytavg["ws"][jz]
+                Qdx = (5.*60.) / self.xytavg["ws"][jz]  # m
                 iQdx = np.where(x <= Qdx)[0][-1]
                 imid = len(self.len["u_corr"][:,jz]) // 2
                 # calculate standard error
                 varB = (1. + 2.*np.sum(self.len["u_corr"][imid:iQdx,jz]**2.)) / self.nx
-                # now look at autocorrelation to find spatial lag eta for T_H
+                # now look at autocorrelation to find spatial lag eta for L_H
                 errB = np.sqrt(varB)
-                # grab first instance of autocorr dipping below errB - this is T_H
-                iTH = np.where(abs(self.len["u_corr"][imid:,jz]) <= errB)[0][0]
-                self.T_H[jz] = x[iTH]
+                # grab first instance of autocorr dipping below errB - this is L_H
+                iLH = np.where(abs(self.len["u_corr"][imid:,jz]) <= errB)[0][0]
+                self.L_H[jz] = x[iLH]
         return
     
     def read_spectra(self, npz):
         self.spec = np.load(npz)
+        return
+    
+    def read_RFM(self, npz):
+        dat = np.load(npz)
+        for key in dat.keys():
+            self.RFM[key] = dat[key]
         return
