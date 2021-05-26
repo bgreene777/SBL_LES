@@ -109,7 +109,7 @@ def lengthscale(fdir, timesteps, nx, ny, nz, Lx, scale, str1, str2=None):
 # array of resolutions to be used in looping
 # resolutions = ["096", "128", "160", "192", "256"]
 # resolutions = ["128", "160", "192"]
-resolutions = ["192"]
+resolutions = ["160"]
 # for 096, use first one; else use second
 # timesteps_all = [np.arange(901000, 991000, 1000, dtype=int), 
 #                  np.arange(991000, 1171000, 1000, dtype=int)]
