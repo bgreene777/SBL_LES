@@ -8,6 +8,7 @@
 # relaxed filtering method from Dias et al. 2018
 # Combines code from random_errors_filter.py and integral_lengthscales.py
 # --------------------------------
+import yaml
 import numpy as np
 from numpy.fft import fft, ifft
 from scipy.signal import fftconvolve
@@ -122,10 +123,13 @@ def RFM(dx_LH, C, p):
 # --------------------------------
 # Main
 # --------------------------------
+# load yaml file
+with open("/home/bgreene/SBL_LES/python/RFM.yaml") as f:
+    config = yaml.safe_load(f)
 
 # loop over all timesteps to get ensemble mean autocorr
 # output directory
-fdir = "/home/bgreene/simulations/F_192_interp/output/"
+fdir = config["fdir"]
 
 # load average statistics to get <U> and <V>
 fstat = f"{fdir}average_statistics.csv"
@@ -136,7 +140,7 @@ Vbar = dstat[:,2]
 thetabar = dstat[:,4]
 thetavar = dstat[:,18]
 # dimensions
-nx, ny, nz = 192, 192, 192
+nx, ny, nz = config["res"], config["res"], config["res"]
 Lx, Ly, Lz = 800., 800., 400.
 dx, dy, dz = Lx/nx, Ly/ny, Lz/nz
 z = np.linspace(dz, Lz-dz, nz)
@@ -158,6 +162,9 @@ theta_scale = 300.
 # array of delta_x spaced logarithmic from dx to Lx
 delta_x = np.logspace(np.log10(dx), np.log10(Lx),
                       num=100, base=10.0, dtype=np.float64)
+# grab dmin_u and dmax_u
+dmin_u = config["dmin_u"]
+dmax_u = config["dmax_u"]
 
 # rotate U and V so <V> = 0
 angle = np.arctan2(Vbar, Ubar)
@@ -166,45 +173,59 @@ Vbar_rot =-Ubar*np.sin(angle) + Vbar*np.cos(angle)
 
 # initialize autocorrelation of u_rot, Ruu
 Ruu = np.zeros((nx, nz_sbl), dtype=float)
+# initialize autocorrelation of theta, Rtt
+Rtt = np.zeros((nx, nz_sbl), dtype=float)
 
 # begin loop
+print("---Begin calculating autocorrelations---")
 for i in range(nt):
     # load files - DONT FORGET SCALES!
     f1 = f"{fdir}u_{timesteps[i]:07d}.out"
     u_in = read_f90_bin(f1,nx,ny,nz,8) * u_scale
     f2 = f"{fdir}v_{timesteps[i]:07d}.out"
     v_in = read_f90_bin(f2,nx,ny,nz,8) * u_scale
-
+    f3 = f"{fdir}theta_{timesteps[i]:07d}.out"
+    theta_in = read_f90_bin(f3,nx,ny,nz,8) * theta_scale
+    
     # rotate u and v so <v> = 0
     # 3D * 1D arrays multiply along last dimension
     # use angle from above based on *unrotated* Ubar and Vbar in stats file
     u_rot = u_in*np.cos(angle) + v_in*np.sin(angle)
     v_rot =-u_in*np.sin(angle) + v_in*np.cos(angle)
     
-    # calculate autocorrelation of u_rot, Ruu
+    # calculate autocorrelation of u_rot, Ruu and theta, Rtt
     # accumulate in single variable, then divide by number of timesteps after
     Ruu += autocorr(u_rot[:,:,isbl], nx)
+    Rtt += autocorr(theta_in[:,:,isbl], nx)
     
 # divide by number of timesteps to get average in time
 Ruu /= nt
+Rtt /= nt
 
 # now can calculate L_H
 L_H = Bartlett(Ruu, Ubar_rot[isbl], xlags)
+L_H_t = Bartlett(Rtt, Ubar_rot[isbl], xlags)
 
 # create 2d array of delta_x/L_H for each z
 dx_LH = np.array([delta_x / iLH for iLH in L_H]).T  # shape(len(delta_x), nz)
+dx_LH_t = np.array([delta_x / iLH for iLH in L_H_t]).T  # shape(len(delta_x), nz)
 
-# run relaxed_filter for u_rot
+# run relaxed_filter for u_rot and theta
 # define var_u_all dictionary for time averaging later
 var_u_all = {}
+var_theta_all = {}
+
 # need to loop through timesteps again
+print("---Begin relaxed filtering method---")
 for i in range(nt):
     # load files - DONT FORGET SCALES!
     f1 = f"{fdir}u_{timesteps[i]:07d}.out"
     u_in = read_f90_bin(f1,nx,ny,nz,8) * u_scale
     f2 = f"{fdir}v_{timesteps[i]:07d}.out"
     v_in = read_f90_bin(f2,nx,ny,nz,8) * u_scale
-
+    f3 = f"{fdir}theta_{timesteps[i]:07d}.out"
+    theta_in = read_f90_bin(f3,nx,ny,nz,8) * theta_scale
+    
     # rotate u and v so <v> = 0
     # 3D * 1D arrays multiply along last dimension
     # use angle from above based on *unrotated* Ubar and Vbar in stats file
@@ -212,29 +233,40 @@ for i in range(nt):
     v_rot =-u_in*np.sin(angle) + v_in*np.cos(angle)
     
     # run relaxed_filter
-    var_u = relaxed_filter(u_rot, dx_LH, 0.2, 3., delta_x, Lx, nx, nz_sbl)
+    var_u = relaxed_filter(u_rot, dx_LH, dmin_u, dmax_u, delta_x, Lx, nx, nz_sbl)
+    var_theta = relaxed_filter(theta_in, dx_LH_t, dmin_u, dmax_u, delta_x, Lx, nx, nz_sbl)
     # if i==0, create var_u_all; otherwise add var_u into var_u_all
     if i==0:
         for kz in range(nz_sbl):
             var_u_all[kz] = var_u[kz]
+            var_theta_all[kz] = var_theta[kz]
     else:
         for kz in range(nz_sbl):
             var_u_all[kz] += var_u[kz]
+            var_theta_all[kz] += var_theta[kz]
             
-# time average by dividing by number of timesteps
-# also grab the relevant dx_LH values used at each kz
+# time average and grab the relevant dx_LH values used at each kz
 dx_LH_u = {}
+dx_LH_t_all = {}
 for kz in range(nz_sbl):
+    # time average by dividing by number of timesteps
     var_u_all[kz] /= nt
-    i_dx = np.where((dx_LH[:,kz] >= 0.2) & (dx_LH[:,kz] <= 3.))[0]
+    var_theta_all[kz] /= nt
+    # grab dx_LH values
+    i_dx = np.where((dx_LH[:,kz] >= dmin_u) & (dx_LH[:,kz] <= dmax_u))[0]
     dx_LH_u[kz] = dx_LH[i_dx,kz]
+    i_dx = np.where((dx_LH_t[:,kz] >= dmin_u) & (dx_LH_t[:,kz] <= dmax_u))[0]
+    dx_LH_t_all[kz] = dx_LH_t[i_dx,kz]
     
 # now can loop over z to fit power law to each set of var_u_all vs dx_LH_u
-C, p = (np.zeros(nz_sbl, dtype=np.float64) for _ in range(2))
+C, p, Ctheta, ptheta = (np.zeros(nz_sbl, dtype=np.float64) for _ in range(4))
 for kz in range(nz_sbl):
     (C[kz], p[kz]), _ = curve_fit(f=RFM, xdata=dx_LH_u[kz], 
                                   ydata=var_u_all[kz]/Uvar[kz], 
                                   p0=[0.001,0.001])
+    (Ctheta[kz], ptheta[kz]), _ = curve_fit(f=RFM, xdata=dx_LH_t_all[kz],
+                                            ydata=var_theta_all[kz]/thetavar[kz],
+                                            p0=[0.001,0.001])
     
 # now calculate relative random error: epsilon = RMSE(x_delta) / <x>
 # RMSE = C**0.5 * delta**(-p/2)
@@ -242,14 +274,21 @@ for kz in range(nz_sbl):
 # use T = 3 sec and convert to x/L_H via Taylor
 T = 3.  # s
 x_LH = (Ubar_rot[isbl] * T) / L_H
+x_LH_t = (Ubar_rot[isbl] * T) / L_H_t
 
 # now using the values of C and p, extrapolate to calc MSE/var{x}
-MSE = Uvar[isbl] * (C * (x_LH)**-p)
+MSE = Uvar[isbl] * (C * (x_LH**-p))
+MSE_theta = thetavar[isbl] * (Ctheta * (x_LH_t**-ptheta))
 # take sqrt to get RMSE
 RMSE = np.sqrt(MSE)
+RMSE_theta = np.sqrt(MSE_theta)
 # finally divide by <U> to get epsilon
 err_u = RMSE / Ubar_rot[isbl]
+err_theta = RMSE_theta / thetabar[isbl]
 
 # now save output in an npz file
-fsave = "/home/bgreene/SBL_LES/output/RFM_F192.npz"
-np.savez(fsave, z=z, h=h, isbl=isbl, err_u=err_u, C_u=C, p_u=p)
+fsave = config["fsave"]
+print(f"Saving file: {fsave}")
+np.savez(fsave, z=z, h=h, isbl=isbl, 
+         err_u=err_u, C_u=C, p_u=p,
+         err_theta=err_theta, C_theta=Ctheta, p_theta=ptheta)
