@@ -116,6 +116,32 @@ def Bartlett(R, U, xlags):
     
     return L_H
 # --------------------------------
+def lengthscale(R, xlags):
+    # input autocorrelation shape(nx, nz) and array of xlags
+    # integrate R up to first zero crossing
+    # return integral length scale
+    length = np.zeros(R.shape[1], dtype=np.float64)
+    for jz in range(R.shape[1]):
+        # find first zero crossing
+        izero = np.where(R[:,jz] < 0.)[0]
+        # make sure this index exists
+        if len(izero) > 0:
+            izero = izero[0]
+        else:
+            izero = 1
+        # now integrate from index 0 to izero
+        length[jz] = np.trapz(R[:izero,jz], xlags[:izero])
+    return length
+# --------------------------------
+def LP_error(length, T_sample, variance, mean, wspd):
+    # calculate error from Lumley and Panofsky for given 
+    # sample time T (and wspd to convert to spatial)
+    # also requires ensemble variance and mean values
+    # output 1d array of relative random errors
+    L_sample = T_sample * wspd
+    err = np.sqrt((2.*length*variance)/(L_sample*mean**2.))
+    return err
+# --------------------------------
 def RFM(dx_LH, C, p):
     # function to be used with curve_fit
     return C * (dx_LH ** (-p))
@@ -202,6 +228,15 @@ for i in range(nt):
 Ruu /= nt
 Rtt /= nt
 
+# calculate integral lengthscales from autocorrelation
+len_u = lengthscale(Ruu, xlags)
+len_theta = lengthscale(Rtt, xlags)
+# also calculate LP errors
+err_u_LP = LP_error(len_u, config["T_sample"], 
+                    Uvar[isbl], Ubar_rot[isbl], Ubar_rot[isbl])
+err_theta_LP = LP_error(len_theta, config["T_sample"], 
+                        thetavar[isbl], thetabar[isbl], Ubar_rot[isbl])
+
 # now can calculate L_H
 L_H = Bartlett(Ruu, Ubar_rot[isbl], xlags)
 L_H_t = Bartlett(Rtt, Ubar_rot[isbl], xlags)
@@ -272,7 +307,7 @@ for kz in range(nz_sbl):
 # RMSE = C**0.5 * delta**(-p/2)
 
 # use T = 3 sec and convert to x/L_H via Taylor
-T = 3.  # s
+T = config["T_sample"]  # s
 x_LH = (Ubar_rot[isbl] * T) / L_H
 x_LH_t = (Ubar_rot[isbl] * T) / L_H_t
 
@@ -290,5 +325,7 @@ err_theta = RMSE_theta / thetabar[isbl]
 fsave = config["fsave"]
 print(f"Saving file: {fsave}")
 np.savez(fsave, z=z, h=h, isbl=isbl, 
+         Ruu=Ruu, len_u=len_u, err_u_LP=err_u_LP,
+         Rtt=Rtt, len_theta=len_theta, err_theta_LP=err_theta_LP,
          err_u=err_u, C_u=C, p_u=p,
          err_theta=err_theta, C_theta=Ctheta, p_theta=ptheta)

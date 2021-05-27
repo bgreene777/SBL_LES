@@ -244,7 +244,7 @@ if filt:
 for s in s_all:
     fig5, ax5 = plt.subplots(1, figsize=(12, 8))
     ax5.plot(s.RFM["err_u"]*100., s.RFM["z"][s.RFM["isbl"]], "-k", label="RFM")
-    ax5.plot(s.len["err_u"][s.RFM["isbl"]]*100., s.RFM["z"][s.RFM["isbl"]], "-r", label="autocorr")
+    ax5.plot(s.RFM["err_u_LP"]*100., s.RFM["z"][s.RFM["isbl"]], "-r", label="autocorr")
     
     # clean up figure
     ax5.grid()
@@ -264,7 +264,7 @@ for s in s_all:
 for s in s_all:
     fig6, ax6 = plt.subplots(1, figsize=(12, 8))
     ax6.plot(s.RFM["err_theta"]*100., s.RFM["z"][s.RFM["isbl"]], "-k", label="RFM")
-    ax6.plot(s.len["err_theta"][s.RFM["isbl"]]*100., s.RFM["z"][s.RFM["isbl"]], "-r", label="autocorr")
+    ax6.plot(s.RFM["err_theta_LP"]*100., s.RFM["z"][s.RFM["isbl"]], "-r", label="autocorr")
     
     # clean up figure
     ax6.grid()
