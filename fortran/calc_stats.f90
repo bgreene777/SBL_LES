@@ -4,9 +4,9 @@ implicit none
 
 integer, parameter :: nx = 160, ny = 160, nz = 160
 integer, parameter :: nt = 180
-integer, parameter :: t0 = 1080000, dnt = 1000 ! starting file and spacing
+integer, parameter :: t0 = 900000, dnt = 1000 ! starting file and spacing
 real(8), parameter :: Lx=800, Ly=800, Lz=400
-real(8) :: dx=Lx/dble(nx-1), dy=Ly/dble(ny-1), dz=Lz/dble(nz-1)
+real(8) :: dx=Lx/dble(nx), dy=Ly/dble(ny), dz=Lz/dble(nz)
 real(8) :: z
 character(len=128) :: fdir
 character(len=128) :: fname, fsave, fsavetke
