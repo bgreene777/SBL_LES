@@ -242,6 +242,7 @@ class simulation():
         # calculate err_u from u_len
         L_samp = 3. * self.xytavg["ws"]
         self.len["err_u"] = np.sqrt((2.*self.len["u_len"]*self.var["u_var_tot"])/(L_samp*self.xytavg["ws"]**2.))
+        self.len["err_theta"] = np.sqrt((2.*self.len["theta_len"]*self.var["theta_var_tot"])/(L_samp*self.xytavg["theta"]**2.))
             
         if calc_LH:
             x = np.linspace(0., self.Lx, self.nx)

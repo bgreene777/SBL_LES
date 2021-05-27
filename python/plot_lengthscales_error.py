@@ -26,7 +26,7 @@ colors = [(225./255, 156./255, 131./255),
           (0., 85./255, 80./255), (20./255, 33./255, 61./255), (252./255, 193./255, 219./255)]
 
 # toggle for plotting filtered lengthscales
-filt = False
+filt = True
 
 #
 # Create simulation objects
@@ -57,8 +57,9 @@ for s in s_all:
     if filt:
         s.read_filt_len(npz=f"/home/bgreene/SBL_LES/output/filtered_lengthscale_{s.stab}_{s.lab}_full.npz",
                         label="full")
-    s.read_auto_len(f"/home/bgreene/SBL_LES/output/lengthscales_{s.stab}_{s.lab}.npz")
-    s.read_RFM(f"/home/bgreene/SBL_LES/output/RFM_{s.stab}{s.lab}.npz")
+    s.read_auto_len(f"/home/bgreene/SBL_LES/output/lengthscales_{s.stab}_{s.lab}.npz",
+                    calc_LH=True)
+    s.read_RFM(f"/home/bgreene/SBL_LES/output/RFM_{s.stab}{s.lab}_1-5.npz")
     
 # --------------------------------
 # Begin plotting
@@ -105,8 +106,8 @@ if filt:
         ax1.set_title(f"{s.stab} {s.lab} u")
         # save and close
         fsave1 = f"{fdir_save}{s.stab}{s.lab}_sigma_u_filtered.pdf"
-        print(f"Saving figure: {fsave1}")
-        fig1.savefig(fsave1, format="pdf", bbox_inches="tight")
+#         print(f"Saving figure: {fsave1}")
+#         fig1.savefig(fsave1, format="pdf", bbox_inches="tight")
         plt.close(fig1)
     
 #
@@ -150,8 +151,8 @@ if filt:
         ax2.set_title(f"{s.stab} {s.lab} $\\theta$")
         # save and close
         fsave2 = f"{fdir_save}{s.stab}{s.lab}_sigma_theta_filtered.pdf"
-        print(f"Saving figure: {fsave2}")
-        fig2.savefig(fsave2, format="pdf", bbox_inches="tight")
+#         print(f"Saving figure: {fsave2}")
+#         fig2.savefig(fsave2, format="pdf", bbox_inches="tight")
         plt.close(fig2)
     
 #
@@ -197,8 +198,8 @@ ax3[1,1].grid()
 
 # save figure
 fsave3 = f"{fdir_save}{s.stab}_u_theta_lengthscales.pdf"
-print(f"Saving figure: {fsave3}")
-fig3.savefig(fsave3, format="pdf", bbox_inches="tight")
+# print(f"Saving figure: {fsave3}")
+# fig3.savefig(fsave3, format="pdf", bbox_inches="tight")
 plt.close(fig3)
 
 #
@@ -211,7 +212,7 @@ if filt:
         imax = int(np.sqrt(s.i_h))
         # loop over heights in s, up to maximum of imax
         for i, jz in enumerate(np.arange(imax, dtype=int)**2):
-            ax4.plot(s.flen["full"]["delta_x"]/s.L_H[jz], (s.flen["full"]["sigma_u"][jz,:]**2.)/s.var["u_var_tot"][jz],
+            ax4.plot(s.flen["full"]["delta_x"]/s.L_H[jz], (s.flen["full"]["sigma_theta"][jz,:]**2.)/s.var["theta_var_tot"][jz],
                      fstr[i], label=f"jz={jz}")
 #             # also plot Lo for reference
 #             # find closest value of sigma_u at given value of Lo to plot on curve
@@ -228,12 +229,12 @@ if filt:
         ax4.legend(loc="lower left")
         ax4.grid()
         ax4.set_xlabel("$\Delta_x / \mathcal{L}_H$")
-        ax4.set_ylabel("$\sigma_u^2(\Delta_x) / Var\{u\}$")
-        ax4.set_title(f"{s.stab} {s.lab} u")
+        ax4.set_ylabel("$\sigma_{\\theta}^2(\Delta_x) / Var\{\\theta\}$")
+        ax4.set_title(f"{s.stab} {s.lab} $\\theta$")
         # save and close
-        fsave4 = f"{fdir_save}{s.stab}{s.lab}_u_RFM.pdf"
-        print(f"Saving figure: {fsave4}")
-        fig4.savefig(fsave4, format="pdf", bbox_inches="tight")
+        fsave4 = f"{fdir_save}{s.stab}{s.lab}_theta_RFM.pdf"
+#         print(f"Saving figure: {fsave4}")
+#         fig4.savefig(fsave4, format="pdf", bbox_inches="tight")
         plt.close(fig4)
         
 #
@@ -250,8 +251,28 @@ for s in s_all:
     ax5.legend()
     ax5.set_xlabel("$\epsilon_u$ [$\%$]")
     ax5.set_ylabel("$z$ [m]")
-    ax5.set_title("Relative Random Error in u, F192, $T=3$s")
+    ax5.set_title(f"Relative Random Error in u, {s.stab}{s.lab}, $T=3$s")
     # save figure
-    fsave5 = f"{fdir_save}{s.stab}{s.lab}_u_err.pdf"
+    fsave5 = f"{fdir_save}{s.stab}{s.lab}_u_err_1-5.pdf"
     fig5.savefig(fsave5, format="pdf", bbox_inches="tight")
     plt.close(fig5)
+    
+#
+# Figure 6: compare rel rand err for theta from RFM and autocorr
+# Loop over s_all and create unique plot for each
+#
+for s in s_all:
+    fig6, ax6 = plt.subplots(1, figsize=(12, 8))
+    ax6.plot(s.RFM["err_theta"]*100., s.RFM["z"][s.RFM["isbl"]], "-k", label="RFM")
+    ax6.plot(s.len["err_theta"][s.RFM["isbl"]]*100., s.RFM["z"][s.RFM["isbl"]], "-r", label="autocorr")
+    
+    # clean up figure
+    ax6.grid()
+    ax6.legend()
+    ax6.set_xlabel("$\epsilon_{\\theta}$ [$\%$]")
+    ax6.set_ylabel("$z$ [m]")
+    ax6.set_title(f"Relative Random Error in $\\theta$, {s.stab}{s.lab}, $T=3$s")
+    # save figure
+    fsave6 = f"{fdir_save}{s.stab}{s.lab}_theta_err_1-5.pdf"
+    fig6.savefig(fsave6, format="pdf", bbox_inches="tight")
+    plt.close(fig6)
