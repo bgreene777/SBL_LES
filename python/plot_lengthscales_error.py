@@ -26,7 +26,7 @@ colors = [(225./255, 156./255, 131./255),
           (0., 85./255, 80./255), (20./255, 33./255, 61./255), (252./255, 193./255, 219./255)]
 
 # toggle for plotting filtered lengthscales
-filt = True
+filt = False
 
 #
 # Create simulation objects
@@ -47,9 +47,9 @@ s192F = simulation("/home/bgreene/simulations/F_192_interp/output/average_statis
                   192, 192, 192, 800., 800., 400., "F")
 
 # put everything into a list for looping
-# s_all = [s128A, s160A, s192A]
+s_all = [s128A, s160A, s192A]
 # s_all = [s128F, s160F, s192F]
-s_all = [s192F]
+# s_all = [s192F]
 for s in s_all:
     s.read_csv()
     s.calc_Ri()
@@ -57,8 +57,6 @@ for s in s_all:
     if filt:
         s.read_filt_len(npz=f"/home/bgreene/SBL_LES/output/filtered_lengthscale_{s.stab}_{s.lab}_full.npz",
                         label="full")
-    s.read_auto_len(f"/home/bgreene/SBL_LES/output/lengthscales_{s.stab}_{s.lab}.npz",
-                    calc_LH=True)
     s.read_RFM(f"/home/bgreene/SBL_LES/output/RFM_{s.stab}{s.lab}_1-5.npz")
     
 # --------------------------------
@@ -165,14 +163,14 @@ fig3, ax3 = plt.subplots(nrows=2,ncols=2, sharey=True, figsize=(16, 12))
 for i, s in enumerate(s_all):
     # row 1: length scales
     # u length scale
-    ax3[0,0].plot(s.len["u_len"], s.z/s.h, color=colors[i], linestyle="-", label=s.lab)
+    ax3[0,0].plot(s.RFM["len_u"], s.z[s.RFM["isbl"]]/s.h, color=colors[i], linestyle="-", label=s.lab)
     # theta length scale
-    ax3[0,1].plot(s.len["theta_len"], s.z/s.h, color=colors[i], linestyle="-", label=s.lab)
+    ax3[0,1].plot(s.RFM["len_theta"], s.z[s.RFM["isbl"]]/s.h, color=colors[i], linestyle="-", label=s.lab)
     # row 2: time scales
     # u length scale
-    ax3[1,0].plot(s.len["u_len"]/s.xytavg["ws"], s.z/s.h, color=colors[i], linestyle="-", label=s.lab)
+    ax3[1,0].plot(s.RFM["len_u"]/s.xytavg["ws"][s.RFM["isbl"]], s.z[s.RFM["isbl"]]/s.h, color=colors[i], linestyle="-", label=s.lab)
     # theta length scale
-    ax3[1,1].plot(s.len["theta_len"]/s.xytavg["ws"], s.z/s.h, color=colors[i], linestyle="-", label=s.lab) 
+    ax3[1,1].plot(s.RFM["len_theta"]/s.xytavg["ws"][s.RFM["isbl"]], s.z[s.RFM["isbl"]]/s.h, color=colors[i], linestyle="-", label=s.lab) 
     # also plot zj as horiz line
     for iax in ax3.ravel():
         iax.axhline(s.xytavg["zj"]/s.h, color=colors[i], linestyle="--", label="$z_{LLJ}$")
@@ -198,8 +196,8 @@ ax3[1,1].grid()
 
 # save figure
 fsave3 = f"{fdir_save}{s.stab}_u_theta_lengthscales.pdf"
-# print(f"Saving figure: {fsave3}")
-# fig3.savefig(fsave3, format="pdf", bbox_inches="tight")
+print(f"Saving figure: {fsave3}")
+fig3.savefig(fsave3, format="pdf", bbox_inches="tight")
 plt.close(fig3)
 
 #
