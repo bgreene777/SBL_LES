@@ -26,7 +26,7 @@ colors = [(225./255, 156./255, 131./255),
           (0., 85./255, 80./255), (20./255, 33./255, 61./255), (252./255, 193./255, 219./255)]
 
 # toggle for plotting filtered lengthscales
-filt = False
+filt = True
 
 #
 # Create simulation objects
@@ -47,9 +47,9 @@ s192F = simulation("/home/bgreene/simulations/F_192_interp/output/average_statis
                   192, 192, 192, 800., 800., 400., "F")
 
 # put everything into a list for looping
-s_all = [s128A, s160A, s192A]
+# s_all = [s128A, s160A, s192A]
 # s_all = [s128F, s160F, s192F]
-# s_all = [s192F]
+s_all = [s128A]
 for s in s_all:
     s.read_csv()
     s.calc_Ri()
@@ -57,7 +57,7 @@ for s in s_all:
     if filt:
         s.read_filt_len(npz=f"/home/bgreene/SBL_LES/output/filtered_lengthscale_{s.stab}_{s.lab}_full.npz",
                         label="full")
-    s.read_RFM(f"/home/bgreene/SBL_LES/output/RFM_{s.stab}{s.lab}_1-5.npz")
+    s.read_RFM(f"/home/bgreene/SBL_LES/output/RFM_{s.stab}{s.lab}.npz")
     
 # --------------------------------
 # Begin plotting
@@ -73,26 +73,26 @@ if filt:
         imax = int(np.sqrt(s.i_h))
         # loop over heights in s, up to maximum of imax
         for i, jz in enumerate(np.arange(imax, dtype=int)**2):
-            ax1.plot(s.flen["full"]["delta_x"], s.flen["full"]["sigma_u"][jz,:],
+            ax1.plot(s.RFM["delta_x"], s.RFM["var_u"][:50,jz]**0.5,
                      fstr[i], label=f"jz={jz}")
             # also plot Lo for reference
             # find closest value of sigma_u at given value of Lo to plot on curve
-            i_dx = np.argmin([abs(s.Ri["Lo"][jz] - xx) for xx in s.flen["full"]["delta_x"]])
-            ax1.plot(s.Ri["Lo"][jz], s.flen["full"]["sigma_u"][jz,i_dx], "ok")
+            i_dx = np.argmin([abs(s.Ri["Lo"][jz] - xx) for xx in s.RFM["delta_x"]])
+            ax1.plot(s.Ri["Lo"][jz], s.RFM["var_u"][i_dx,jz]**0.5, "ok")
         # plot the last Lo again to get in legend (bc I'm lazy)
-        ax1.plot(s.Ri["Lo"][jz], s.flen["full"]["sigma_theta"][jz,i_dx], "ok",
+        ax1.plot(s.Ri["Lo"][jz], s.RFM["var_u"][i_dx,jz]**0.5, "ok",
                  label="$L_o (jz)$")
 
         # plot -1/2 power law
-        ax1.plot(s.flen["full"]["delta_x"], s.flen["full"]["delta_x"]**(-0.5), 
+        ax1.plot(s.RFM["delta_x"], s.RFM["delta_x"]**(-0.5), 
                  lw=4, c="m", ls="-", label="$\Delta_x^{-1/2}$")
         # plot dx and Lx and annotate
-        ax1.axvline(s.flen["full"]["dx"], c="r", lw=4)
-        ax1.axvline(s.flen["full"]["Lx"], c="r", lw=4)
-        ax1.annotate('$dx$', xy=(s.flen["full"]["dx"], 0.005), 
-                     xytext=(s.flen["full"]["dx"], 0.005), rotation=270)
-        ax1.annotate('$L_x$', xy=(s.flen["full"]["Lx"], 0.005), 
-                     xytext=(s.flen["full"]["Lx"], 0.005), rotation=270)
+        ax1.axvline(s.dx, c="r", lw=4)
+        ax1.axvline(s.Lx, c="r", lw=4)
+        ax1.annotate('$dx$', xy=(s.dx, 0.005), 
+                     xytext=(s.dx, 0.005), rotation=270)
+        ax1.annotate('$L_x$', xy=(s.Lx, 0.005), 
+                     xytext=(s.Lx, 0.005), rotation=270)
         # clean up figure
         ax1.set_xscale("log")
         ax1.set_yscale("log")
@@ -104,8 +104,8 @@ if filt:
         ax1.set_title(f"{s.stab} {s.lab} u")
         # save and close
         fsave1 = f"{fdir_save}{s.stab}{s.lab}_sigma_u_filtered.pdf"
-#         print(f"Saving figure: {fsave1}")
-#         fig1.savefig(fsave1, format="pdf", bbox_inches="tight")
+        print(f"Saving figure: {fsave1}")
+        fig1.savefig(fsave1, format="pdf", bbox_inches="tight")
         plt.close(fig1)
     
 #
@@ -118,26 +118,26 @@ if filt:
         imax = int(np.sqrt(s.i_h))
         # loop over heights in s, up to maximum of imax
         for i, jz in enumerate(np.arange(imax, dtype=int)**2):
-            ax2.plot(s.flen["full"]["delta_x"], s.flen["full"]["sigma_theta"][jz,:],
+            ax2.plot(s.RFM["delta_x"], s.RFM["var_theta"][:50,jz]**0.5,
                      fstr[i], label=f"jz={jz}")
             # also plot Lo for reference
             # find closest value of sigma_u at given value of Lo to plot on curve
-            i_dx = np.argmin([abs(s.Ri["Lo"][jz] - xx) for xx in s.flen["full"]["delta_x"]])
-            ax2.plot(s.Ri["Lo"][jz], s.flen["full"]["sigma_theta"][jz,i_dx], "ok")
+            i_dx = np.argmin([abs(s.Ri["Lo"][jz] - xx) for xx in s.RFM["delta_x"]])
+            ax2.plot(s.Ri["Lo"][jz], s.RFM["var_theta"][i_dx,jz]**0.5, "ok")
         # plot the last Lo again to get in legend (bc I'm lazy)
-        ax2.plot(s.Ri["Lo"][jz], s.flen["full"]["sigma_theta"][jz,i_dx], "ok",
+        ax2.plot(s.Ri["Lo"][jz], s.RFM["var_theta"][i_dx,jz]**0.5, "ok",
                  label="$L_o (jz)$")
 
         # plot -1/2 power law
-        ax2.plot(s.flen["full"]["delta_x"], s.flen["full"]["delta_x"]**(-0.5), 
+        ax2.plot(s.RFM["delta_x"], s.RFM["delta_x"]**(-0.5), 
                  lw=4, c="m", ls="-", label="$\Delta_x^{-1/2}$")
         # plot dx and Lx and annotate
-        ax2.axvline(s.flen["full"]["dx"], c="r", lw=4)
-        ax2.axvline(s.flen["full"]["Lx"], c="r", lw=4)
-        ax2.annotate('$dx$', xy=(s.flen["full"]["dx"], 0.02), 
-                     xytext=(s.flen["full"]["dx"], 0.02), rotation=270)
-        ax2.annotate('$L_x$', xy=(s.flen["full"]["Lx"], 0.02), 
-                     xytext=(s.flen["full"]["Lx"], 0.02), rotation=270)
+        ax2.axvline(s.dx, c="r", lw=4)
+        ax2.axvline(s.Lx, c="r", lw=4)
+        ax2.annotate('$dx$', xy=(s.dx, 0.02), 
+                     xytext=(s.dx, 0.02), rotation=270)
+        ax2.annotate('$L_x$', xy=(s.Lx, 0.02), 
+                     xytext=(s.Lx, 0.02), rotation=270)
         # clean up figure
         ax2.set_xscale("log")
         ax2.set_yscale("log")
@@ -149,8 +149,8 @@ if filt:
         ax2.set_title(f"{s.stab} {s.lab} $\\theta$")
         # save and close
         fsave2 = f"{fdir_save}{s.stab}{s.lab}_sigma_theta_filtered.pdf"
-#         print(f"Saving figure: {fsave2}")
-#         fig2.savefig(fsave2, format="pdf", bbox_inches="tight")
+        print(f"Saving figure: {fsave2}")
+        fig2.savefig(fsave2, format="pdf", bbox_inches="tight")
         plt.close(fig2)
     
 #
@@ -210,7 +210,7 @@ if filt:
         imax = int(np.sqrt(s.i_h))
         # loop over heights in s, up to maximum of imax
         for i, jz in enumerate(np.arange(imax, dtype=int)**2):
-            ax4.plot(s.flen["full"]["delta_x"]/s.L_H[jz], (s.flen["full"]["sigma_theta"][jz,:]**2.)/s.var["theta_var_tot"][jz],
+            ax4.plot(s.RFM["dx_LH_t"], (s.RFM["var_theta"][:50,jz])/s.var["theta_var_tot"][jz],
                      fstr[i], label=f"jz={jz}")
 #             # also plot Lo for reference
 #             # find closest value of sigma_u at given value of Lo to plot on curve
@@ -231,8 +231,8 @@ if filt:
         ax4.set_title(f"{s.stab} {s.lab} $\\theta$")
         # save and close
         fsave4 = f"{fdir_save}{s.stab}{s.lab}_theta_RFM.pdf"
-#         print(f"Saving figure: {fsave4}")
-#         fig4.savefig(fsave4, format="pdf", bbox_inches="tight")
+        print(f"Saving figure: {fsave4}")
+        fig4.savefig(fsave4, format="pdf", bbox_inches="tight")
         plt.close(fig4)
         
 #
@@ -251,7 +251,7 @@ for s in s_all:
     ax5.set_ylabel("$z$ [m]")
     ax5.set_title(f"Relative Random Error in u, {s.stab}{s.lab}, $T=3$s")
     # save figure
-    fsave5 = f"{fdir_save}{s.stab}{s.lab}_u_err_1-5.pdf"
+    fsave5 = f"{fdir_save}{s.stab}{s.lab}_u_err.pdf"
     fig5.savefig(fsave5, format="pdf", bbox_inches="tight")
     plt.close(fig5)
     
@@ -271,6 +271,6 @@ for s in s_all:
     ax6.set_ylabel("$z$ [m]")
     ax6.set_title(f"Relative Random Error in $\\theta$, {s.stab}{s.lab}, $T=3$s")
     # save figure
-    fsave6 = f"{fdir_save}{s.stab}{s.lab}_theta_err_1-5.pdf"
+    fsave6 = f"{fdir_save}{s.stab}{s.lab}_theta_err.pdf"
     fig6.savefig(fsave6, format="pdf", bbox_inches="tight")
     plt.close(fig6)
