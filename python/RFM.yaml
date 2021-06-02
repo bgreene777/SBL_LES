@@ -8,9 +8,10 @@
 # --------------------------------
 
 res: 192
-stab: "A"
-fdir: "/home/bgreene/simulations/A_192_interp/output/"
-fsave: "/home/bgreene/SBL_LES/output/RFM_A192.npz"
+stab: "F"
+fdir: "/home/bgreene/simulations/F_192_interp/output/"
+fsave: "/home/bgreene/SBL_LES/output/RFM_F192.npz"
+nfilt: 50
 dmin_u: 1.0
 dmax_u: 5.0
 dmin_cov: 2.0

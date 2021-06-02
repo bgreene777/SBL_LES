@@ -270,7 +270,4 @@ class simulation():
         dat = np.load(npz, allow_pickle=True)
         for key in dat.keys():
             self.RFM[key] = dat[key]
-        # create delta_x from dx to Lx
-        self.RFM["delta_x"] = np.logspace(np.log10(self.dx), np.log10(self.Lx),
-                                          num=50, base=10.0, dtype=np.float64)
         return

@@ -33,13 +33,14 @@ def relaxed_filter(f, delta_x, Lx, nx, nz):
     -output-
     var_f_all: dictionary of y-averaged std along x as function of delta_x and z
     """
-    # initialize numpy array of shape(nx, nz) to store all var_f 
-    var_f_all = np.zeros((nx, nz), dtype=np.float64)
+    # initialize numpy array of shape(nfilt, nz) to store all var_f 
+    nfilt = len(delta_x)
+    var_f_all = np.zeros((nfilt, nz), dtype=np.float64)
     
     # begin looping over z
     for kz in range(nz):
         # initialize empty array of shape(nx)
-        var_f = np.zeros(nx, dtype=np.float64)
+        var_f = np.zeros(nfilt, dtype=np.float64)
         # now can loop through filter sizes
         for i, idx in enumerate(delta_x):
             # filter f at scale delta_x[k]
@@ -201,8 +202,9 @@ nt = len(timesteps)
 u_scale = 0.4
 theta_scale = 300.
 # array of delta_x spaced logarithmic from dx to Lx
+nfilt = config["nfilt"]
 delta_x = np.logspace(np.log10(dx), np.log10(Lx),
-                      num=50, base=10.0, dtype=np.float64)
+                      num=nfilt, base=10.0, dtype=np.float64)
 # grab dmin_u and dmax_u
 dmin_u = config["dmin_u"]
 dmax_u = config["dmax_u"]
@@ -225,7 +227,7 @@ Ruwuw = np.zeros((nx, nz_sbl), dtype=np.float64)
 uwuw_var = np.zeros((nx,ny,nz_sbl), dtype=np.float64)
 # define var_u_all arrays for time averaging later
 var_u_all, var_theta_all, var_uw_all =\
-(np.zeros((nx,nz_sbl), dtype=np.float64) for _ in range(3))
+(np.zeros((nfilt,nz_sbl), dtype=np.float64) for _ in range(3))
 
 # begin loop
 # run relaxed_filter for u_rot and theta
@@ -362,7 +364,7 @@ err_uw = RMSE_uw / uw_cov_tot[isbl]
 # now save output in an npz file
 fsave = config["fsave"]
 print(f"Saving file: {fsave}")
-np.savez(fsave, z=z, h=h, isbl=isbl, yaml=config,
+np.savez(fsave, z=z, h=h, isbl=isbl, delta_x=delta_x, yaml=config,
          dx_LH_u=dx_LH_u, dx_LH_t=dx_LH_t, dx_LH_uw=dx_LH_uw,
          var_u=var_u_all, var_theta=var_theta_all, var_uw=var_uw_all,
          uwuw_var_xytavg=uwuw_var_xytavg,
