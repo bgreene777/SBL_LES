@@ -29,24 +29,24 @@ colors = [(225./255, 156./255, 131./255),
 # Create simulation objects
 #
 # A
-s128A = simulation("/home/bgreene/simulations/A_128_interp/output/average_statistics.csv",
+s128A = simulation("/home/bgreene/simulations/A_128_interp/output/",
                   128, 128, 128, 800., 800., 400., "A")
-s160A = simulation("/home/bgreene/simulations/A_160_interp/output/average_statistics.csv",
+s160A = simulation("/home/bgreene/simulations/A_160_interp/output/",
                   160, 160, 160, 800., 800., 400., "A")
-s192A = simulation("/home/bgreene/simulations/A_192_interp/output/average_statistics.csv",
+s192A = simulation("/home/bgreene/simulations/A_192_interp/output/",
                   192, 192, 192, 800., 800., 400., "A")
 # F
-s128F = simulation("/home/bgreene/simulations/F_128_interp/output/average_statistics.csv",
+s128F = simulation("/home/bgreene/simulations/F_128_interp/output/",
                   128, 128, 128, 800., 800., 400., "F")
-s160F = simulation("/home/bgreene/simulations/F_160_interp/output/average_statistics.csv",
+s160F = simulation("/home/bgreene/simulations/F_160_interp/output/",
                   160, 160, 160, 800., 800., 400., "F")
-s192F = simulation("/home/bgreene/simulations/F_192_interp/output/average_statistics.csv",
+s192F = simulation("/home/bgreene/simulations/F_192_interp/output/",
                   192, 192, 192, 800., 800., 400., "F")
 
 # put everything into a list for looping
 # s_all = [s128A, s160A, s192A]
-s_all = [s128F, s160F, s192F]
-# s_all = [s128A, s160A]
+# s_all = [s128F, s160F, s192F]
+s_all = [s192A]
 for s in s_all:
     s.read_csv()
     s.calc_Ri()
@@ -195,36 +195,40 @@ fig3.savefig(fsave3, format="pdf", bbox_inches="tight")
 plt.close(fig3)
 
 #
-# Figure 4: MSE{x~_delta}/var{x} vs. delta/T_H, x=u
+# Figure 4: MSE{x~_delta}/var{x} vs. delta/T_H, x=u'w'
 # Loop over s_all and create unique plot for each
 #
-
 for s in s_all:
-    fig4, ax4 = plt.subplots(1, figsize=(12, 8))
+    fig4, ax4 = plt.subplots(nrows=1, ncols=2, sharey=True, figsize=(12, 8))
     imax = int(np.sqrt(s.i_h))
     # loop over heights in s, up to maximum of imax
     for i, jz in enumerate(np.arange(imax, dtype=int)**2):
-        ax4.plot(s.RFM["dx_LH_t"][:,jz], (s.RFM["var_theta"][:,jz])/s.var["theta_var_tot"][jz],
+        # plot versus delta_x/L_H
+        ax4[0].plot(s.RFM["dx_LH_t"][:,jz], 
+                    s.RFM["var_u"][:,jz]/s.var["u_var_tot"][jz],
                  fstr[i], label=f"jz={jz}")
-#             # also plot Lo for reference
-#             # find closest value of sigma_u at given value of Lo to plot on curve
-#             i_dx = np.argmin([abs(s.Ri["Lo"][jz] - xx) for xx in s.flen["full"]["delta_x"]])
-#             ax1.plot(s.Ri["Lo"][jz], s.flen["full"]["sigma_u"][jz,i_dx], "ok")
-#         # plot the last Lo again to get in legend (bc I'm lazy)
-#         ax1.plot(s.Ri["Lo"][jz], s.flen["full"]["sigma_theta"][jz,i_dx], "ok",
-#                  label="$L_o (jz)$")
+        # plot versus delta_x/integral length scale
+        ax4[1].plot(s.RFM["delta_x"]/s.RFM["len_u"][jz], 
+                    s.RFM["var_u"][:,jz]/s.var["u_var_tot"][jz],
+                    fstr[i])
 
     # clean up figure
-    ax4.set_xscale("log")
-    ax4.set_yscale("log")
+    # ax4[0]
+    ax4[0].set_xscale("log")
+    ax4[0].set_yscale("log")
 #         ax4.set_xlim([0.1, 1000])
-    ax4.legend(loc="lower left")
-    ax4.grid()
-    ax4.set_xlabel("$\Delta_x / \mathcal{L}_H$")
-    ax4.set_ylabel("$\sigma_{\\theta}^2(\Delta_x) / Var\{\\theta\}$")
-    ax4.set_title(f"{s.stab} {s.lab} $\\theta$")
+    ax4[0].legend(loc="lower left")
+    ax4[0].grid()
+    ax4[0].set_xlabel("$\Delta_x / \mathcal{L}_H$")
+    ax4[0].set_ylabel("$\sigma_{u}^2(\Delta_x) / Var\{u\}$")
+    ax4[0].set_title(f"{s.stab} {s.lab} $u$")
+    # ax4[1]
+    ax4[1].set_xscale("log")
+    ax4[1].grid()
+    ax4[1].set_xlabel("$\Delta_x / \mathcal{L}_{u}$")
+#     ax4[1].set_xlabel("$\Delta_t = \Delta_x / \\langle u \\rangle$")
     # save and close
-    fsave4 = f"{fdir_save}{s.stab}{s.lab}_theta_RFM.pdf"
+    fsave4 = f"{fdir_save}{s.stab}{s.lab}_u_RFM.pdf"
     print(f"Saving figure: {fsave4}")
     fig4.savefig(fsave4, format="pdf", bbox_inches="tight")
     plt.close(fig4)
