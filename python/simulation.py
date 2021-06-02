@@ -81,9 +81,10 @@ class simulation():
         
     def read_csv(self):
         print(f"--Beginning loading data for {self.nx}^3 simulation--")
-        print(f"Reading file: {self.path}")
+        print(f"Reading file: {self.path}average_statistics.csv")
         
-        data = np.genfromtxt(self.path, dtype=float, delimiter=",", skip_header=1)
+        data = np.genfromtxt(f"{self.path}average_statistics.csv", 
+                             dtype=np.float64, delimiter=",", skip_header=1)
         # assign each column to parameters
         # columns are:
         # z, ubar, vbar, wbar, Tbar, uw_cov_res, uw_cov_tot,
@@ -142,7 +143,7 @@ class simulation():
         self.xytavg["zj"] = self.z[np.argmax(self.xytavg["ws"])]
         
         # now also read csv for TKE budget terms
-        ftke = os.path.join(self.path.rsplit("/", 1)[0], "tke_budget.csv")
+        ftke = os.path.join(self.path, "tke_budget.csv")
         dtke = np.genfromtxt(ftke, dtype=float, skip_header=1, delimiter=",")
         # assign data into self.tke
         self.tke["z"] = dtke[:,0]
@@ -271,3 +272,60 @@ class simulation():
         for key in dat.keys():
             self.RFM[key] = dat[key]
         return
+    
+class UAS_emulator(simulation):
+    """Emulate a profile from a rotary-wing UAS based on timeseries data
+    Inherits simulation class to conveniently load in mean simulation
+    quantities.
+    """
+    def __init__(self, path, nx, ny, nz, Lx, Ly, Lz, stab):
+        # initialize simulation values, load mean csv, calc Ri and MOST
+        simulation.__init__(self, path, nx, ny, nz, Lx, Ly, Lz, stab)
+        self.read_csv()
+        self.calc_Ri()
+        self.calc_most()
+        # now assign additional params
+        self.ts = {}
+        self.u_scale = 0.4
+        self.T_scale = 300.
+        
+    def read_timeseries(self, nt_tot, dt, raw=True):
+        # read last hour of simulation
+        # based on number of timesteps: nt_tot
+        # and timestep: dt in seconds
+        # if raw==True, load from individual timeseries files and
+        # create new npz file for faster loading later
+        # calculate number of timesteps in last half hour
+        if raw:
+            nt = int(1800./dt)
+            istart = nt_tot - nt        
+            # initialize empty arrays shape(nt, nz)
+            u_ts, v_ts, w_ts, theta_ts =\
+            (np.zeros((nt, self.nz), dtype=np.float64) for _ in range(4))
+            # now loop through files (one for each jz)
+            for jz in range(self.nz):
+                print(f"Loading timeseries data, jz={jz}")
+                fu = f"{self.path}u_timeseries_c{jz:03d}.out"
+                u_ts[:,jz] = np.loadtxt(fu, skiprows=istart, usecols=1)
+                fv = f"{self.path}v_timeseries_c{jz:03d}.out"
+                v_ts[:,jz] = np.loadtxt(fv, skiprows=istart, usecols=1)
+                fw = f"{self.path}w_timeseries_c{jz:03d}.out"
+                w_ts[:,jz] = np.loadtxt(fw, skiprows=istart, usecols=1)
+                ftheta = f"{self.path}t_timeseries_c{jz:03d}.out"
+                theta_ts[:,jz] = np.loadtxt(ftheta, skiprows=istart, usecols=1)
+            # apply scales
+            u_ts *= self.u_scale
+            v_ts *= self.u_scale
+            w_ts *= self.u_scale
+            theta_ts *= self.T_scale
+            # now create time vector and assign
+            time = np.linspace(0., 1800.-dt, nt)
+            # save npz file with all this data
+            fsave = f"{self.path}timeseries.npz"
+            np.savez(fsave, u=u_ts, v=v_ts, w=w_ts,
+                     theta=theta_ts, time=time)
+        else:
+            # load npz file and assign to self.ts dictionary
+            dat = np.load(f"{self.path}timeseries.npz")
+            for key in dat.keys():
+                self.ts[key] = dat[key]
