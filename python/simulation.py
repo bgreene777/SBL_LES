@@ -285,9 +285,10 @@ class UAS_emulator(simulation):
         self.calc_Ri()
         self.calc_most()
         # now assign additional params
-        self.ts = {}
+        self.ts = {}  # raw timeseries data: u, v, w, theta
         self.u_scale = 0.4
         self.T_scale = 300.
+        self.prof = {}  # profile of sampled parameters from timeseries
         
     def read_timeseries(self, nt_tot, dt, raw=True):
         # read last hour of simulation
@@ -326,6 +327,41 @@ class UAS_emulator(simulation):
                      theta=theta_ts, time=time)
         else:
             # load npz file and assign to self.ts dictionary
+            print(f"Reading file: {self.path}timeseries.npz")
             dat = np.load(f"{self.path}timeseries.npz")
             for key in dat.keys():
                 self.ts[key] = dat[key]
+                
+        return
+                
+    def profile(self, ascent_rate=1.0, time_constant=0.0):
+        # specify an ascent rate in m/s, default = 1.0; if <= 0 then instantaneous
+        # time constant for temperature measurements in seconds, default=0.0
+        # output data on same z grid as simulation
+        # assigns data to self.prof and returns
+        # first check to see if time_constant != 0 and set flag
+        sens_lag = False
+        if time_constant > 0.0:
+            sens_lag = True
+        # now check ascent rate and set flag
+        inst = False
+        if ascent_rate <= 0.0:
+            inst = True  
+        # calculate array of theoretical altitudes based on ts["time"]
+        # and ascent_rate
+        zuas = ascent_rate * self.ts["time"]
+        u_mean, v_mean, w_mean, theta_mean = ([] for _ in range(4))
+        for jz, zz in enumerate(self.z):
+            # find indices in zuas corresponding to each simulation altitude
+            imean = np.where((zuas >= zz-self.dz/2.) & (zuas < zz+self.dz/2.))[0]
+            u_mean.append(np.mean(self.ts["u"][imean, jz]))
+            v_mean.append(np.mean(self.ts["v"][imean, jz]))
+            w_mean.append(np.mean(self.ts["w"][imean, jz]))
+            theta_mean.append(np.mean(self.ts["theta"][imean, jz]))
+        # assign to self.profile and return
+        self.prof["u"] = np.array(u_mean)
+        self.prof["v"] = np.array(v_mean)
+        self.prof["w"] = np.array(w_mean)
+        self.prof["theta"] = np.array(theta_mean)
+        return
+        
