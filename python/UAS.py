@@ -35,32 +35,29 @@ for s in s_all:
     s.read_timeseries(720000, 0.02, raw=False)
     s.profile(ascent_rate=1.0, time_constant=0.0)
     
-# plot F uas versus mean
-fig1, ax1 = plt.subplots(nrows=1, ncols=4, sharey=True, figsize=(12, 8))
-# u
-ax1[0].plot(sF.xytavg["u"], sF.z, "-k", label="$\\langle u \\rangle$")
-ax1[0].plot(sF.prof["u"], sF.z, "-r", label="UAS")
-# v
-ax1[1].plot(sF.xytavg["v"], sF.z, "-k", label="$\\langle v \\rangle$")
-ax1[1].plot(sF.prof["v"], sF.z, "-r", label="UAS")
-# w
-ax1[2].plot(sF.xytavg["w"], sF.z, "-k", label="$\\langle w \\rangle$")
-ax1[2].plot(sF.prof["w"], sF.z, "-r", label="UAS")
-# theta
-ax1[3].plot(sF.xytavg["theta"], sF.z, "-k", label="$\\langle \\theta \\rangle$")
-ax1[3].plot(sF.prof["theta"], sF.z, "-r", label="UAS")
+# plot uas versus mean (loop over all)
+for s in s_all:
+    fig1, ax1 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(12, 8))
+    # ws
+    ax1[0].plot(s.xytavg["ws"], s.z, "-k", label="$\\langle ws \\rangle$")
+    ax1[0].plot(s.prof["ws"], s.z, "-r", label="UAS")
+    # wd
+    ax1[1].plot(s.xytavg["wd"], s.z, "-k", label="$\\langle wd \\rangle$")
+    ax1[1].plot(s.prof["wd"], s.z, "-r", label="UAS")
+    # theta
+    ax1[2].plot(s.xytavg["theta"], s.z, "-k", label="$\\langle \\theta \\rangle$")
+    ax1[2].plot(s.prof["theta"], s.z, "-r", label="UAS")
 
-# clean up
-for iax in ax1:
-    iax.grid()
-    iax.legend(loc="upper left")
-ax1[0].set_xlabel("$u$ [m/s]")
-ax1[0].set_ylabel("$z$ [m]")
-ax1[1].set_xlabel("$v$ [m/s]")
-ax1[2].set_xlabel("$w$ [m/s]")
-ax1[3].set_xlabel("$\\theta$ [K]")
-# save figure
-fsave1 = f"{fdir_save}uvwtheta.pdf"
-print(f"Saving figure: {fsave1}")
-fig1.savefig(fsave1, format="pdf", bbox_inches="tight")
-plt.close(fig1)
+    # clean up
+    for iax in ax1:
+        iax.grid()
+        iax.legend(loc="upper left")
+    ax1[0].set_xlabel("Wind Speed [m/s]")
+    ax1[0].set_ylabel("$z$ [m]")
+    ax1[1].set_xlabel("Wind Direction [$^{\circ}$]")
+    ax1[2].set_xlabel("$\\theta$ [K]")
+    # save figure
+    fsave1 = f"{fdir_save}{s.stab}_ws_wd_theta.pdf"
+    print(f"Saving figure: {fsave1}")
+    fig1.savefig(fsave1, format="pdf", bbox_inches="tight")
+    plt.close(fig1)

@@ -358,10 +358,16 @@ class UAS_emulator(simulation):
             v_mean.append(np.mean(self.ts["v"][imean, jz]))
             w_mean.append(np.mean(self.ts["w"][imean, jz]))
             theta_mean.append(np.mean(self.ts["theta"][imean, jz]))
+        print(imean)
         # assign to self.profile and return
         self.prof["u"] = np.array(u_mean)
         self.prof["v"] = np.array(v_mean)
         self.prof["w"] = np.array(w_mean)
         self.prof["theta"] = np.array(theta_mean)
+        # also calculate ws and wd
+        self.prof["ws"] = ((self.prof["u"]**2.) + (self.prof["v"]**2.)) ** 0.5
+        wd = np.arctan2(-self.prof["u"], -self.prof["v"]) * 180./np.pi
+        wd[wd < 0.] += 360.
+        self.prof["wd"] = wd
         return
         
