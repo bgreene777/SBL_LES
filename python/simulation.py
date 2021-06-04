@@ -7,7 +7,7 @@
 # --------------------------------
 import os
 import numpy as np
-
+from numba import njit
 # ---------------------------------------------
 def read_f90_bin(path,nx,ny,nz,precision):
     print(f"Reading file: {path}")
@@ -22,7 +22,22 @@ def read_f90_bin(path,nx,ny,nz,precision):
     f.close()
     return dat
 # ---------------------------------------------
-
+@njit
+def interp_uas(dat, z_LES, z_UAS):
+    """Interpolate LES virtual tower timeseries data in the vertical to match
+    ascent rate of emulated UAS to create timeseries of ascent data
+    :param float dat: 2d array of the field to interpolate, shape(nt, nz)
+    :param float z_LES: 1d array of LES grid point heights
+    :param float z_UAS: 1d array of new UAS z from ascent & sampling rates
+    Outputs 2d array of interpolated field, shape(nt, len(z_UAS))
+    """
+    nt = np.shape(dat)[0]
+    nz = len(z_UAS)
+    dat_interp = np.zeros((nt, nz), dtype=np.float64)
+    for i in range(nt):
+        dat_interp[i,:] = np.interp(z_UAS, z_LES, dat[i,:])
+    return dat_interp
+# ---------------------------------------------
 class simulation():
     """Contains simulation parameters and can read averaged csv files
     
@@ -288,6 +303,7 @@ class UAS_emulator(simulation):
         self.ts = {}  # raw timeseries data: u, v, w, theta
         self.u_scale = 0.4
         self.T_scale = 300.
+        self.raw_prof = {}  # raw/unprocessed profile w/ same samp freq as LES
         self.prof = {}  # profile of sampled parameters from timeseries
         
     def read_timeseries(self, nt_tot, dt, raw=True):
@@ -331,18 +347,17 @@ class UAS_emulator(simulation):
             dat = np.load(f"{self.path}timeseries.npz")
             for key in dat.keys():
                 self.ts[key] = dat[key]
+            # also save dt for use later
+            self.ts["dt"] = dt
                 
         return
                 
-    def profile(self, ascent_rate=1.0, time_constant=0.0):
+    def profile(self, ascent_rate=1.0, time_average=3.0):
         # specify an ascent rate in m/s, default = 1.0; if <= 0 then instantaneous
-        # time constant for temperature measurements in seconds, default=0.0
-        # output data on same z grid as simulation
+        # also specify averaging intervals to match random error analysis
+        # output data on z grid based on ascent_rate and time_average
         # assigns data to self.prof and returns
         # first check to see if time_constant != 0 and set flag
-        sens_lag = False
-        if time_constant > 0.0:
-            sens_lag = True
         # now check ascent rate and set flag
         inst = False
         if ascent_rate <= 0.0:
@@ -350,21 +365,44 @@ class UAS_emulator(simulation):
         # calculate array of theoretical altitudes based on ts["time"]
         # and ascent_rate
         zuas = ascent_rate * self.ts["time"]
-        u_mean, v_mean, w_mean, theta_mean = ([] for _ in range(4))
-        for jz, zz in enumerate(self.z):
-            # find indices in zuas corresponding to each simulation altitude
-            imean = np.where((zuas >= zz-self.dz/2.) & (zuas < zz+self.dz/2.))[0]
-            u_mean.append(np.mean(self.ts["u"][imean, jz]))
-            v_mean.append(np.mean(self.ts["v"][imean, jz]))
-            w_mean.append(np.mean(self.ts["w"][imean, jz]))
-            theta_mean.append(np.mean(self.ts["theta"][imean, jz]))
-        print(imean)
-        # assign to self.profile and return
-        self.prof["u"] = np.array(u_mean)
-        self.prof["v"] = np.array(v_mean)
-        self.prof["w"] = np.array(w_mean)
-        self.prof["theta"] = np.array(theta_mean)
-        # also calculate ws and wd
+        # now only grab indices where 3 m <= zuas <= 396 m
+        iuse = np.where((zuas >= 3.) & (zuas <= 396.))[0]
+        zuas = zuas[iuse]
+        # now the fun part -- interpolate in z to get continuous timeseries
+        # of UAS data matching LES timestep dt
+        # define empty dictionary to make it easier to loop and store
+        d_interp = {}
+        # call the interp_uas function defined above
+        for key in self.ts.keys(): 
+            if key not in ["time", "dt"]:
+                print(f"Interpolating {key}...")
+                d_interp[key] = interp_uas(self.ts[key][iuse, :], 
+                                           self.z, zuas)
+        # now grab data from interp arrays to create simulated raw UAS profiles
+        uas_ts = {}
+        for key in self.ts.keys():
+            if key not in ["time", "dt"]:
+                uas_ts[key] = []
+                for i in range(len(iuse)):
+                    uas_ts[key].append(d_interp[key][i,i])
+                self.raw_prof[key] = np.array(uas_ts[key])
+        self.raw_prof["z"] = zuas
+        
+        # now post-process to new altitude bins based on specified average time
+        dz_new = ascent_rate * time_average  # m/s * s = m
+        znew = np.arange(3., 396.1, dz_new, dtype=np.float64)
+        self.prof["z"] = znew
+        uas_mean = {}
+        for key in self.ts.keys():
+            if key not in ["time", "dt"]:
+                uas_mean[key] = []
+                for jz, zz in enumerate(znew):
+                    # find indices in zuas to average over
+                    imean = np.where((zuas >= zz-dz_new/2.) &\
+                                     (zuas < zz+dz_new/2.))[0]
+                    uas_mean[key].append(np.mean(self.raw_prof[key][imean]))
+                self.prof[key] = np.array(uas_mean[key])
+        # also calculate ws and wd and assign
         self.prof["ws"] = ((self.prof["u"]**2.) + (self.prof["v"]**2.)) ** 0.5
         wd = np.arctan2(-self.prof["u"], -self.prof["v"]) * 180./np.pi
         wd[wd < 0.] += 360.
