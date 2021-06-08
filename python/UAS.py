@@ -33,7 +33,7 @@ sF = UAS_emulator("/home/bgreene/simulations/F_192_interp/output/",
 s_all = [sA, sF]
 for s in s_all:
     s.read_timeseries(720000, 0.02, raw=False)
-    s.profile(ascent_rate=1.0, time_average=3.0)
+    s.profile(ascent_rate=1.0, time_average=3.0, time_start=1200.0)
     
 # plot uas versus mean (loop over all)
 for s in s_all:
@@ -64,31 +64,26 @@ for s in s_all:
 
 # plot raw uas versus mean (loop over all)
 for s in s_all:
-    fig2, ax2 = plt.subplots(nrows=1, ncols=4, sharey=True, figsize=(12, 8))
-    # u
-    ax2[0].plot(s.xytavg["u"], s.z, "-k", label="Mean LES")
-    ax2[0].plot(s.raw_prof["u"], s.raw_prof["z"], "-r", label="Raw UAS")
+    fig2, ax2 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(12, 8))
+    # ws
+    ax2[0].plot(s.xytavg["ws"], s.z, "-k", label="Mean LES")
+    ax2[0].plot(s.raw_prof["ws"], s.raw_prof["z"], "-r", label="Raw UAS")
     ax2[0].grid()
-    ax2[0].legend()
-    ax2[0].set_xlabel("$u$ [m/s]")
+    ax2[0].legend(loc="upper left")
+    ax2[0].set_xlabel("Wind Speed [m/s]")
     ax2[0].set_ylabel("$z$ [m]")
-    # v
-    ax2[1].plot(s.xytavg["v"], s.z, "-k", label="Mean LES")
-    ax2[1].plot(s.raw_prof["v"], s.raw_prof["z"], "-r", label="Raw UAS")
+    # wd
+    ax2[1].plot(s.xytavg["wd"], s.z, "-k", label="Mean LES")
+    ax2[1].plot(s.raw_prof["wd"], s.raw_prof["z"], "-r", label="Raw UAS")
     ax2[1].grid()
-    ax2[1].set_xlabel("$v$ [m/s]")
-    # w
-    ax2[2].plot(s.xytavg["w"], s.z, "-k", label="Mean LES")
-    ax2[2].plot(s.raw_prof["w"], s.raw_prof["z"], "-r", label="Raw UAS")
-    ax2[2].grid()
-    ax2[2].set_xlabel("$w$ [m/s]")
+    ax2[1].set_xlabel("Wind Direction [$^{\circ}$]")
     # theta
-    ax2[3].plot(s.xytavg["theta"], s.z, "-k", label="Mean LES")
-    ax2[3].plot(s.raw_prof["theta"], s.raw_prof["z"], "-r", label="Raw UAS")
-    ax2[3].grid()
-    ax2[3].set_xlabel("$\\theta$ [K]")
+    ax2[2].plot(s.xytavg["theta"], s.z, "-k", label="Mean LES")
+    ax2[2].plot(s.raw_prof["theta"], s.raw_prof["z"], "-r", label="Raw UAS")
+    ax2[2].grid()
+    ax2[2].set_xlabel("$\\theta$ [K]")
     # save figure
-    fsave2 = f"{fdir_save}{s.stab}_raw_uvwtheta.pdf"
+    fsave2 = f"{fdir_save}{s.stab}_raw_ws_wd_theta.pdf"
     print(f"Saving figure: {fsave2}")
     fig2.savefig(fsave2, format="pdf", bbox_inches="tight")
     plt.close(fig2)

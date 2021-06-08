@@ -86,6 +86,7 @@ class simulation():
         self.len = {} # autocorr lengthscale data from .npz files
         self.spec = None # spectra data from .npz files
         self.RFM = {} # relaxed filter for random errors from .npz files
+        self.RFM_new = {} # recalculated errors, both LP and RFM
         
         # initialize empty z variable
         self.z = None
@@ -288,6 +289,43 @@ class simulation():
             self.RFM[key] = dat[key]
         return
     
+    def recalc_rand_err(self, Tnew, param):
+        # param is string, either "u" or "theta" (doesnt work for u'w' yet)
+        # first, LP error
+        # err_LP = sqrt{2*L*var / (L * mean**2)}
+        isbl = self.RFM["isbl"]
+        Lnew = Tnew * self.xytavg["ws"][isbl]
+        len_key = f"len_{param}"
+        var_key = f"{param}_var_tot"
+        if param == "u":
+            avg_key = "ws"
+        else:
+            avg_key = param
+        
+        # calculate
+        err_LP = np.sqrt((2.*self.RFM[len_key]*self.var[var_key][isbl])/\
+                      (Lnew*self.xytavg[avg_key][isbl]))
+        # assign to RFM_new
+        self.RFM_new[f"err_{param}_LP"] = err_LP
+        
+        # now calculate RFM error
+        # need to get L_H_param from dx_LH_param and delta_x
+        # this indexing will give L_H as function of z (within sbl)
+        if param == "theta":
+            dxLH_key = f"dx_LH_t"
+        else:
+            dxLH_key = f"dx_LH_{param}"
+        L_H = self.RFM["delta_x"][0] / self.RFM[dxLH_key][0,:]
+        x_LH = (self.xytavg["ws"][isbl] * Tnew) / L_H
+        # calculate MSE = var * C * (x/L_H)**-p
+        MSE = self.var[var_key][isbl] *\
+              (self.RFM[f"C_{param}"] * (x_LH ** -self.RFM[f"p_{param}"]))
+        RMSE = np.sqrt(MSE)
+        # err_RFM = RMSE / mean
+        err_RFM = RMSE / self.xytavg[avg_key][isbl]
+        self.RFM_new[f"err_{param}"] = err_RFM
+        return
+    
 class UAS_emulator(simulation):
     """Emulate a profile from a rotary-wing UAS based on timeseries data
     Inherits simulation class to conveniently load in mean simulation
@@ -352,9 +390,10 @@ class UAS_emulator(simulation):
                 
         return
                 
-    def profile(self, ascent_rate=1.0, time_average=3.0):
+    def profile(self, ascent_rate=1.0, time_average=3.0, time_start=0.0):
         # specify an ascent rate in m/s, default = 1.0; if <= 0 then instantaneous
         # also specify averaging intervals to match random error analysis
+        # can set time_start lag in seconds to somewhat randomize profiles
         # output data on z grid based on ascent_rate and time_average
         # assigns data to self.prof and returns
         # first check to see if time_constant != 0 and set flag
@@ -363,8 +402,14 @@ class UAS_emulator(simulation):
         if ascent_rate <= 0.0:
             inst = True  
         # calculate array of theoretical altitudes based on ts["time"]
-        # and ascent_rate
+        # and ascent_rate, keeping in account time_start
         zuas = ascent_rate * self.ts["time"]
+        # find the index in self.ts["time"] that corresponds to time_start
+        istart = int(time_start / self.ts["dt"])
+        # set zuas[:istart] = 0 and then subtract everything after that
+        zuas[:istart] = 0
+        zuas[istart:] -= zuas[istart]
+            
         # now only grab indices where 3 m <= zuas <= 396 m
         iuse = np.where((zuas >= 3.) & (zuas <= 396.))[0]
         zuas = zuas[iuse]
@@ -387,6 +432,12 @@ class UAS_emulator(simulation):
                     uas_ts[key].append(d_interp[key][i,i])
                 self.raw_prof[key] = np.array(uas_ts[key])
         self.raw_prof["z"] = zuas
+        # calc ws and wd
+        self.raw_prof["ws"] = ((self.raw_prof["u"]**2.) +\
+                               (self.raw_prof["v"]**2.)) ** 0.5
+        wd = np.arctan2(-self.raw_prof["u"], -self.raw_prof["v"]) * 180./np.pi
+        wd[wd < 0.] += 360.
+        self.raw_prof["wd"] = wd
         
         # now post-process to new altitude bins based on specified average time
         dz_new = ascent_rate * time_average  # m/s * s = m
