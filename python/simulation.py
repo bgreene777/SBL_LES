@@ -337,6 +337,7 @@ class UAS_emulator(simulation):
         self.read_csv()
         self.calc_Ri()
         self.calc_most()
+        self.read_RFM(f"/home/bgreene/SBL_LES/output/RFM_{self.stab}{self.lab}.npz")
         # now assign additional params
         self.ts = {}  # raw timeseries data: u, v, w, theta
         self.u_scale = 0.4
@@ -458,5 +459,13 @@ class UAS_emulator(simulation):
         wd = np.arctan2(-self.prof["u"], -self.prof["v"]) * 180./np.pi
         wd[wd < 0.] += 360.
         self.prof["wd"] = wd
+        
+        # get isbl for znew
+        isbl_new = np.where(znew <= self.h)[0]
+        self.prof["isbl"] = isbl_new
+        # interpolate errors from RFM to znew grid
+        for key in ["u", "theta"]:
+            err_new = np.interp(znew[isbl_new], self.z[self.RFM["isbl"]], self.RFM[f"err_{key}"])
+            self.RFM[f"err_{key}_interp"] = err_new
         return
         
