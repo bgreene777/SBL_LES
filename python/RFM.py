@@ -441,14 +441,16 @@ for kz in range(nz_sbl):
     
 # now calculate relative random error: epsilon = RMSE(x_delta) / <x>
 # RMSE = C**0.5 * delta**(-p/2)
-# use T = 3 sec and convert to x/L_H via Taylor
-T = config["T_sample"]  # s
-x_LH_u = (Ubar_rot[isbl] * T) / L_H_u
-x_LH_v = (Ubar_rot[isbl] * T) / L_H_v
-x_LH_t = (Ubar_rot[isbl] * T) / L_H_t
-x_LH_uw = (Ubar_rot[isbl] * T) / L_H_uw
-x_LH_vw = (Ubar_rot[isbl] * T) / L_H_vw
-x_LH_tw = (Ubar_rot[isbl] * T) / L_H_tw
+# use T from config and convert to x/L_H via Taylor
+# separate for u,v,theta / uw,vw,tw
+T1 = config["T_sample_u"]  # s
+T2 = config["T_sample_cov"]  # s
+x_LH_u = (Ubar_rot[isbl] * T1) / L_H_u
+x_LH_v = (Ubar_rot[isbl] * T1) / L_H_v
+x_LH_t = (Ubar_rot[isbl] * T1) / L_H_t
+x_LH_uw = (Ubar_rot[isbl] * T2) / L_H_uw
+x_LH_vw = (Ubar_rot[isbl] * T2) / L_H_vw
+x_LH_tw = (Ubar_rot[isbl] * T2) / L_H_tw
 
 # now using the values of C and p, extrapolate to calc MSE/var{x}
 MSE = Uvar[isbl] * (C * (x_LH_u**-p))

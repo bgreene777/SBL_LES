@@ -16,4 +16,5 @@ dmin_u: 1.0
 dmax_u: 5.0
 dmin_cov: 2.0
 dmax_cov: 16.0
-T_sample: 3.0
+T_sample_u: 3.0
+T_sample_cov: 1800.0
