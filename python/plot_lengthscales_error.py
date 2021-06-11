@@ -4,6 +4,8 @@
 # University of Oklahoma
 # Created: 12 May 2021
 # Purpose: plot output from random_errors_filter.py and integral_lengthscale.py
+# Updated: 11 June 2021 - now decided on sim resolution and RFM method
+# so create plotting routines to make it easier for plotting all params
 # --------------------------------
 import os
 import numpy as np
@@ -24,7 +26,134 @@ fstr = ["-k", "--k", ":k", ".-k", "-r", "--r", ":r", ".-r", "-b", "--b", ":b", "
 colors = [(225./255, 156./255, 131./255),
           (134./255, 149./255, 68./255), (38./255, 131./255, 63./255),
           (0., 85./255, 80./255), (20./255, 33./255, 61./255), (252./255, 193./255, 219./255)]
+# --------------------------------
+# Define plotting routines
+# --------------------------------
 
+def plot_int_len(sim, fsave=fdir_save):
+    """
+    3 separate figures: 
+    1) u, v, theta 
+    2) u'w', v'w', theta'w' 
+    3) u'u', v'v', w'w', theta'theta'
+    all of these live within sim.RFM
+    """
+    #
+    # 1) u, v, theta
+    #
+    # create figure and axes handles
+    fig1, ax1 = plt.subplots(nrows=2,ncols=3, sharey=True, figsize=(16, 12))
+    # row 1: length scales
+    # u length scale
+    ax1[0,0].plot(s.RFM["len_u"], s.z[s.RFM["isbl"]]/s.h, color=colors[1], linestyle="-")
+    # v length scale
+    ax1[0,1].plot(s.RFM["len_v"], s.z[s.RFM["isbl"]]/s.h, color=colors[1], linestyle="-")
+    # theta length scale
+    ax1[0,2].plot(s.RFM["len_theta"], s.z[s.RFM["isbl"]]/s.h, color=colors[1], linestyle="-")
+    # row 2: time scales
+    # u length scale
+    ax1[1,0].plot(s.RFM["len_u"]/s.xytavg["ws"][s.RFM["isbl"]], s.z[s.RFM["isbl"]]/s.h, 
+                  color=colors[1], linestyle="-")
+    # v length scale
+    ax1[1,1].plot(s.RFM["len_v"]/s.xytavg["ws"][s.RFM["isbl"]], s.z[s.RFM["isbl"]]/s.h, 
+                  color=colors[1], linestyle="-")
+    # theta length scale
+    ax1[1,2].plot(s.RFM["len_theta"]/s.xytavg["ws"][s.RFM["isbl"]], s.z[s.RFM["isbl"]]/s.h, 
+                  color=colors[1], linestyle="-") 
+    # also plot zj as horiz line
+    for iax in ax1.ravel():
+        iax.axhline(s.xytavg["zj"]/s.h, color=colors[1], linestyle="--", label="$z_{LLJ}$")
+
+    # format figures
+    # u length scale
+    ax1[0,0].set_xlabel("$\mathcal{L}_u$ [m]")
+    ax1[0,0].set_ylabel("$z/h$")
+    ax1[0,0].grid()
+#     ax1[0,0].legend()
+    ax1[0,0].set_ylim([-0.05, 1.2])
+    # v length scale
+    ax1[0,1].set_xlabel("$\mathcal{L}_v$ [m]")
+    ax1[0,1].grid()
+    # theta length scale
+    ax1[0,2].set_xlabel("$\mathcal{L}_{\\theta}$ [m]")
+    ax1[0,2].grid()
+    # u time scale
+    ax1[1,0].set_xlabel("$\mathcal{T}_u$ [s]")
+    ax1[1,0].set_ylabel("$z/h$")
+    ax1[1,0].grid()
+#     ax1[1,0].legend()
+    # v time scale
+    ax1[1,1].set_xlabel("$\mathcal{T}_v$ [s]")
+    ax1[1,1].grid()
+    # theta time scale
+    ax1[1,2].set_xlabel("$\mathcal{T}_{\\theta}$ [s]")
+    ax1[1,2].grid()
+
+    # save figure
+    fsave1 = f"{fsave}{s.stab}_u_v_theta_lengthscales.pdf"
+    print(f"Saving figure: {fsave1}")
+    fig1.savefig(fsave1, format="pdf", bbox_inches="tight")
+    plt.close(fig1)
+    
+    #
+    # 2) u'w', v'w', theta'w'
+    #
+    # create figure and axes handles
+    fig2, ax2 = plt.subplots(nrows=2,ncols=3, sharey=True, figsize=(16, 12))
+    # row 1: length scales
+    # u'w' length scale
+    ax2[0,0].plot(s.RFM["len_uw"], s.z[s.RFM["isbl"]]/s.h, color=colors[1], linestyle="-")
+    # v'w' length scale
+    ax2[0,1].plot(s.RFM["len_vw"], s.z[s.RFM["isbl"]]/s.h, color=colors[1], linestyle="-")
+    # theta'w' length scale
+    ax2[0,2].plot(s.RFM["len_thetaw"], s.z[s.RFM["isbl"]]/s.h, color=colors[1], linestyle="-")
+    # row 2: time scales
+    # u'w' length scale
+    ax2[1,0].plot(s.RFM["len_uw"]/s.xytavg["ws"][s.RFM["isbl"]], s.z[s.RFM["isbl"]]/s.h, 
+                  color=colors[1], linestyle="-")
+    # v length scale
+    ax2[1,1].plot(s.RFM["len_vw"]/s.xytavg["ws"][s.RFM["isbl"]], s.z[s.RFM["isbl"]]/s.h, 
+                  color=colors[1], linestyle="-")
+    # theta length scale
+    ax2[1,2].plot(s.RFM["len_thetaw"]/s.xytavg["ws"][s.RFM["isbl"]], s.z[s.RFM["isbl"]]/s.h, 
+                  color=colors[1], linestyle="-") 
+    # also plot zj as horiz line
+    for iax in ax2.ravel():
+        iax.axhline(s.xytavg["zj"]/s.h, color=colors[1], linestyle="--", label="$z_{LLJ}$")
+
+    # format figures
+    # u'w' length scale
+    ax2[0,0].set_xlabel("$\mathcal{L}_{u'w'}$ [m]")
+    ax2[0,0].set_ylabel("$z/h$")
+    ax2[0,0].grid()
+#     ax1[0,0].legend()
+    ax2[0,0].set_ylim([-0.05, 1.2])
+    # v'w' length scale
+    ax2[0,1].set_xlabel("$\mathcal{L}_{v'w'}$ [m]")
+    ax2[0,1].grid()
+    # theta'w' length scale
+    ax2[0,2].set_xlabel("$\mathcal{L}_{\\theta'w'}$ [m]")
+    ax2[0,2].grid()
+    # u'w' time scale
+    ax2[1,0].set_xlabel("$\mathcal{T}_{u'w'}$ [m] [s]")
+    ax2[1,0].set_ylabel("$z/h$")
+    ax2[1,0].grid()
+#     ax1[1,0].legend()
+    # v'w' time scale
+    ax2[1,1].set_xlabel("$\mathcal{T}_{u'w'}$ [m] [s]")
+    ax2[1,1].grid()
+    # theta'w' time scale
+    ax2[1,2].set_xlabel("$\mathcal{T}_{\\theta'w'}$ [s]")
+    ax2[1,2].grid()
+
+    # save figure
+    fsave2 = f"{fsave}{s.stab}_cov_lengthscales.pdf"
+    print(f"Saving figure: {fsave2}")
+    fig2.savefig(fsave2, format="pdf", bbox_inches="tight")
+    plt.close(fig2)
+
+
+# --------------------------------
 #
 # Create simulation objects
 #
