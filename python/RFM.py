@@ -100,7 +100,7 @@ def Bartlett(R, U, xlags):
     for jz in range(R.shape[1]):
         # Bartlett large-lag standard error
         # determine equivalent of Q*delta_t = 5 min in spatial coords
-        Qdx = (5.*60.) / U[jz]  # m
+        Qdx = (5.*60.) * U[jz]  # m
         # find indices in xlags smaller than Qdx
         iQdx = np.where(xlags <= Qdx)[0][-1]
         # calculate standard error
@@ -108,6 +108,8 @@ def Bartlett(R, U, xlags):
         errB = np.sqrt(varB)
         # look at autocorrelation again to find first instance dipping below errB
         iLH = np.where(abs(R[:,jz]) <= errB)[0][0]
+        if len(iLH) == 0:
+            iLH = 1
         # xlags[iLH] is L_H, so insert this value into L_H array
         L_H[jz] = xlags[iLH]
     
