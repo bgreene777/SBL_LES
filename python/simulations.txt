@@ -1,2 +1,5 @@
 simdir,fslurm,task,f90exec,interpdim
-/home/bgreene/simulations/F_160_interp/,slurm-2102.out,stats,calc_stats_F160.exe,160
+/home/bgreene/simulations/B_spinup/,slurm-2129.out,interp3d,interp3d_B192.exe,192
+/home/bgreene/simulations/C_spinup/,slurm-2130.out,interp3d,interp3d_C192.exe,192
+/home/bgreene/simulations/D_spinup/,slurm-2131.out,interp3d,interp3d_D192.exe,192
+/home/bgreene/simulations/E_spinup/,slurm-2132.out,interp3d,interp3d_E192.exe,192

@@ -20,8 +20,12 @@ def check_slurm_finished(fdir, fslurm):
     # Read fdir+fslurm to check for completion
     # Returns boolean
     print(f"Reading {fdir}{fslurm} to determine if finished...")
-    with open(f"{fdir}{fslurm}") as f:
-        txt = f.read()
+    try:
+        with open(f"{fdir}{fslurm}") as f:
+            txt = f.read()
+    except FileNotFoundError:
+        print(f"{fslurm} does not exist, simulation has not yet begun.")
+        return False
     # check for completion
     if "END" in txt:
         print(f"Simulation finished! Time: {datetime.utcnow()}")
