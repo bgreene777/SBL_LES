@@ -10,6 +10,9 @@
 # --Updates--
 # 28 May 2021: Include calculations for u'w'; begin changes to filter over
 # all scales dx->Lx but only fit RFM in specified windows
+# 15 June 2021: Include calculations for v'w', theta'w', 
+# u'u', v'v', w'w', theta'theta'
+# 16 June 2021: caught error in Bartlett converting Qdt -> Qdx via Taylor
 # --------------------------------
 import yaml
 import numpy as np
@@ -19,6 +22,7 @@ from scipy.optimize import curve_fit
 from datetime import datetime
 from numba import njit
 from simulation import read_f90_bin
+from run_calc_stats import send_sms
 # --------------------------------
 # Define Functions
 # --------------------------------
@@ -102,14 +106,20 @@ def Bartlett(R, U, xlags):
         # determine equivalent of Q*delta_t = 5 min in spatial coords
         Qdx = (5.*60.) * U[jz]  # m
         # find indices in xlags smaller than Qdx
-        iQdx = np.where(xlags <= Qdx)[0][-1]
+        iQdx = np.where(xlags <= Qdx)[0]
+        if np.size(iQdx) == 0:
+            iQdx = 1
+        else:
+            iQdx = iQdx[-1]
         # calculate standard error
         varB = (1. + 2.*np.sum(R[:iQdx, jz]**2.)) / len(xlags)
         errB = np.sqrt(varB)
         # look at autocorrelation again to find first instance dipping below errB
-        iLH = np.where(abs(R[:,jz]) <= errB)[0][0]
-        if len(iLH) == 0:
+        iLH = np.where(abs(R[:,jz]) <= errB)[0]
+        if np.size(iLH) == 0:
             iLH = 1
+        else:
+            iLH = iLH[0]
         # xlags[iLH] is L_H, so insert this value into L_H array
         L_H[jz] = xlags[iLH]
     
@@ -389,6 +399,10 @@ Rtt /= nt
 Ruwuw /= nt
 Rvwvw /= nt
 Rtwtw /= nt
+Ruuuu /= nt
+Rvvvv /= nt
+Rwwww /= nt
+Rtttt /= nt
 uwuw_var /= nt
 uwuw_var_xytavg = np.mean(uwuw_var, axis=(0,1))
 vwvw_var /= nt
@@ -481,6 +495,10 @@ dx_LH_t_fit = {}
 dx_LH_uw_fit = {}
 dx_LH_vw_fit = {}
 dx_LH_tw_fit = {}
+dx_LH_uu_fit = {}
+dx_LH_vv_fit = {}
+dx_LH_ww_fit = {}
+dx_LH_tt_fit = {}
 var_u_fit = {}
 var_v_fit = {}
 var_theta_fit = {}
@@ -535,7 +553,7 @@ for kz in range(nz_sbl):
     var_tt_fit[kz] = var_tt_all[i_dx_tt,kz]
     
 # now can loop over z to fit power law to each set of var_u_all vs dx_LH_u
-C, p, Cv, pv, Ctheta, ptheta, Cuw, puw, Cvw, pvw, Ctw, ptw, 
+C, p, Cv, pv, Ctheta, ptheta, Cuw, puw, Cvw, pvw, Ctw, ptw,\
 Cuu, puu, Cvv, pvv, Cww, pww, Ctt, ptt=\
 (np.zeros(nz_sbl, dtype=np.float64) for _ in range(20))
 for kz in range(nz_sbl):
@@ -563,9 +581,10 @@ for kz in range(nz_sbl):
     (Cvv[kz], pvv[kz]), _ = curve_fit(f=RFM, xdata=dx_LH_vv_fit[kz],
                                       ydata=var_vv_fit[kz]/vvvv_var_xytavg[kz],
                                       p0=[0.001,0.001])
-    (Cww[kz], pww[kz]), _ = curve_fit(f=RFM, xdata=dx_LH_ww_fit[kz],
-                                      ydata=var_ww_fit[kz]/wwww_var_xytavg[kz],
-                                      p0=[0.001,0.001])
+    if kz > 0:
+        (Cww[kz], pww[kz]), _ = curve_fit(f=RFM, xdata=dx_LH_ww_fit[kz],
+                                          ydata=var_ww_fit[kz]/wwww_var_xytavg[kz],
+                                          p0=[0.001,0.001])
     (Ctt[kz], ptt[kz]), _ = curve_fit(f=RFM, xdata=dx_LH_tt_fit[kz],
                                       ydata=var_tt_fit[kz]/tttt_var_xytavg[kz],
                                       p0=[0.001,0.001])
@@ -658,3 +677,5 @@ np.savez(fsave, z=z, h=h, isbl=isbl, delta_x=delta_x, yaml=config,
          err_ww=err_ww, C_ww=Cww, p_ww=pww,
          err_tt=err_tt, C_tt=Ctt, p_tt=ptt
         )
+
+send_sms("/home/bgreene/SBL_LES/python/sms.yaml", f"Finished RFM.py, saved {config['fsave']}")
