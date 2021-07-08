@@ -34,13 +34,13 @@ def check_slurm_finished(fdir, fslurm):
         print(f"Simulation still running, try later. Time: {datetime.utcnow()}")
         return False
 # --------------------------------    
-def check_already_processed(fdir):
+def check_already_processed(fdir,dimsize):
     # check for presence of calc_stats.txt in fdir, signifying 
     # that calc_stats() has already been run
     # Returns boolean
     if os.path.exists(f"{fdir}calc_stats.txt"):
         return True
-    elif os.path.exists(f"{fdir}interp3d.txt"):
+    elif os.path.exists(f"{fdir}interp3d_{dimsize}.txt"):
         return True
     else:
         return False
@@ -101,7 +101,7 @@ def main(dsim):
     # before anything else, check if sim finished
     sim_finished = check_slurm_finished(dsim[0], dsim[1])
     # also check to see if calc_stats or interp3d have been run already
-    task_complete = check_already_processed(dsim[0])
+    task_complete = check_already_processed(dsim[0], dsim[4])
     if not sim_finished:
         # not done -- print time and quit
         print("run_calc_stats.py finished.")
