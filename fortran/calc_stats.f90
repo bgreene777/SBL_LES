@@ -2,9 +2,9 @@ program calc_stats
 
 implicit none
 
-integer, parameter :: nx = 160, ny = 160, nz = 160
+integer, parameter :: nx = 192, ny = 192, nz = 192
 integer, parameter :: nt = 180
-integer, parameter :: t0 = 900000, dnt = 1000 ! starting file and spacing
+integer, parameter :: t0 = 1080000, dnt = 1000 ! starting file and spacing
 real(8), parameter :: Lx=800, Ly=800, Lz=400
 real(8) :: dx=Lx/dble(nx), dy=Ly/dble(ny), dz=Lz/dble(nz)
 real(8) :: z
@@ -18,7 +18,9 @@ real(8), dimension(nz) :: u_mean, v_mean, w_mean, theta_mean, dissip_mean, &
                           uw_cov_res, uw_cov_tot, &
                           vw_cov_res, vw_cov_tot, &
                           u_var_res, u_var_tot, v_var_res, v_var_tot, &
-                          w_var_res, w_var_tot, theta_var_res, theta_var_tot,& 
+                          w_var_res, w_var_tot, theta_var_res, theta_var_tot,&
+                          ! unrotated u and v variances
+                          u_var_res2, u_var_tot2, v_var_res2, v_var_tot2,&
                           uuw, vvw, www
 real(8), dimension(nz) :: dudz, dvdz, dwdz, duuwdz, dvvwdz, dwwwdz
 real(8), dimension(nz) :: shear_prod, buoy_prod, turb_trans
@@ -29,7 +31,7 @@ real(8) :: z_scale = Lz
 integer :: i
 logical, parameter :: calc_TKE = .true.
 
-fdir = "/home/bgreene/simulations/F_160_interp/output/"
+fdir = "/home/bgreene/simulations/F_192_interp/output/"
 if (.not. calc_TKE) then
     dissip = 0.
     dissip_mean = 0.
@@ -82,6 +84,10 @@ print *, "Begin calculating <w'w'>"
 call calc_covariance(nx,ny,nz,nt,w,w,zeros,w_var_res,w_var_tot)
 print *, "Begin calculating <theta'theta'>"
 call calc_covariance(nx,ny,nz,nt,theta,theta,zeros,theta_var_res,theta_var_tot)
+print *, "Begin calculating <u'u'> unrotated"
+call calc_covariance(nx,ny,nz,nt,u,u,zeros,u_var_res2,u_var_tot2)
+print *, "Begin calculating <v'v'> unrotated"
+call calc_covariance(nx,ny,nz,nt,v,v,zeros,v_var_res2,v_var_tot2)
 
 !print *, u_var_tot - u_var_res
 
@@ -94,10 +100,10 @@ open(12,file=fsave,action='write',status='replace')
 write(12,*) "z, ubar, vbar, wbar, Tbar, dissipbar, uw_cov_res, uw_cov_tot,"//& 
             "vw_cov_res, vw_cov_tot, thetaw_cov_res, thetaw_cov_tot,"//&
             "u_var_res, u_var_tot, v_var_res, v_var_tot,"//&
-            "w_var_res, w_var_tot, theta_var_res"
+            "w_var_res, w_var_tot, theta_var_res, u_var_unrotated, v_var_unrotated"
 1000 format((F12.8,",",F12.8,",",F12.8,",",F12.8,",",F12.8,",",F12.8,",",F12.8,",",F12.8,&
              ",",F12.8,",",F12.8,",",F12.8,",",F12.8,",",F12.8,",",F12.8,&
-             ",",F12.8,",",F12.8,",",F12.8,",",F12.8,",",F12.8))
+             ",",F12.8,",",F12.8,",",F12.8,",",F12.8,",",F12.8,",",F12.8,",",F12.8))
 
 do i=1,nz
     z=(dble(i)-0.5)*dz
@@ -105,7 +111,7 @@ do i=1,nz
                    uw_cov_res(i),uw_cov_tot(i),vw_cov_res(i),vw_cov_tot(i),&
                    thetaw_cov_res(i), thetaw_cov_tot(i), u_var_res(i), &
                    u_var_tot(i), v_var_res(i), v_var_tot(i), w_var_res(i), &
-                   w_var_tot(i), theta_var_res(i)
+                   w_var_tot(i), theta_var_res(i), u_var_tot2(i), v_var_tot2(i)
 end do
 close(12)
 

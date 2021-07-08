@@ -13,6 +13,7 @@
 # 15 June 2021: Include calculations for v'w', theta'w', 
 # u'u', v'v', w'w', theta'theta'
 # 16 June 2021: caught error in Bartlett converting Qdt -> Qdx via Taylor
+# 8 July 2021: also calculate unrotated u and v var for error prop calc
 # --------------------------------
 import yaml
 import numpy as np
@@ -188,8 +189,10 @@ fstat = f"{fdir}average_statistics.csv"
 dstat = np.loadtxt(fstat, delimiter=",", skiprows=1)
 Ubar = dstat[:,1]
 Uvar = dstat[:,13]
+Uvar2= dstat[:,19]
 Vbar = dstat[:,2]
 Vvar = dstat[:,15]
+Vvar2= dstat[:,20]
 Wbar = dstat[:,3]
 Wvar = dstat[:,17]
 thetabar = dstat[:,4]
@@ -238,8 +241,12 @@ Vbar_rot =-Ubar*np.sin(angle) + Vbar*np.cos(angle)
 
 # initialize autocorrelation of u_rot, Ruu
 Ruu = np.zeros((nx, nz_sbl), dtype=np.float64)
+# initialize autocorrelation of unrotated u, Ruu2
+Ruu2 = np.zeros((nx, nz_sbl), dtype=np.float64)
 # initialize autocorrelation of v_rot, Rvv
 Rvv = np.zeros((nx, nz_sbl), dtype=np.float64)
+# initialize autocorrelation of unrotated v, Rvv2
+Rvv2 = np.zeros((nx, nz_sbl), dtype=np.float64)
 # initialize autocorrelation of theta, Rtt
 Rtt = np.zeros((nx, nz_sbl), dtype=np.float64)
 # initialize autocorrelation of uw_cov, Ruwuw
@@ -259,9 +266,10 @@ uwuw_var, vwvw_var, twtw_var =\
 uuuu_var, vvvv_var, wwww_var, tttt_var =\
 (np.zeros((nx,ny,nz_sbl), dtype=np.float64) for _ in range(4))
 # define var_u_all arrays for time averaging later
-var_u_all, var_v_all, var_theta_all, var_uw_all, var_vw_all, var_tw_all,\
+var_u_all, var_u_all2, var_v_all, var_v_all2, var_theta_all,\
+var_uw_all, var_vw_all, var_tw_all,\
 var_uu_all, var_vv_all, var_ww_all, var_tt_all =\
-(np.zeros((nfilt,nz_sbl), dtype=np.float64) for _ in range(10))
+(np.zeros((nfilt,nz_sbl), dtype=np.float64) for _ in range(12))
 
 # begin loop
 # run relaxed_filter for u_rot and theta
@@ -359,7 +367,9 @@ for i in range(nt):
     # calculate autocorrelation of u_rot, Ruu and theta, Rtt
     # accumulate in single variable, then divide by number of timesteps after
     Ruu += autocorr(u_rot[:,:,isbl], nx)
+    Ruu2 += autocorr(u_in[:,:,isbl], nx) # unrotated
     Rvv += autocorr(v_rot[:,:,isbl], nx)
+    Rvv2 += autocorr(v_in[:,:,isbl], nx) # unrotated
     Rtt += autocorr(theta_in[:,:,isbl], nx)
     Ruwuw += autocorr(uw_cov, nx)
     Rvwvw += autocorr(vw_cov, nx)
@@ -371,7 +381,9 @@ for i in range(nt):
     
     # run relaxed_filter - dont need L_H anymore to run since filtering over all scales
     var_u = relaxed_filter(u_rot, delta_x, Lx, nx, nz_sbl)
+    var_u2 = relaxed_filter(u_in, delta_x, Lx, nx, nz_sbl)
     var_v = relaxed_filter(v_rot, delta_x, Lx, nx, nz_sbl)
+    var_v2 = relaxed_filter(v_in, delta_x, Lx, nx, nz_sbl)
     var_theta = relaxed_filter(theta_in, delta_x, Lx, nx, nz_sbl)
     var_uw = relaxed_filter(uw_cov, delta_x, Lx, nx, nz_sbl)
     var_vw = relaxed_filter(vw_cov, delta_x, Lx, nx, nz_sbl)
@@ -382,7 +394,9 @@ for i in range(nt):
     var_tt = relaxed_filter(tt_var, delta_x, Lx, nx, nz_sbl)
     # add var_u into var_u_all
     var_u_all += var_u
-    var_v_all += var_u
+    var_u_all2 += var_u2 # unrotated
+    var_v_all += var_v
+    var_v_all2 += var_v2 # unrotated
     var_theta_all += var_theta
     var_uw_all += var_uw
     var_vw_all += var_vw
@@ -394,7 +408,9 @@ for i in range(nt):
     
 # divide by number of timesteps to get average in time
 Ruu /= nt
+Ruu2 /= nt
 Rvv /= nt
+Rvv2 /= nt
 Rtt /= nt
 Ruwuw /= nt
 Rvwvw /= nt
@@ -419,7 +435,9 @@ tttt_var /= nt
 tttt_var_xytavg = np.mean(tttt_var, axis=(0,1))
 # time average filtered variances
 var_u_all /= nt
+var_u_all2 /= nt
 var_v_all /= nt
+var_v_all2 /= nt
 var_theta_all /= nt
 var_uw_all /= nt
 var_vw_all /= nt
@@ -431,7 +449,9 @@ var_tt_all /= nt
 
 # calculate integral lengthscales from autocorrelation
 len_u = lengthscale(Ruu, xlags)
+len_u2 = lengthscale(Ruu2, xlags)
 len_v = lengthscale(Rvv, xlags)
+len_v2 = lengthscale(Rvv2, xlags)
 len_theta = lengthscale(Rtt, xlags)
 len_uw = lengthscale(Ruwuw, xlags)
 len_vw = lengthscale(Rvwvw, xlags)
@@ -444,8 +464,12 @@ len_tt = lengthscale(Rtttt, xlags)
 # also calculate LP errors
 err_u_LP = LP_error(len_u, config["T_sample_u"], 
                     Uvar[isbl], Ubar_rot[isbl], Ubar_rot[isbl])
+err_u_LP2 = LP_error(len_u2, config["T_sample_u"], 
+                    Uvar2[isbl], Ubar[isbl], Ubar_rot[isbl])
 err_v_LP = LP_error(len_v, config["T_sample_u"], 
                     Vvar[isbl], Vbar_rot[isbl], Ubar_rot[isbl])
+err_v_LP2 = LP_error(len_v2, config["T_sample_u"], 
+                    Vvar2[isbl], Vbar[isbl], Ubar_rot[isbl])
 err_theta_LP = LP_error(len_theta, config["T_sample_u"], 
                         thetavar[isbl], thetabar[isbl], Ubar_rot[isbl])
 err_uw_LP = LP_error(len_uw, config["T_sample_cov"],
@@ -466,7 +490,9 @@ err_tt_LP = LP_error(len_tt, config["T_sample_cov"],
 
 # now can calculate L_H
 L_H_u = Bartlett(Ruu, Ubar_rot[isbl], xlags)
+L_H_u2 = Bartlett(Ruu2, Ubar_rot[isbl], xlags)
 L_H_v = Bartlett(Rvv, Ubar_rot[isbl], xlags)
+L_H_v2 = Bartlett(Rvv2, Ubar_rot[isbl], xlags)
 L_H_t = Bartlett(Rtt, Ubar_rot[isbl], xlags)
 L_H_uw = Bartlett(Ruwuw, Ubar_rot[isbl], xlags)
 L_H_vw = Bartlett(Rvwvw, Ubar_rot[isbl], xlags)
@@ -478,7 +504,9 @@ L_H_tt = Bartlett(Rtttt, Ubar_rot[isbl], xlags)
 
 # create 2d array of delta_x/L_H for each z
 dx_LH_u = np.array([delta_x / iLH for iLH in L_H_u]).T  # shape(len(delta_x), nz)
+dx_LH_u2 = np.array([delta_x / iLH for iLH in L_H_u2]).T  # shape(len(delta_x), nz)
 dx_LH_v = np.array([delta_x / iLH for iLH in L_H_v]).T  # shape(len(delta_x), nz)
+dx_LH_v2 = np.array([delta_x / iLH for iLH in L_H_v2]).T  # shape(len(delta_x), nz)
 dx_LH_t = np.array([delta_x / iLH for iLH in L_H_t]).T  # shape(len(delta_x), nz)
 dx_LH_uw = np.array([delta_x / iLH for iLH in L_H_uw]).T  # shape(len(delta_x), nz)
 dx_LH_vw = np.array([delta_x / iLH for iLH in L_H_vw]).T  # shape(len(delta_x), nz)
@@ -490,7 +518,9 @@ dx_LH_tt = np.array([delta_x / iLH for iLH in L_H_tt]).T  # shape(len(delta_x), 
             
 # grab the relevant dx_LH and variance values used at each kz for fitting
 dx_LH_u_fit = {}
+dx_LH_u_fit2 = {}
 dx_LH_v_fit = {}
+dx_LH_v_fit2 = {}
 dx_LH_t_fit = {}
 dx_LH_uw_fit = {}
 dx_LH_vw_fit = {}
@@ -515,10 +545,18 @@ for kz in range(nz_sbl):
     i_dx_u = np.where((dx_LH_u[:,kz] >= dmin_u) & (dx_LH_u[:,kz] <= dmax_u))[0]
     dx_LH_u_fit[kz] = dx_LH_u[i_dx_u,kz]
     var_u_fit[kz] = var_u_all[i_dx_u,kz]
+    # u unrotated
+    i_dx_u2 = np.where((dx_LH_u2[:,kz] >= dmin_u) & (dx_LH_u2[:,kz] <= dmax_u))[0]
+    dx_LH_u_fit2[kz] = dx_LH_u2[i_dx_u2,kz]
+    var_u_fit2[kz] = var_u_all2[i_dx_u2,kz]
     # v
     i_dx_v = np.where((dx_LH_v[:,kz] >= dmin_u) & (dx_LH_v[:,kz] <= dmax_u))[0]
     dx_LH_v_fit[kz] = dx_LH_v[i_dx_v,kz]
     var_v_fit[kz] = var_v_all[i_dx_v,kz]
+    # v unrotated
+    i_dx_v2 = np.where((dx_LH_v2[:,kz] >= dmin_u) & (dx_LH_v2[:,kz] <= dmax_u))[0]
+    dx_LH_v_fit2[kz] = dx_LH_v2[i_dx_v2,kz]
+    var_v_fit2[kz] = var_v_all2[i_dx_v2,kz]
     # theta
     i_dx_t = np.where((dx_LH_t[:,kz] >= dmin_u) & (dx_LH_t[:,kz] <= dmax_u))[0]
     dx_LH_t_fit[kz] = dx_LH_t[i_dx_t,kz]
@@ -554,15 +592,21 @@ for kz in range(nz_sbl):
     
 # now can loop over z to fit power law to each set of var_u_all vs dx_LH_u
 C, p, Cv, pv, Ctheta, ptheta, Cuw, puw, Cvw, pvw, Ctw, ptw,\
-Cuu, puu, Cvv, pvv, Cww, pww, Ctt, ptt=\
-(np.zeros(nz_sbl, dtype=np.float64) for _ in range(20))
+Cuu, puu, Cvv, pvv, Cww, pww, Ctt, ptt, Cu2, pu2, Cv2, pv2=\
+(np.zeros(nz_sbl, dtype=np.float64) for _ in range(24))
 for kz in range(nz_sbl):
     (C[kz], p[kz]), _ = curve_fit(f=RFM, xdata=dx_LH_u_fit[kz], 
                                   ydata=var_u_fit[kz]/Uvar[kz], 
                                   p0=[0.001,0.001])
+    (Cu2[kz], pu2[kz]), _ = curve_fit(f=RFM, xdata=dx_LH_u_fit2[kz], 
+                                      ydata=var_u_fit2[kz]/Uvar2[kz], 
+                                      p0=[0.001,0.001])
     (Cv[kz], pv[kz]), _ = curve_fit(f=RFM, xdata=dx_LH_v_fit[kz], 
                                     ydata=var_v_fit[kz]/Vvar[kz], 
                                     p0=[0.001,0.001])
+    (Cv2[kz], pv2[kz]), _ = curve_fit(f=RFM, xdata=dx_LH_v_fit2[kz], 
+                                      ydata=var_v_fit2[kz]/Vvar2[kz], 
+                                      p0=[0.001,0.001])
     (Ctheta[kz], ptheta[kz]), _ = curve_fit(f=RFM, xdata=dx_LH_t_fit[kz],
                                             ydata=var_theta_fit[kz]/thetavar[kz],
                                             p0=[0.001,0.001])
@@ -596,7 +640,9 @@ for kz in range(nz_sbl):
 T1 = config["T_sample_u"]  # s
 T2 = config["T_sample_cov"]  # s
 x_LH_u = (Ubar_rot[isbl] * T1) / L_H_u
+x_LH_u2 = (Ubar_rot[isbl] * T1) / L_H_u2
 x_LH_v = (Ubar_rot[isbl] * T1) / L_H_v
+x_LH_v2 = (Ubar_rot[isbl] * T1) / L_H_v2
 x_LH_t = (Ubar_rot[isbl] * T1) / L_H_t
 x_LH_uw = (Ubar_rot[isbl] * T2) / L_H_uw
 x_LH_vw = (Ubar_rot[isbl] * T2) / L_H_vw
@@ -608,7 +654,9 @@ x_LH_tt = (Ubar_rot[isbl] * T2) / L_H_tt
 
 # now using the values of C and p, extrapolate to calc MSE/var{x}
 MSE = Uvar[isbl] * (C * (x_LH_u**-p))
+MSE_u2 = Uvar2[isbl] * (Cu2 * (x_LH_u2**-pu2))  # unrotated
 MSE_v = Vvar[isbl] * (Cv * (x_LH_v**-pv))
+MSE_v2 = Vvar2[isbl] * (Cv2 * (x_LH_v2**-pv2))  # unrotated
 MSE_theta = thetavar[isbl] * (Ctheta * (x_LH_t**-ptheta))
 MSE_uw = uwuw_var_xytavg * (Cuw * (x_LH_uw**-puw))
 MSE_vw = vwvw_var_xytavg * (Cvw * (x_LH_vw**-pvw))
@@ -619,7 +667,9 @@ MSE_ww = wwww_var_xytavg * (Cww * (x_LH_ww**-pww))
 MSE_tt = tttt_var_xytavg * (Ctt * (x_LH_tt**-ptt))
 # take sqrt to get RMSE
 RMSE = np.sqrt(MSE)
+RMSE_u2 = np.sqrt(MSE_u2)
 RMSE_v = np.sqrt(MSE_v)
+RMSE_v2 = np.sqrt(MSE_v2)
 RMSE_theta = np.sqrt(MSE_theta)
 RMSE_uw = np.sqrt(MSE_uw)
 RMSE_vw = np.sqrt(MSE_vw)
@@ -630,7 +680,9 @@ RMSE_ww = np.sqrt(MSE_ww)
 RMSE_tt = np.sqrt(MSE_tt)
 # finally divide by <U> to get epsilon
 err_u = RMSE / Ubar_rot[isbl]
+err_u2 = RMSE_u2 / Ubar[isbl]
 err_v = RMSE_v
+err_v2 = RMSE_v2 / Vbar[isbl]
 err_theta = RMSE_theta / thetabar[isbl]
 err_uw = RMSE_uw / uw_cov_tot[isbl]
 err_vw = RMSE_vw / vw_cov_tot[isbl]
@@ -645,10 +697,12 @@ fsave = config["fsave"]
 print(f"Saving file: {fsave}")
 np.savez(fsave, z=z, h=h, isbl=isbl, delta_x=delta_x, yaml=config,
          dx_LH_u=dx_LH_u, dx_LH_v=dx_LH_v, dx_LH_t=dx_LH_t, 
+         dx_LH_u2=dx_LH_u2, dx_LH_v2=dx_LH_v2,
          dx_LH_uw=dx_LH_uw, dx_LH_vw=dx_LH_vw, dx_LH_tw=dx_LH_tw,
          dx_LH_uu=dx_LH_uu, dx_LH_vv=dx_LH_vv, dx_LH_ww=dx_LH_ww, 
          dx_LH_tt=dx_LH_tt,
          var_u=var_u_all, var_v=var_v_all, var_theta=var_theta_all, 
+         var_u2=var_u_all2, var_v2=var_v_all2,
          var_uw=var_uw_all, var_vw=var_vw_all, var_tw=var_tw_all,
          var_uu=var_uu_all, var_vv=var_vv_all, var_ww=var_ww_all,
          var_tt=var_tt_all,
@@ -657,7 +711,9 @@ np.savez(fsave, z=z, h=h, isbl=isbl, delta_x=delta_x, yaml=config,
          uuuu_var_xytavg=uuuu_var_xytavg, vvvv_var_xytavg=vvvv_var_xytavg,
          wwww_var_xytavg=wwww_var_xytavg, tttt_var_xytavg=tttt_var_xytavg,
          Ruu=Ruu, len_u=len_u, err_u_LP=err_u_LP,
+         Ruu2=Ruu2, len_u2=len_u2, err_u_LP2=err_u_LP2,
          Rvv=Rvv, len_v=len_v, err_v_LP=err_v_LP,
+         Rvv2=Rvv2, len_v2=len_v2, err_v_LP2=err_v_LP2,
          Rtt=Rtt, len_theta=len_theta, err_theta_LP=err_theta_LP,
          Ruwuw=Ruwuw, len_uw=len_uw, err_uw_LP=err_uw_LP,
          Rvwvw=Rvwvw, len_vw=len_vw, err_vw_LP=err_vw_LP,
