@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # --------------------------------
 # Name: RFM.py
 # Author: Brian R. Greene
@@ -530,7 +531,9 @@ dx_LH_vv_fit = {}
 dx_LH_ww_fit = {}
 dx_LH_tt_fit = {}
 var_u_fit = {}
+var_u_fit2 = {}
 var_v_fit = {}
+var_v_fit2 = {}
 var_theta_fit = {}
 var_uw_fit = {}
 var_vw_fit = {}
@@ -679,18 +682,18 @@ RMSE_vv = np.sqrt(MSE_vv)
 RMSE_ww = np.sqrt(MSE_ww)
 RMSE_tt = np.sqrt(MSE_tt)
 # finally divide by <U> to get epsilon
-err_u = RMSE / Ubar_rot[isbl]
-err_u2 = RMSE_u2 / Ubar[isbl]
+err_u = RMSE / abs(Ubar_rot[isbl])
+err_u2 = RMSE_u2 / abs(Ubar[isbl])
 err_v = RMSE_v
-err_v2 = RMSE_v2 / Vbar[isbl]
-err_theta = RMSE_theta / thetabar[isbl]
-err_uw = RMSE_uw / uw_cov_tot[isbl]
-err_vw = RMSE_vw / vw_cov_tot[isbl]
-err_tw = RMSE_tw / thetaw_cov_tot[isbl]
-err_uu = RMSE_uu / Uvar[isbl]
-err_vv = RMSE_vv / Vvar[isbl]
-err_ww = RMSE_ww / Wvar[isbl]
-err_tt = RMSE_tt / thetavar[isbl]
+err_v2 = RMSE_v2 / abs(Vbar[isbl])
+err_theta = RMSE_theta / abs(thetabar[isbl])
+err_uw = RMSE_uw / abs(uw_cov_tot[isbl])
+err_vw = RMSE_vw / abs(vw_cov_tot[isbl])
+err_tw = RMSE_tw / abs(thetaw_cov_tot[isbl])
+err_uu = RMSE_uu / abs(Uvar[isbl])
+err_vv = RMSE_vv / abs(Vvar[isbl])
+err_ww = RMSE_ww / abs(Wvar[isbl])
+err_tt = RMSE_tt / abs(thetavar[isbl])
 
 # now save output in an npz file
 fsave = config["fsave"]
@@ -723,7 +726,9 @@ np.savez(fsave, z=z, h=h, isbl=isbl, delta_x=delta_x, yaml=config,
          Rwwww=Rwwww, len_ww=len_ww, err_ww_LP=err_ww_LP,
          Rtttt=Rtttt, len_tt=len_tt, err_tt_LP=err_tt_LP,
          err_u=err_u, C_u=C, p_u=p,
+         err_u2=err_u2, C_u2=Cu2, p_u2=pu2,
          err_v=err_v, C_v=Cv, p_v=pv,
+         err_v2=err_v2, C_v2=Cv2, p_v2=pv2,
          err_theta=err_theta, C_theta=Ctheta, p_theta=ptheta,
          err_uw=err_uw, C_uw=Cuw, p_uw=puw,
          err_vw=err_vw, C_vw=Cvw, p_vw=pvw,
