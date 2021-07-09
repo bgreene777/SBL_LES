@@ -409,7 +409,7 @@ s192F = simulation("/home/bgreene/simulations/F_192_interp/output/",
 # put everything into a list for looping
 # s_all = [s128A, s160A, s192A]
 # s_all = [s128F, s160F, s192F]
-s_all = [s192F]
+s_all = [s192A]
 for s in s_all:
     s.read_csv()
     s.calc_Ri()

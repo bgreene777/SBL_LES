@@ -460,11 +460,34 @@ class UAS_emulator(simulation):
         wd[wd < 0.] += 360.
         self.prof["wd"] = wd
         
+        # calculate errors for ws and wd from error propagation
+        # err_ws = sqrt[(sig_u^2 * u^2 + sig_v^2 * v^2) / (u^2 + v^2)] / ws
+        # err_wd = sqrt[(sig_u^2 * v^2 + sig_v^2 * u^2) / (u^2 + v^2)^2] / wd
+        # NOTE these use the *unrotated* error variances for u and v
+        # first recalculate error variances from error and mean quantities
+        isbl = self.RFM["isbl"]
+        sig_u = self.RFM["err_u2"] * abs(self.xytavg["u"][isbl])
+        sig_v = self.RFM["err_v2"] * abs(self.xytavg["v"][isbl])
+        # calculate ws error and assign to RFM
+        err_ws = np.sqrt( (sig_u**2. * self.xytavg["u"][isbl]**2. +\
+                           sig_v**2. * self.xytavg["v"][isbl]**2.)/\
+                          (self.xytavg["u"][isbl]**2. +\
+                           self.xytavg["v"][isbl]**2.) ) /\
+                 self.xytavg["ws"][isbl]
+        self.RFM["err_ws"] = err_ws
+        # calculate wd error and assign to RFM
+        err_wd = np.sqrt( (sig_u**2. * self.xytavg["v"][isbl]**2. +\
+                           sig_v**2. * self.xytavg["u"][isbl]**2.)/\
+                          ((self.xytavg["u"][isbl]**2. +\
+                           self.xytavg["v"][isbl]**2.)**2.) ) /\
+                 self.xytavg["wd"][isbl]
+        self.RFM["err_wd"] = err_wd
+        
         # get isbl for znew
         isbl_new = np.where(znew <= self.h)[0]
         self.prof["isbl"] = isbl_new
         # interpolate errors from RFM to znew grid
-        for key in ["u", "theta"]:
+        for key in ["ws", "wd", "theta"]:
             err_new = np.interp(znew[isbl_new], self.z[self.RFM["isbl"]], self.RFM[f"err_{key}"])
             self.RFM[f"err_{key}_interp"] = err_new
         return

@@ -30,7 +30,7 @@ sF = UAS_emulator("/home/bgreene/simulations/F_192_interp/output/",
                 192, 192, 192, 800., 800., 400., "F")
 
 # combine in list for looping
-s_all = [sA, sF]
+s_all = [sA]
 for s in s_all:
     s.read_timeseries(720000, 0.02, raw=False)
     s.profile(ascent_rate=1.0, time_average=3.0, time_start=1200.0)
@@ -42,13 +42,18 @@ for s in s_all:
     ax1[0].plot(s.xytavg["ws"], s.z, "-k", label="$\\langle ws \\rangle$")
     ax1[0].plot(s.prof["ws"], s.prof["z"], "-r", label="UAS")
     # shade errors
-    err_hi_u = (1. + s.RFM["err_u_interp"]) * s.prof["ws"][s.prof["isbl"]]
-    err_lo_u = (1. - s.RFM["err_u_interp"]) * s.prof["ws"][s.prof["isbl"]]
-    ax1[0].fill_betweenx(s.prof["z"][s.prof["isbl"]], err_lo_u, err_hi_u, 
-                         alpha=0.3, color="r", label="$\\epsilon_u$")
+    err_hi_ws = (1. + s.RFM["err_ws_interp"]) * s.prof["ws"][s.prof["isbl"]]
+    err_lo_ws = (1. - s.RFM["err_ws_interp"]) * s.prof["ws"][s.prof["isbl"]]
+    ax1[0].fill_betweenx(s.prof["z"][s.prof["isbl"]], err_lo_ws, err_hi_ws, 
+                         alpha=0.3, color="r", label="$\\epsilon_{ws}$")
     # wd
     ax1[1].plot(s.xytavg["wd"], s.z, "-k", label="$\\langle wd \\rangle$")
     ax1[1].plot(s.prof["wd"], s.prof["z"], "-r", label="UAS")
+    # shade errors
+    err_hi_wd = (1. + s.RFM["err_wd_interp"]) * s.prof["wd"][s.prof["isbl"]]
+    err_lo_wd = (1. - s.RFM["err_wd_interp"]) * s.prof["wd"][s.prof["isbl"]]
+    ax1[1].fill_betweenx(s.prof["z"][s.prof["isbl"]], err_lo_wd, err_hi_wd, 
+                         alpha=0.3, color="r", label="$\\epsilon_{wd}$")
     # theta
     ax1[2].plot(s.xytavg["theta"], s.z, "-k", label="$\\langle \\theta \\rangle$")
     ax1[2].plot(s.prof["theta"], s.prof["z"], "-r", label="UAS")
