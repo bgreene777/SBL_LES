@@ -32,7 +32,7 @@ sF = UAS_emulator("/home/bgreene/simulations/F_192_interp/output/",
 # combine in list for looping
 s_all = [sA]
 for s in s_all:
-    s.read_timeseries(720000, 0.02, raw=False)
+    s.read_timeseries(720000, 0.02, raw=True)
     s.profile(ascent_rate=1.0, time_average=3.0, time_start=1200.0)
     
 # plot uas versus mean (loop over all)

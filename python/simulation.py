@@ -344,6 +344,7 @@ class UAS_emulator(simulation):
         self.T_scale = 300.
         self.raw_prof = {}  # raw/unprocessed profile w/ same samp freq as LES
         self.prof = {}  # profile of sampled parameters from timeseries
+        self.ec = {}  # profile of 2nd order moments at every native z from LES
         
     def read_timeseries(self, nt_tot, dt, raw=True):
         # read last hour of simulation
@@ -356,8 +357,8 @@ class UAS_emulator(simulation):
             nt = int(1800./dt)
             istart = nt_tot - nt        
             # initialize empty arrays shape(nt, nz)
-            u_ts, v_ts, w_ts, theta_ts =\
-            (np.zeros((nt, self.nz), dtype=np.float64) for _ in range(4))
+            u_ts, v_ts, w_ts, theta_ts, txz_ts, tyz_ts, q3_ts =\
+            (np.zeros((nt, self.nz), dtype=np.float64) for _ in range(7))
             # now loop through files (one for each jz)
             for jz in range(self.nz):
                 print(f"Loading timeseries data, jz={jz}")
@@ -369,17 +370,28 @@ class UAS_emulator(simulation):
                 w_ts[:,jz] = np.loadtxt(fw, skiprows=istart, usecols=1)
                 ftheta = f"{self.path}t_timeseries_c{jz:03d}.out"
                 theta_ts[:,jz] = np.loadtxt(ftheta, skiprows=istart, usecols=1)
+                ftxz = f"{self.path}txz_timeseries_c{jz:03d}.out"
+                txz_ts[:,jz] = np.loadtxt(ftxz, skiprows=istart, usecols=1)
+                ftyz = f"{self.path}tyz_timeseries_c{jz:03d}.out"
+                tyz_ts[:,jz] = np.loadtxt(ftyz, skiprows=istart, usecols=1)
+                fq3 = f"{self.path}q3_timeseries_c{jz:03d}.out"
+                q3_ts[:,jz] = np.loadtxt(fq3, skiprows=istart, usecols=1)
             # apply scales
             u_ts *= self.u_scale
             v_ts *= self.u_scale
             w_ts *= self.u_scale
             theta_ts *= self.T_scale
+            txz_ts *= (self.u_scale * self.u_scale)
+            tyz_ts *= (self.u_scale * self.u_scale)
+            q3_ts *= (self.u_scale * self.T_scale)
             # now create time vector and assign
             time = np.linspace(0., 1800.-dt, nt)
             # save npz file with all this data
             fsave = f"{self.path}timeseries.npz"
             np.savez(fsave, u=u_ts, v=v_ts, w=w_ts,
-                     theta=theta_ts, time=time)
+                     theta=theta_ts, 
+                     txz=txz_ts, tyz=tyz_ts, q3=q3_ts,
+                     time=time)
         else:
             # load npz file and assign to self.ts dictionary
             print(f"Reading file: {self.path}timeseries.npz")
@@ -463,7 +475,8 @@ class UAS_emulator(simulation):
         # calculate errors for ws and wd from error propagation
         # err_ws = sqrt[(sig_u^2 * u^2 + sig_v^2 * v^2) / (u^2 + v^2)] / ws
         # err_wd = sqrt[(sig_u^2 * v^2 + sig_v^2 * u^2) / (u^2 + v^2)^2] / wd
-        # NOTE these use the *unrotated* error variances for u and v
+        # NOTE 1: wd term in sqrt will return radians, not degrees
+        # NOTE 2: these use the *unrotated* error variances for u and v
         # first recalculate error variances from error and mean quantities
         isbl = self.RFM["isbl"]
         sig_u = self.RFM["err_u2"] * abs(self.xytavg["u"][isbl])
@@ -480,7 +493,7 @@ class UAS_emulator(simulation):
                            sig_v**2. * self.xytavg["u"][isbl]**2.)/\
                           ((self.xytavg["u"][isbl]**2. +\
                            self.xytavg["v"][isbl]**2.)**2.) ) /\
-                 self.xytavg["wd"][isbl]
+                 (self.xytavg["wd"][isbl] * np.pi/180.)  # normalize w/ rad
         self.RFM["err_wd"] = err_wd
         
         # get isbl for znew
@@ -491,4 +504,56 @@ class UAS_emulator(simulation):
             err_new = np.interp(znew[isbl_new], self.z[self.RFM["isbl"]], self.RFM[f"err_{key}"])
             self.RFM[f"err_{key}_interp"] = err_new
         return
+    
+    def ec(self, time_average=1800., time_start=0.0):
+        # grab profiles of sample 2nd order moments from a virtual
+        # eddy covariance tower to plot along with ensemble mean
+        # default time_average is 30 minutes
+        # find the index in self.ts["time"] that corresponds to time_start
+        istart = int(time_start / self.ts["dt"])
+        # determine how many indices to use from time_average
+        nuse = int(time_average / self.ts["dt"])
+        # create array of indices to use
+        iuse = np.linspace(istart, istart+nuse-1, nuse, dtype=int)
+        # begin calculating statistics
+        # calc mean quantities from selected window
+        Ubar = np.mean(self.ts["u"][iuse,:], axis=0)
+        Vbar = np.mean(self.ts["v"][iuse,:], axis=0)
+        Wbar = np.mean(self.ts["w"][iuse,:], axis=0)
+        thetabar = np.mean(self.ts["theta"][iuse,:], axis=0)
+        # rotate Ubar and Vbar so <V> = 0 to use with variances
+        angle = np.arctan2(Vbar, Ubar)
+        Ubar_rot = Ubar*np.cos(angle) + Vbar*np.sin(angle)
+        Vbar_rot =-Ubar*np.sin(angle) + Vbar*np.cos(angle)
+        # calc fluctuating components
+        u_fluc = self.ts["u"][iuse,:] - Ubar
+        v_fluc = self.ts["v"][iuse,:] - Vbar
+        w_fluc = self.ts["w"][iuse,:] - Wbar
+        theta_fluc = self.ts["theta"][iuse,:] - thetabar
+        # fluctuating rotated u and v
+        u_fluc_rot = self.ts["u"][iuse,:] - Ubar_rot
+        v_fluc_rot = self.ts["v"][iuse,:] - Vbar_rot
+        # calc resolved covariances
+        uw_cov_res = np.mean((u_fluc*w_fluc), axis=0)
+        vw_cov_res = np.mean((v_fluc*w_fluc), axis=0)
+        thetaw_cov_res = np.mean((theta_fluc*w_fluc), axis=0)
+        # add sgs components to get total covariances
+        uw_cov_tot = uw_cov_res + np.mean(self.ts["txz"][iuse,:], axis=0)
+        vw_cov_tot = vw_cov_res + np.mean(self.ts["tyz"][iuse,:], axis=0)
+        thetaw_cov_tot = thetaw_cov_res + np.mean(self.ts["q3"][iuse,:], axis=0)
+        # now do variances using rotated fluctuating components
+        u_var = np.mean((u_fluc_rot*u_fluc_rot), axis=0)
+        v_var = np.mean((v_fluc_rot*v_fluc_rot), axis=0)
+        w_var = np.mean((w_fluc*w_fluc), axis=0)
+        theta_var = np.mean((theta_fluc*theta_fluc), axis=0)
         
+        # store everything in self.ec
+        self.ec["uw_cov_tot"] = uw_cov_tot
+        self.ec["vw_cov_tot"] = vw_cov_tot
+        self.ec["thetaw_cov_tot"] = thetaw_cov_tot
+        self.ec["u_var"] = u_var
+        self.ec["v_var"] = v_var
+        self.ec["w_var"] = w_var
+        self.ec["theta_var"] = theta_var
+        
+        return
