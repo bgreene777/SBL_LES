@@ -38,6 +38,23 @@ def interp_uas(dat, z_LES, z_UAS):
         dat_interp[i,:] = np.interp(z_UAS, z_LES, dat[i,:])
     return dat_interp
 # ---------------------------------------------
+def min_max_plot(dat, n):
+    """Determine range and intervals of parameter for plotting
+    :param float dat: 1d array of data to analyze
+    :param float n: number of labels to display
+    Returns xmin, xmax, interval
+    """
+    xmin = np.floor(dat.min())
+    xmax = np.ceil(dat.max())
+    r = xmax - xmin
+    if r/n < 2.:
+        dmaj = 1.
+        dmin = 0.5
+    else:
+        dmaj = 5.
+        dmin = 1.
+    return [xmin, xmax, dmaj, dmin]
+# ---------------------------------------------
 class simulation():
     """Contains simulation parameters and can read averaged csv files
     
@@ -430,20 +447,20 @@ class UAS_emulator(simulation):
         # of UAS data matching LES timestep dt
         # define empty dictionary to make it easier to loop and store
         d_interp = {}
+        # define interp keys
+        interp_keys = ["u", "v", "w", "theta"]
         # call the interp_uas function defined above
-        for key in self.ts.keys(): 
-            if key not in ["time", "dt"]:
-                print(f"Interpolating {key}...")
-                d_interp[key] = interp_uas(self.ts[key][iuse, :], 
-                                           self.z, zuas)
+        for key in interp_keys: 
+            print(f"Interpolating {key}...")
+            d_interp[key] = interp_uas(self.ts[key][iuse, :], 
+                                       self.z, zuas)
         # now grab data from interp arrays to create simulated raw UAS profiles
         uas_ts = {}
-        for key in self.ts.keys():
-            if key not in ["time", "dt"]:
-                uas_ts[key] = []
-                for i in range(len(iuse)):
-                    uas_ts[key].append(d_interp[key][i,i])
-                self.raw_prof[key] = np.array(uas_ts[key])
+        for key in interp_keys:
+            uas_ts[key] = []
+            for i in range(len(iuse)):
+                uas_ts[key].append(d_interp[key][i,i])
+            self.raw_prof[key] = np.array(uas_ts[key])
         self.raw_prof["z"] = zuas
         # calc ws and wd
         self.raw_prof["ws"] = ((self.raw_prof["u"]**2.) +\
@@ -457,15 +474,14 @@ class UAS_emulator(simulation):
         znew = np.arange(3., 396.1, dz_new, dtype=np.float64)
         self.prof["z"] = znew
         uas_mean = {}
-        for key in self.ts.keys():
-            if key not in ["time", "dt"]:
-                uas_mean[key] = []
-                for jz, zz in enumerate(znew):
-                    # find indices in zuas to average over
-                    imean = np.where((zuas >= zz-dz_new/2.) &\
-                                     (zuas < zz+dz_new/2.))[0]
-                    uas_mean[key].append(np.mean(self.raw_prof[key][imean]))
-                self.prof[key] = np.array(uas_mean[key])
+        for key in interp_keys:
+            uas_mean[key] = []
+            for jz, zz in enumerate(znew):
+                # find indices in zuas to average over
+                imean = np.where((zuas >= zz-dz_new/2.) &\
+                                 (zuas < zz+dz_new/2.))[0]
+                uas_mean[key].append(np.mean(self.raw_prof[key][imean]))
+            self.prof[key] = np.array(uas_mean[key])
         # also calculate ws and wd and assign
         self.prof["ws"] = ((self.prof["u"]**2.) + (self.prof["v"]**2.)) ** 0.5
         wd = np.arctan2(-self.prof["u"], -self.prof["v"]) * 180./np.pi
@@ -505,7 +521,7 @@ class UAS_emulator(simulation):
             self.RFM[f"err_{key}_interp"] = err_new
         return
     
-    def ec(self, time_average=1800., time_start=0.0):
+    def calc_ec(self, time_average=1800., time_start=0.0):
         # grab profiles of sample 2nd order moments from a virtual
         # eddy covariance tower to plot along with ensemble mean
         # default time_average is 30 minutes
@@ -525,14 +541,17 @@ class UAS_emulator(simulation):
         angle = np.arctan2(Vbar, Ubar)
         Ubar_rot = Ubar*np.cos(angle) + Vbar*np.sin(angle)
         Vbar_rot =-Ubar*np.sin(angle) + Vbar*np.cos(angle)
+        # alro rotate raw u and v
+        u_rot = self.ts["u"]*np.cos(angle) + self.ts["v"]*np.sin(angle)
+        v_rot =-self.ts["u"]*np.sin(angle) + self.ts["v"]*np.cos(angle)
         # calc fluctuating components
         u_fluc = self.ts["u"][iuse,:] - Ubar
         v_fluc = self.ts["v"][iuse,:] - Vbar
         w_fluc = self.ts["w"][iuse,:] - Wbar
         theta_fluc = self.ts["theta"][iuse,:] - thetabar
         # fluctuating rotated u and v
-        u_fluc_rot = self.ts["u"][iuse,:] - Ubar_rot
-        v_fluc_rot = self.ts["v"][iuse,:] - Vbar_rot
+        u_fluc_rot = u_rot[iuse,:] - Ubar_rot
+        v_fluc_rot = v_rot[iuse,:] - Vbar_rot
         # calc resolved covariances
         uw_cov_res = np.mean((u_fluc*w_fluc), axis=0)
         vw_cov_res = np.mean((v_fluc*w_fluc), axis=0)
