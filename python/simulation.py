@@ -144,6 +144,8 @@ class simulation():
         self.var["w_var_res"] = data[:, 16]
         self.var["w_var_tot"] = data[:, 17]
         self.var["theta_var_tot"] = data[:, 18]
+        self.var["u_var_tot2"] = data[:, 19]
+        self.var["v_var_tot2"] = data[:, 20]
         
         # calculate ustar and thetastar and assign to cov
         ustar = ((self.cov["uw_cov_tot"]**2.) + (self.cov["vw_cov_tot"]**2.)) ** 0.25
@@ -306,41 +308,65 @@ class simulation():
             self.RFM[key] = dat[key]
         return
     
-    def recalc_rand_err(self, Tnew, param):
-        # param is string, either "u" or "theta" (doesnt work for u'w' yet)
+    def recalc_rand_err(self, Tnew):
+        # recalc random error for theta and *unrotated* u and v for UAS profs
         # first, LP error
         # err_LP = sqrt{2*L*var / (L * mean**2)}
         isbl = self.RFM["isbl"]
         Lnew = Tnew * self.xytavg["ws"][isbl]
-        len_key = f"len_{param}"
-        var_key = f"{param}_var_tot"
-        if param == "u":
-            avg_key = "ws"
-        else:
-            avg_key = param
+        len_key = ["len_u2", "len_v2", "len_theta"]
+        var_key = ["u_var_tot2", "v_var_tot2", "theta_var_tot"]
+        avg_key = ["u", "v", "theta"]
+        param = ["u2", "v2", "theta"]
         
+        # loop over keys
+        for ik in range(3):
         # calculate
-        err_LP = np.sqrt((2.*self.RFM[len_key]*self.var[var_key][isbl])/\
-                      (Lnew*self.xytavg[avg_key][isbl]))
-        # assign to RFM_new
-        self.RFM_new[f"err_{param}_LP"] = err_LP
+            err_LP = np.sqrt((2.*self.RFM[len_key[ik]]*self.var[var_key[ik]][isbl])/\
+                          (Lnew*self.xytavg[avg_key[ik]][isbl]))
+            # assign to RFM_new
+            self.RFM_new[f"err_{param[ik]}_LP"] = err_LP
         
         # now calculate RFM error
         # need to get L_H_param from dx_LH_param and delta_x
         # this indexing will give L_H as function of z (within sbl)
-        if param == "theta":
-            dxLH_key = f"dx_LH_t"
-        else:
-            dxLH_key = f"dx_LH_{param}"
-        L_H = self.RFM["delta_x"][0] / self.RFM[dxLH_key][0,:]
-        x_LH = (self.xytavg["ws"][isbl] * Tnew) / L_H
-        # calculate MSE = var * C * (x/L_H)**-p
-        MSE = self.var[var_key][isbl] *\
-              (self.RFM[f"C_{param}"] * (x_LH ** -self.RFM[f"p_{param}"]))
-        RMSE = np.sqrt(MSE)
-        # err_RFM = RMSE / mean
-        err_RFM = RMSE / self.xytavg[avg_key][isbl]
-        self.RFM_new[f"err_{param}"] = err_RFM
+        dxLH_key = ["dx_LH_u2", "dx_LH_v2", "dx_LH_t"]
+        
+        # loop over keys
+        for ik in range(3):
+            L_H = self.RFM["delta_x"][0] / self.RFM[dxLH_key[ik]][0,:]
+            x_LH = (self.xytavg["ws"][isbl] * Tnew) / L_H
+            # calculate MSE = var * C * (x/L_H)**-p
+            MSE = self.var[var_key[ik]][isbl] *\
+                  (self.RFM[f"C_{param[ik]}"] * (x_LH ** -self.RFM[f"p_{param[ik]}"]))
+            RMSE = np.sqrt(MSE)
+            # err_RFM = RMSE / mean
+            err_RFM = RMSE / self.xytavg[avg_key[ik]][isbl]
+            self.RFM_new[f"err_{param[ik]}"] = err_RFM
+            
+        # now perform error propagation to calculate errors in ws and wd
+        # err_ws = sqrt[(sig_u^2 * u^2 + sig_v^2 * v^2) / (u^2 + v^2)] / ws
+        # err_wd = sqrt[(sig_u^2 * v^2 + sig_v^2 * u^2) / (u^2 + v^2)^2] / wd
+        # NOTE 1: wd term in sqrt will return radians, not degrees
+        # NOTE 2: these use the *unrotated* error variances for u and v
+        # first recalculate error variances from error and mean quantities
+        sig_u = self.RFM_new["err_u2"] * abs(self.xytavg["u"][isbl])
+        sig_v = self.RFM_new["err_v2"] * abs(self.xytavg["v"][isbl])
+        # calculate ws error and assign to RFM
+        err_ws = np.sqrt( (sig_u**2. * self.xytavg["u"][isbl]**2. +\
+                           sig_v**2. * self.xytavg["v"][isbl]**2.)/\
+                          (self.xytavg["u"][isbl]**2. +\
+                           self.xytavg["v"][isbl]**2.) ) /\
+                 self.xytavg["ws"][isbl]
+        self.RFM_new["err_ws"] = err_ws
+        # calculate wd error and assign to RFM
+        err_wd = np.sqrt( (sig_u**2. * self.xytavg["v"][isbl]**2. +\
+                           sig_v**2. * self.xytavg["u"][isbl]**2.)/\
+                          ((self.xytavg["u"][isbl]**2. +\
+                            self.xytavg["v"][isbl]**2.)**2.) ) /\
+                 (self.xytavg["wd"][isbl] * np.pi/180.)  # normalize w/ rad
+        self.RFM_new["err_wd"] = err_wd        
+            
         return
     
 class UAS_emulator(simulation):

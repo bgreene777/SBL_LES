@@ -11,6 +11,8 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rc
+from matplotlib.ticker import MultipleLocator
+import cmocean
 from simulation import simulation
 
 # Configure plots
@@ -388,6 +390,112 @@ def plot_MSE(s, fsave=fdir_save):
     return
 
 # --------------------------------
+def plot_2d_err(s, fsave=fdir_save):
+    # array of new times at which to recalculate errors
+    # start with 1 s intervals from 1-60 s
+    t_recalc = np.arange(0.1, 15.1, 0.1, dtype=np.float64)
+    # number of time intervals
+    nt = len(t_recalc)
+    # number of heights
+    nz = len(s.RFM["isbl"])
+    # initialize empty 2d arrays for ws, wd, theta with shape(nz,nt)
+    ws_all, wd_all, theta_all =\
+    [np.zeros((nz,nt), dtype=np.float64) for _ in range(3)]
+    # begin looping over times
+    for jt, t in enumerate(t_recalc):
+        s.recalc_rand_err(t)
+        ws_all[:,jt] = s.RFM_new["err_ws"]
+        wd_all[:,jt] = s.RFM_new["err_wd"]
+        theta_all[:,jt] = s.RFM_new["err_theta"]
+        
+    # now can begin plotting
+    # define meshgrids - t_recalc (x) and z/h (y)
+    tt, zz = np.meshgrid(t_recalc, s.z[s.RFM["isbl"]]/s.h)
+    # filled contours of error versus height (y-axis) and time (x-axis)
+    
+    # figure 1: wind speed
+    fig1, ax1 = plt.subplots(1, figsize=(12, 8))
+    cfax1 = ax1.pcolormesh(tt, zz, ws_all*100., cmap=cmocean.cm.matter, 
+                       vmin=0., vmax=50.)
+#                          levels=np.linspace(0, 110, 111, dtype=np.float64))
+    cax1 = ax1.contour(tt, zz, ws_all*100., "-k", levels=[10.], linewidths=4.)
+    cfax1.set_edgecolor("face")
+    cbar1 = fig1.colorbar(cfax1, ax=ax1, ticks=np.linspace(0, 50, 11))
+    cbar1.ax.set_ylabel("$\\epsilon_{ws}$ [$\%$]")
+    # plot blue line outside of window to use in legend
+    ax1.axhline(-10, ls="-", lw=4, c="k", label="$\\epsilon_{ws}=10\%$")
+    # plot vertical dashed line at T = 3 s
+    ax1.axvline(3., ls="--", lw=4, c="k", label="$T = 3$ s")
+    ax1.set_xlabel("Averaging Time [s]")
+    ax1.set_ylabel("$z/h$")
+    ax1.set_xlim([0, 15])
+    ax1.set_ylim([0, 0.5])
+    ax1.xaxis.set_major_locator(MultipleLocator(1))
+    ax1.xaxis.set_minor_locator(MultipleLocator(0.5)) 
+    ax1.yaxis.set_major_locator(MultipleLocator(0.1))
+    ax1.yaxis.set_minor_locator(MultipleLocator(0.05))
+    ax1.legend(loc="upper right")
+    # save and close
+    fsave1 = f"{fsave}{s.stab}{s.lab}_err2d_ws.pdf"
+    print(f"Saving figure: {fsave1}")
+    fig1.savefig(fsave1, format="pdf", bbox_inches="tight")
+    plt.close(fig1)
+    
+    # figure 2: wind direction
+    fig2, ax2 = plt.subplots(1, figsize=(12, 8))
+    cfax2 = ax2.pcolormesh(tt, zz, wd_all*100., cmap=cmocean.cm.matter,
+                           vmin=0., vmax=12.)
+#                          levels=np.linspace(0, 30, 31))
+    cax2 = ax2.contour(tt, zz, wd_all*100., "-k", levels=[2.], linewidths=4.)
+    cfax2.set_edgecolor("face")
+    cbar2 = fig2.colorbar(cfax2, ax=ax2, ticks=np.linspace(0, 12, 13))
+    # plot blue line outside of window to use in legend
+    ax2.axhline(-10, ls="-", lw=4, c="k", label="$\\epsilon_{wd}=2\%$")
+    ax2.axvline(3., ls="--", lw=4, c="k", label="$T = 3$ s")
+    cbar2.ax.set_ylabel("$\\epsilon_{wd}$ [$\%$]")
+    ax2.set_xlabel("Averaging Time [s]")
+    ax2.set_ylabel("$z/h$")
+    ax2.set_xlim([0, 15])
+    ax2.set_ylim([0, 0.5])
+    ax2.xaxis.set_major_locator(MultipleLocator(1))
+    ax2.xaxis.set_minor_locator(MultipleLocator(0.5)) 
+    ax2.yaxis.set_major_locator(MultipleLocator(0.1))
+    ax2.yaxis.set_minor_locator(MultipleLocator(0.05))
+    ax2.legend(loc="upper right")
+    # save and close
+    fsave2 = f"{fsave}{s.stab}{s.lab}_err2d_wd.pdf"
+    print(f"Saving figure: {fsave2}")
+    fig2.savefig(fsave2, format="pdf", bbox_inches="tight")
+    plt.close(fig2)
+    
+    # figure 3: theta
+    fig3, ax3 = plt.subplots(1, figsize=(12, 8))
+    cfax3 = ax3.contourf(tt, zz, theta_all*100., 
+                         cmap=cmocean.cm.matter, levels=np.linspace(0, 0.3, 21))
+#     cax3 = ax3.contour(tt, zz, theta_all*100., "-b", levels=[10.], linewidths=4.)
+#     cfax1.set_edgecolor("face")
+    cbar3 = fig3.colorbar(cfax3, ax=ax3, ticks=np.linspace(0, 0.3, 11))
+    # plot blue line outside of window to use in legend
+#     ax3.axhline(-10, ls="-", lw=4, c="b", label="$\\epsilon_{\\theta}=10\%$")
+    cbar3.ax.set_ylabel("$\\epsilon_{\\theta}$ [$\%$]")
+    ax3.set_xlabel("Averaging Time [s]")
+    ax3.set_ylabel("$z/h$")
+    ax3.set_xlim([0, 15])
+    ax3.set_ylim([0, 0.5])
+    ax3.xaxis.set_major_locator(MultipleLocator(1))
+    ax3.xaxis.set_minor_locator(MultipleLocator(0.5)) 
+    ax3.yaxis.set_major_locator(MultipleLocator(0.1))
+    ax3.yaxis.set_minor_locator(MultipleLocator(0.05))
+#     ax3.legend(loc="upper right")
+    # save and close
+    fsave3 = f"{fsave}{s.stab}{s.lab}_err2d_theta.pdf"
+    print(f"Saving figure: {fsave3}")
+    fig3.savefig(fsave3, format="pdf", bbox_inches="tight")
+    plt.close(fig3)
+    
+    return
+    
+# --------------------------------
 #
 # Create simulation objects
 #
@@ -419,14 +527,15 @@ for s in s_all:
 # --------------------------------
 # Begin plotting
 # --------------------------------
-
 for s in s_all:
     # sigma_f versus all delta_x for filtered
-    plot_sigma_filt(s)
+    #plot_sigma_filt(s)
     # MSE{x~_delta}/var{x} vs. delta/T_H
-    plot_MSE(s)
+    #plot_MSE(s)
     # compare rel rand err from RFM and autocorr
-    plot_err(s)
+    #plot_err(s)
+    # 2d errors for ws, wd, theta
+    plot_2d_err(s)
     
 # length and timescales from autocorr
-plot_int_len(s_all)
+#plot_int_len(s_all)
