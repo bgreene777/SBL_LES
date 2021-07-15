@@ -68,13 +68,13 @@ u_scale = 0.4
 theta_scale = 300.
 
 # start with A_192_interp and evaluate theta
-fdir = "/home/bgreene/simulations/A_192_interp/output/"
+fdir = "/home/bgreene/simulations/F_192_interp/output/"
 
 #
 # loop data
 #
 # if A192_stationarity2.npz exists, then load
-fdat = "/home/bgreene/SBL_LES/output/A192_stationarity2.npz"
+fdat = "/home/bgreene/SBL_LES/output/F192_stationarity2.npz"
 
 # initialize empty arrays for looping and averaging
 # ex: T_mean will have shape(nz, nt) where nt is the number of timesteps
@@ -141,7 +141,7 @@ ax1.set_ylim([0, 400])
 ax1.set_xlabel("$\\sigma_{\\theta}$ [K$^2$]")
 ax1.set_ylabel("$z$ [m]")
 # save and close
-fsave1 = f"{fdir_save}A192_thetavar.pdf"
+fsave1 = f"{fdir_save}F192_thetavar.pdf"
 print(f"Saving figure: {fsave1}")
 fig1.savefig(fsave1, format="pdf", bbox_inches="tight")
 plt.close(fig1)
