@@ -108,6 +108,8 @@ class simulation():
         # initialize empty z variable
         self.z = None
         self.h = None
+        self.i_h = None
+        self.isbl = None
         
         # initialize T_H as empty array of zeros
         self.L_H = np.zeros(self.nz, dtype=float)
@@ -168,6 +170,7 @@ class simulation():
         i_h = np.where(ustar <= 0.05*ustar[0])[0][0]
         self.h = self.z[i_h] / 0.95
         self.i_h = i_h
+        self.isbl = np.where(self.z <= self.h)[0]
         
         # calculate ws and wd and assign to xytavg
         self.xytavg["ws"] = np.sqrt( self.xytavg["u"]**2. + self.xytavg["v"]**2. )
@@ -252,9 +255,13 @@ class simulation():
         self.most["phi_h_l"] = phi_h_l
         
         # now look at gradient-based scales
-        Us = k * self.z[1:-1] * np.sqrt(self.Ri["N2"])
-        Ts = k * self.z[1:-1] * self.Ri["dtheta_dz"]
-        Ls = k * self.z[1:-1]
+        kz = k * self.z[1:-1]
+        # see mixing length from Sorbjan 2017!!
+        L0 = 19.22  # m
+        L1 = 1. / (self.Ri["Ri"]**(3./2))
+        Ls = kz / (1. + (kz/L0) + (kz/L1))
+        Us = Ls * np.sqrt(self.Ri["N2"])
+        Ts = Ls * self.Ri["dtheta_dz"]
         # assign
         self.most["Gm"] = (self.cov["ustar"][1:-1]**2.) / (Us**2.)
         self.most["Gh"] = -self.cov["thetaw_cov_tot"][1:-1] / Us / Ts
