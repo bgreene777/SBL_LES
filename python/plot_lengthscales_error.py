@@ -494,7 +494,113 @@ def plot_2d_err(s, fsave=fdir_save):
     plt.close(fig3)
     
     return
+# --------------------------------    
+def plot_2d_Tavg(s, fsave=fdir_save):
+    # define err_min, err_max, and derr to input into calc_time_error()
+    err_min=0.01    #  1%
+    err_max = 0.50  # 50%
+    derr = 0.01     #  1% increments
+    # calculate error range
+    err_range = np.linspace(err_min, err_max, 
+                                int((err_max-err_min)/derr)+1, dtype=np.float64)
+    # number of error intervals
+    nerr = len(err_range)
+    # number of heights
+    nz = len(s.RFM["isbl"])
+    # calculate averaging times required for err_range
+    # outputs for unrotated u, v; theta
+    s.calc_time_error(err_range=err_range)
+        
+    # now can begin plotting
+    # define meshgrids - err_range (x) and z/h (y)
+    ee, zz = np.meshgrid(err_range*100., s.z[s.RFM["isbl"]]/s.h)
+    # filled contours of Tavg versus height (y-axis) and time (x-axis)
     
+    # figure 1: u
+    fig1, ax1 = plt.subplots(1, figsize=(12, 8))
+    cfax1 = ax1.pcolormesh(ee, zz, s.RFM_new["Tavg_u2"], cmap=cmocean.cm.matter, 
+                           vmin=0., vmax=120.)
+#                          levels=np.linspace(0, 110, 111, dtype=np.float64))
+#     cax1 = ax1.contour(ee, zz, ws_all*100., "-k", levels=[10.], linewidths=4.)
+    cfax1.set_edgecolor("face")
+    cbar1 = fig1.colorbar(cfax1, ax=ax1)#, ticks=np.linspace(0, 50, 11))
+    cbar1.ax.set_ylabel("$T_{u}^{avg}$ [s]")
+    # plot blue line outside of window to use in legend
+#     ax1.axhline(-10, ls="-", lw=4, c="k", label="$\\T_{u}=10\%$")
+    # plot vertical dashed line at T = 3 s
+    ax1.axvline(10., ls="--", lw=4, c="k", label="$\\epsilon_u = 10\%$")
+    ax1.set_xlabel("$\\epsilon_u$ [$\%$]")
+    ax1.set_ylabel("$z/h$")
+    ax1.set_xlim([0, 50])
+    ax1.set_ylim([0, 0.5])
+    ax1.xaxis.set_major_locator(MultipleLocator(5))
+    ax1.xaxis.set_minor_locator(MultipleLocator(1)) 
+    ax1.yaxis.set_major_locator(MultipleLocator(0.1))
+    ax1.yaxis.set_minor_locator(MultipleLocator(0.05))
+    ax1.legend(loc="upper right")
+    # save and close
+    fsave1 = f"{fsave}{s.stab}{s.lab}_Tavg2d_u.pdf"
+    print(f"Saving figure: {fsave1}")
+    fig1.savefig(fsave1, format="pdf", bbox_inches="tight")
+    plt.close(fig1)
+    
+    # figure 2: v
+    fig2, ax2 = plt.subplots(1, figsize=(12, 8))
+    cfax2 = ax2.pcolormesh(ee, zz, s.RFM_new["Tavg_v2"], cmap=cmocean.cm.matter, 
+                       vmin=0., vmax=120.)
+#                          levels=np.linspace(0, 110, 111, dtype=np.float64))
+#     cax1 = ax1.contour(ee, zz, ws_all*100., "-k", levels=[10.], linewidths=4.)
+    cfax2.set_edgecolor("face")
+    cbar2 = fig2.colorbar(cfax2, ax=ax2)#, ticks=np.linspace(0, 50, 11))
+    cbar2.ax.set_ylabel("$T_{v}^{avg}$ [s]")
+    # plot blue line outside of window to use in legend
+#     ax1.axhline(-10, ls="-", lw=4, c="k", label="$\\T_{u}=10\%$")
+    # plot vertical dashed line at T = 3 s
+    ax2.axvline(10., ls="--", lw=4, c="k", label="$\\epsilon_v = 10\%$")
+    ax2.set_xlabel("$\\epsilon_v$ [$\%$]")
+    ax2.set_ylabel("$z/h$")
+    ax2.set_xlim([0, 50])
+    ax2.set_ylim([0, 0.5])
+    ax2.xaxis.set_major_locator(MultipleLocator(5))
+    ax2.xaxis.set_minor_locator(MultipleLocator(1)) 
+    ax2.yaxis.set_major_locator(MultipleLocator(0.1))
+    ax2.yaxis.set_minor_locator(MultipleLocator(0.05))
+    ax2.legend(loc="upper right")
+    # save and close
+    fsave2 = f"{fsave}{s.stab}{s.lab}_Tavg2d_v.pdf"
+    print(f"Saving figure: {fsave2}")
+    fig2.savefig(fsave2, format="pdf", bbox_inches="tight")
+    plt.close(fig2)
+    
+    # figure 2: v
+    fig3, ax3 = plt.subplots(1, figsize=(12, 8))
+    cfax3 = ax3.pcolormesh(ee, zz, s.RFM_new["Tavg_theta"], cmap=cmocean.cm.matter) 
+#                        vmin=0., vmax=50.)
+#                          levels=np.linspace(0, 110, 111, dtype=np.float64))
+#     cax1 = ax1.contour(ee, zz, ws_all*100., "-k", levels=[10.], linewidths=4.)
+    cfax3.set_edgecolor("face")
+    cbar3 = fig3.colorbar(cfax3, ax=ax3)#, ticks=np.linspace(0, 50, 11))
+    cbar3.ax.set_ylabel("$T_{\\theta}^{avg}$ [s]")
+    # plot blue line outside of window to use in legend
+#     ax1.axhline(-10, ls="-", lw=4, c="k", label="$\\T_{u}=10\%$")
+    # plot vertical dashed line at T = 3 s
+    ax3.axvline(10., ls="--", lw=4, c="k", label="$\\epsilon_\\theta = 10\%$")
+    ax3.set_xlabel("$\\epsilon_{\\theta}$ [$\%$]")
+    ax3.set_ylabel("$z/h$")
+    ax3.set_xlim([0, 50])
+    ax3.set_ylim([0, 0.5])
+    ax3.xaxis.set_major_locator(MultipleLocator(5))
+    ax3.xaxis.set_minor_locator(MultipleLocator(1)) 
+    ax3.yaxis.set_major_locator(MultipleLocator(0.1))
+    ax3.yaxis.set_minor_locator(MultipleLocator(0.05))
+    ax3.legend(loc="upper right")
+    # save and close
+    fsave3 = f"{fsave}{s.stab}{s.lab}_Tavg2d_theta.pdf"
+    print(f"Saving figure: {fsave3}")
+    fig3.savefig(fsave3, format="pdf", bbox_inches="tight")
+    plt.close(fig3)
+    
+    return
 # --------------------------------
 #
 # Create simulation objects
@@ -535,7 +641,10 @@ for s in s_all:
     # compare rel rand err from RFM and autocorr
     #plot_err(s)
     # 2d errors for ws, wd, theta
-    plot_2d_err(s)
+    #plot_2d_err(s)
+    # 2d Tavg for u, v, theta
+    plot_2d_Tavg(s)
+    
     
 # length and timescales from autocorr
 #plot_int_len(s_all)

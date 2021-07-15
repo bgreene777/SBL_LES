@@ -368,6 +368,40 @@ class simulation():
         self.RFM_new["err_wd"] = err_wd        
             
         return
+        
+    def calc_time_error(self, err_range):
+        """Basically invert recalc_rand_err and determine the amount of 
+        averaging time necessary to achieve a predetermined error value
+        """
+        isbl = self.RFM["isbl"]
+        var_key = ["u_var_tot2", "v_var_tot2", "theta_var_tot"]
+        avg_key = ["u", "v", "theta"]
+        param = ["u2", "v2", "theta"]
+               
+        # now calculate RFM sampling time as function of err
+        # Tavg_u(err) = (L_H/<ws>) * [(err_u * <u>)**2 / (u'u' * C_u)]**-1/p_u
+        # need to get L_H_param from dx_LH_param and delta_x
+        # this indexing will give L_H as function of z (within sbl)
+        dxLH_key = ["dx_LH_u2", "dx_LH_v2", "dx_LH_t"]
+
+        # loop over keys
+        for ik in range(3):
+            L_H = self.RFM["delta_x"][0] / self.RFM[dxLH_key[ik]][0,:]
+            # initialize empty array for storing Tavg, shape(nz_sbl,nerr)
+            Tavg_param = np.zeros((len(isbl), len(err_range)), dtype=np.float64)
+            # calculate Tavg by looping through err_range            
+            for ie, err in enumerate(err_range):
+                Tavg_param[:,ie] = (L_H/self.xytavg["ws"][isbl]) *\
+                ( ((err * self.xytavg[f"{avg_key[ik]}"][isbl])**2.)/\
+                  (self.var[f"{var_key[ik]}"][isbl] * self.RFM[f"C_{param[ik]}"])\
+                ) ** (-1/self.RFM[f"p_{param[ik]}"])
+                
+                # store in RFM_new
+                self.RFM_new[f"Tavg_{param[ik]}"] = Tavg_param            
+            
+        return
+        
+        
     
 class UAS_emulator(simulation):
     """Emulate a profile from a rotary-wing UAS based on timeseries data
