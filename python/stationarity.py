@@ -121,7 +121,7 @@ else:
         # calculate covariances
         uw_mean[:,jt] = covar(u_in, w_in, txz_in, nx, ny, nz)
         vw_mean[:,jt] = covar(v_in, w_in, tyz_in, nx, ny, nz)
-        uu_mean[:,jt] = covar(u_in, u_in, zeros, nx, ny, nz)  # unroated
+        uu_mean[:,jt] = covar(u_in, u_in, zeros, nx, ny, nz)  # unrotated
         vv_mean[:,jt] = covar(v_in, v_in, zeros, nx, ny, nz)  # unrotated
         ww_mean[:,jt] = covar(w_in, w_in, zeros, nx, ny, nz)
         tt_mean[:,jt] = covar(T_in, T_in, zeros, nx, ny, nz)
@@ -139,6 +139,9 @@ else:
     
 # calculate ustar in correct dimensions for plotting
 ustar = (uw_mean**2. + vw_mean**2.) ** 0.25    
+# calculate wind directions
+wdir = 270. - (np.arctan2(v_in_mean, u_in_mean) * 180./np.pi)
+
 #
 # Figure 1: time-height of all these temperature profiles (lol)
 #
@@ -171,7 +174,7 @@ plt.close(fig1)
 #
 # Figure 2: 1d plots of every 30 timesteps (10 minutes) overlaid
 #
-fig2, ax2 = plt.subplots(1, figsize=(8, 12))
+fig2, ax2 = plt.subplots(1, figsize=(6, 8))
 alpha = np.linspace(0., 1., 720)
 # loop over times and plot
 for jt in np.arange(0, 720, 30, dtype=np.int64):
@@ -265,3 +268,30 @@ fsave4 = f"{fdir_save}A192_var.pdf"
 print(f"Saving figure: {fsave4}")
 fig4.savefig(fsave4, format="pdf", bbox_inches="tight")
 plt.close(fig4)
+
+#
+# Figure 5: 1d plots of every 30 timesteps (10 minutes) overlaid
+# Wind Direction
+#
+fig5, ax5 = plt.subplots(1, figsize=(6, 8))
+alpha = np.linspace(0., 1., 720)
+# loop over times and plot
+for jt in np.arange(0, 720, 30, dtype=np.int64):
+    # plot every hour in red
+    if jt % 180. == 0.:
+        c = "r"
+    else:
+        c = "k"
+    ax5.plot(wdir[:,jt], z, ls="-", c=c, alpha=alpha[jt])
+    
+# labels
+ax5.grid()
+# ax2.set_xlim([262, 268])
+ax5.set_ylim([0, 400])
+ax5.set_xlabel("Wind Direction [$^\circ$]")
+ax5.set_ylabel("$z$ [m]")
+# save and close
+fsave5 = f"{fdir_save}A192_wdir.pdf"
+print(f"Saving figure: {fsave5}")
+fig5.savefig(fsave5, format="pdf", bbox_inches="tight")
+plt.close(fig5)
