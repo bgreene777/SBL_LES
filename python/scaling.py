@@ -34,6 +34,12 @@ colors = [(225./255, 156./255, 131./255),
 # A
 s192A = simulation("/home/bgreene/simulations/A_192_interp/output/",
                   192, 192, 192, 800., 800., 400., "A")
+# B
+s192B = simulation("/home/bgreene/simulations/B_192_interp/output/",
+                   192, 192, 192, 800., 800., 400., "B")
+# C
+s192C = simulation("/home/bgreene/simulations/C_192_interp/output/",
+                   192, 192, 192, 800., 800., 400., "C")
 # F
 s192F = simulation("/home/bgreene/simulations/F_192_interp/output/",
                   192, 192, 192, 800., 800., 400., "F")
@@ -41,7 +47,7 @@ s192F = simulation("/home/bgreene/simulations/F_192_interp/output/",
 # put everything into a list for looping
 # s_all = [s128A, s160A, s192A]
 # s_all = [s128F, s160F, s192F]
-s_all = [s192A, s192F]
+s_all = [s192A, s192B, s192C, s192F]
 for s in s_all:
     s.read_csv()
     s.calc_Ri()
@@ -50,18 +56,19 @@ for s in s_all:
 #
 # Figure 1: Ls as function of z
 #
-for s in s_all:
-    fig1, ax1 = plt.subplots(1, figsize=(6, 8))
-    ax1.plot(s.most["Ls"], s.z[1:-1], "-k")
-    # labels
-    ax1.set_xlabel("$L_s$ [m]")
-    ax1.set_ylabel("$z$ [m]")
-    ax1.grid()
-    # save and close
-    fsave1 = f"{fdir_save}{s.stab}{s.lab}_Ls.pdf"
-    print(f"Saving figure: {fsave1}")
-    fig1.savefig(fsave1, format="pdf", bbox_inches="tight")
-    plt.close(fig1)
+fig1, ax1 = plt.subplots(1, figsize=(6, 8))
+for i, s in enumerate(s_all):
+    ax1.plot(s.most["Ls"], s.z[1:-1], ls="-", color=colors[i], label=s.stab)
+# labels
+ax1.set_xlabel("$L_s$ [m]")
+ax1.set_ylabel("$z$ [m]")
+ax1.grid()
+ax1.legend()
+# save and close
+fsave1 = f"{fdir_save}all_Ls.pdf"
+print(f"Saving figure: {fsave1}")
+fig1.savefig(fsave1, format="pdf", bbox_inches="tight")
+plt.close(fig1)
     
 #
 # Figure 2: 4-panel gradient-based scales versus Ri

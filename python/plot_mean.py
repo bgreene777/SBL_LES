@@ -6,6 +6,8 @@
 # Purpose: Read xyt averaged files from calc_stats.f90 to plot profiles of
 # quantities output by LES. Loops over multiple grid sizes and stabilities
 # for comparisons
+# 19 July 2021 Update: now that resolution has been selected, can plot same
+# figures to compare stabilities
 # --------------------------------
 import os
 import pickle
@@ -28,23 +30,29 @@ plt.close("all")
 # --------------------------------
 # initialize simulation objects
 # A
-s128A = simulation("/home/bgreene/simulations/A_128_interp/output/average_statistics.csv",
-                  128, 128, 128, 800., 800., 400., "A")
-s160A = simulation("/home/bgreene/simulations/A_160_interp/output/average_statistics.csv",
-                  160, 160, 160, 800., 800., 400., "A")
-s192A = simulation("/home/bgreene/simulations/A_192_interp/output/average_statistics.csv",
-                  192, 192, 192, 800., 800., 400., "A")
+# s128A = simulation("/home/bgreene/simulations/A_128_interp/output/average_statistics.csv",
+#                   128, 128, 128, 800., 800., 400., "A")
+# s160A = simulation("/home/bgreene/simulations/A_160_interp/output/average_statistics.csv",
+#                   160, 160, 160, 800., 800., 400., "A")
+sA = simulation("/home/bgreene/simulations/A_192_interp/output/",
+                192, 192, 192, 800., 800., 400., "A")
+# B
+sB = simulation("/home/bgreene/simulations/B_192_interp/output/",
+                192, 192, 192, 800., 800., 400., "B")
+# C
+sC = simulation("/home/bgreene/simulations/C_192_interp/output/",
+                192, 192, 192, 800., 800., 400., "C")
 # F
-s128F = simulation("/home/bgreene/simulations/F_128_interp/output/average_statistics.csv",
-                  128, 128, 128, 800., 800., 400., "F")
-s160F = simulation("/home/bgreene/simulations/F_160_interp/output/average_statistics.csv",
-                  160, 160, 160, 800., 800., 400., "F")
-s192F = simulation("/home/bgreene/simulations/F_192_interp/output/average_statistics.csv",
-                  192, 192, 192, 800., 800., 400., "F")
+# s128F = simulation("/home/bgreene/simulations/F_128_interp/output/average_statistics.csv",
+#                   128, 128, 128, 800., 800., 400., "F")
+# s160F = simulation("/home/bgreene/simulations/F_160_interp/output/average_statistics.csv",
+#                   160, 160, 160, 800., 800., 400., "F")
+sF = simulation("/home/bgreene/simulations/F_192_interp/output/",
+                192, 192, 192, 800., 800., 400., "F")
 
 # put everything into a list for looping
 # s_all = [s128A, s160A, s192A]
-s_all = [s128F, s160F, s192F]
+s_all = [sA, sB, sC, sF]
 for s in s_all:
     s.read_csv()
     s.calc_Ri()
@@ -67,7 +75,7 @@ for i, s in enumerate(s_all):
     # v
     ax1[0].plot(s.xytavg["v"], s.z, color=colors[i], linestyle=":")
     # ws
-    ax1[0].plot(s.xytavg["ws"], s.z, color=colors[i], linestyle="-", label=s.lab)
+    ax1[0].plot(s.xytavg["ws"], s.z, color=colors[i], linestyle="-", label=s.stab)
     # wdir
     ax1[1].plot(s.xytavg["wd"], s.z, color=colors[i], linestyle="-")
     # theta
@@ -88,7 +96,7 @@ ax1[2].legend()
 ax1[2].set_xlabel(r"$\langle \theta \rangle$ [K]")
 
 # save figure
-fig1.savefig(f"{fdir_save}{s_all[0].stab}_u_v_theta.pdf", format="pdf", bbox_inches="tight")
+fig1.savefig(f"{fdir_save}all_u_v_theta.pdf", format="pdf", bbox_inches="tight")
 plt.close(fig1)
 
 #
@@ -97,7 +105,7 @@ plt.close(fig1)
 fig2, ax2 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(14.8, 5))
 for i, s in enumerate(s_all):
     # u'w'
-    ax2[0].plot(s.cov["uw_cov_tot"], s.z/s.h, color=colors[i], linestyle="-", label=s.lab)
+    ax2[0].plot(s.cov["uw_cov_tot"], s.z/s.h, color=colors[i], linestyle="-", label=s.stab)
     # v'w'
     ax2[1].plot(s.cov["vw_cov_tot"], s.z/s.h, color=colors[i], linestyle="-")
     # theta'w'
@@ -116,7 +124,7 @@ ax2[2].grid()
 ax2[2].set_xlabel(r"$\langle \theta'w' \rangle$ [K m s$^{-1}$]")
 
 # save figure
-fig2.savefig(f"{fdir_save}{s_all[0].stab}_covars.pdf", format="pdf", bbox_inches="tight")
+fig2.savefig(f"{fdir_save}all_covars.pdf", format="pdf", bbox_inches="tight")
 plt.close(fig2)
 
 #
@@ -125,7 +133,7 @@ plt.close(fig2)
 fig3, ax3 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(14.8, 5))
 for i, s in enumerate(s_all):
     # u'u'
-    ax3[0].plot(s.var["u_var_tot"], s.z/s.h, color=colors[i], linestyle="-", label=s.lab)
+    ax3[0].plot(s.var["u_var_tot"], s.z/s.h, color=colors[i], linestyle="-", label=s.stab)
     # v'v'
     ax3[1].plot(s.var["v_var_tot"], s.z/s.h, color=colors[i], linestyle="-")
     # theta'w'
@@ -144,7 +152,7 @@ ax3[2].grid()
 ax3[2].set_xlabel(r"$\langle w'^2 \rangle$ [m$^2$ s$^{-2}$]")
 
 # save figure
-fig3.savefig(f"{fdir_save}{s_all[0].stab}_vars.pdf", format="pdf", bbox_inches="tight")
+fig3.savefig(f"{fdir_save}all_vars.pdf", format="pdf", bbox_inches="tight")
 plt.close(fig3)
 
 #
@@ -154,7 +162,7 @@ fig4, ax4 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(14.8, 5))
 for i, s in enumerate(s_all):
     # TKE
     ax4[0].plot(s.var["TKE_tot"]/s.cov["ustar"][0]/s.cov["ustar"][0], s.z/s.h, color=colors[i], 
-                linestyle="-", label=str(s.nx).zfill(3))
+                linestyle="-", label=s.stab)
     # theta var
     ax4[1].plot(s.var["theta_var_tot"], s.z/s.h, color=colors[i], linestyle="-")
     # ustar
@@ -174,7 +182,7 @@ ax4[2].grid()
 ax4[2].set_xlabel(r"$u_{*}$ [m s$^{-1}$]")
 
 # save figure
-fig4.savefig(f"{fdir_save}{s_all[0].stab}_tke.pdf", format="pdf", bbox_inches="tight")
+fig4.savefig(f"{fdir_save}all_tke.pdf", format="pdf", bbox_inches="tight")
 plt.close(fig4)
 
 
@@ -184,7 +192,7 @@ plt.close(fig4)
 fig5, ax5 = plt.subplots(nrows=1, ncols=2, sharey=True, figsize=(14.8, 5))
 for i, s in enumerate(s_all):
     # S2
-    ax5[0].plot(s.Ri["S2"], s.z[1:-1]/s.h, color=colors[i], linestyle="-", label=s.lab)
+    ax5[0].plot(s.Ri["S2"], s.z[1:-1]/s.h, color=colors[i], linestyle="-", label=s.stab)
     # N2
     ax5[0].plot(s.Ri["N2"], s.z[1:-1]/s.h, color=colors[i], linestyle=":")
     # Ri
@@ -205,48 +213,47 @@ ax5[1].set_xlabel(r"$Ri_b, Ri_f$")
 ax5[1].set_xlim([-0.1, 5])
 
 # save figure
-fig5.savefig(f"{fdir_save}{s_all[0].stab}_N2_S2_Ri.pdf", format="pdf", bbox_inches="tight")
+fig5.savefig(f"{fdir_save}all_N2_S2_Ri.pdf", format="pdf", bbox_inches="tight")
 plt.close(fig5)
 
 #
-# Figure 6: TKE Budget terms: ONLY LAST IN LIST
+# Figure 6: TKE Budget terms: one per stability
 #
-fig6, ax6 = plt.subplots(1, figsize=(12,8))
+for s in s_all:
+    fig6, ax6 = plt.subplots(1, figsize=(12,8))
 
-s = s_all[-1]
+    ax6.plot(s.tke["shear"][1:]/s.tke["scale"], s.tke["z"][1:], label="Shear Production")
+    ax6.plot(s.tke["buoy"][1:]/s.tke["scale"], s.tke["z"][1:], label="Buoyancy Production")
+    ax6.plot(s.tke["trans"][1:]/s.tke["scale"], s.tke["z"][1:], label="Turbulent Transport")
+    ax6.plot(s.tke["diss"][1:]/s.tke["scale"], s.tke["z"][1:], label="3D Dissipation")
+    ax6.plot(s.tke["residual"][1:]/s.tke["scale"], s.tke["z"][1:], label="Residual")
+    ax6.axhline(s.h, color="k", linestyle="--", label="h")
+    ax6.axhline(s.xytavg["zj"], color="k", linestyle=":", label="LLJ")
+    ax6.grid()
+    ax6.legend(loc="upper right")
+    ax6.set_xlabel("Dimensionless TKE Budget Terms [-]")
+    ax6.set_ylabel("z [m]")
+    ax6.set_title("TKE Budget (z-direction)")
+    ax6.set_ylim([0., 200.])
+    ax6.set_xlim([-5., 5.])
 
-ax6.plot(s.tke["shear"][1:]/s.tke["scale"], s.tke["z"][1:], label="Shear Production")
-ax6.plot(s.tke["buoy"][1:]/s.tke["scale"], s.tke["z"][1:], label="Buoyancy Production")
-ax6.plot(s.tke["trans"][1:]/s.tke["scale"], s.tke["z"][1:], label="Turbulent Transport")
-ax6.plot(s.tke["diss"][1:]/s.tke["scale"], s.tke["z"][1:], label="3D Dissipation")
-ax6.plot(s.tke["residual"][1:]/s.tke["scale"], s.tke["z"][1:], label="Residual")
-ax6.axhline(s.h, color="k", linestyle="--", label="h")
-ax6.axhline(s.xytavg["zj"], color="k", linestyle=":", label="LLJ")
-ax6.grid()
-ax6.legend(loc="upper right")
-ax6.set_xlabel("Dimensionless TKE Budget Terms [-]")
-ax6.set_ylabel("z [m]")
-ax6.set_title("TKE Budget (z-direction)")
-ax6.set_ylim([0., 200.])
-ax6.set_xlim([-5., 5.])
-
-# save figure
-fig6.savefig(f"{fdir_save}{s.stab}{s.lab}_tke_budget.pdf", format="pdf", bbox_inches="tight")
-plt.close(fig6)
+    # save figure
+    fig6.savefig(f"{fdir_save}{s.stab}{s.lab}_tke_budget.pdf", format="pdf", bbox_inches="tight")
+    plt.close(fig6)
 
 #
 # Figure 7: Ozmidov length scale Lo
 #
 fig7, ax7 = plt.subplots(1, figsize=(8, 6))
 for i, s in enumerate(s_all):
-    ax7.plot(s.Ri["Lo"], s.z[1:-1], "-", label=f"$L_o^{{{s.nx}}}$", c=colors[i])
-    ax7.axvline(s.dd, linestyle="--", color=colors[i], label=f"$\Delta^{{{s.nx}}}$")
+    ax7.plot(s.Ri["Lo"], s.z[1:-1], "-", label=s.stab, c=colors[i])
 #     ax7.axhline(s.xytavg["zj"], linestyle=":", color=colors[i], label=f"LLJ$^{{{s.nx}}}$")
-    ax7.axhline(s.h, linestyle=":", color=colors[i], label=f"h$^{{{s.nx}}}$")
+    ax7.axhline(s.h, linestyle=":", color=colors[i], label=f"h$_{{{s.stab}}}$")
+ax7.axvline(s.dd, linestyle="--", color=colors[i], label=f"$\Delta$")
 ax7.grid()
 ax7.legend()
 ax7.set_ylabel("z [m]")
 ax7.set_xlabel(r"$L_o = \sqrt{ \langle \epsilon \rangle / \langle N^2 \rangle ^{3/2} }$ [m]")
 
 # save figure
-fig7.savefig(f"{fdir_save}{s_all[0].stab}_Lo.pdf", format="pdf", bbox_inches="tight")
+fig7.savefig(f"{fdir_save}all_Lo.pdf", format="pdf", bbox_inches="tight")

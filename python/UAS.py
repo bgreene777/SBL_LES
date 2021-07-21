@@ -25,13 +25,19 @@ plt.close("all")
 #
 # A
 sA = UAS_emulator("/home/bgreene/simulations/A_192_interp/output/",
-                192, 192, 192, 800., 800., 400., "A")
+                  192, 192, 192, 800., 800., 400., "A")
+# B
+sB = UAS_emulator("/home/bgreene/simulations/B_192_interp/output/",
+                  192, 192, 192, 800., 800., 400., "B")
+# CsC.read_time
+sC = UAS_emulator("/home/bgreene/simulations/C_192_interp/output/",
+                  192, 192, 192, 800., 800., 400., "C")
 # F
 sF = UAS_emulator("/home/bgreene/simulations/F_192_interp/output/",
-                192, 192, 192, 800., 800., 400., "F")
+                  192, 192, 192, 800., 800., 400., "F")
 
 # combine in list for looping
-s_all = [sA, sF]
+s_all = [sA, sB, sC, sF]
 for s in s_all:
     s.read_timeseries(720000, 0.02, raw=False)
     s.profile(ascent_rate=1.0, time_average=3.0, time_start=0.0)

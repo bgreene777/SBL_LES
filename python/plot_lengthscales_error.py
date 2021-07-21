@@ -606,24 +606,30 @@ def plot_2d_Tavg(s, fsave=fdir_save):
 # Create simulation objects
 #
 # A
-s128A = simulation("/home/bgreene/simulations/A_128_interp/output/",
-                  128, 128, 128, 800., 800., 400., "A")
-s160A = simulation("/home/bgreene/simulations/A_160_interp/output/",
-                  160, 160, 160, 800., 800., 400., "A")
+# s128A = simulation("/home/bgreene/simulations/A_128_interp/output/",
+#                   128, 128, 128, 800., 800., 400., "A")
+# s160A = simulation("/home/bgreene/simulations/A_160_interp/output/",
+#                   160, 160, 160, 800., 800., 400., "A")
 s192A = simulation("/home/bgreene/simulations/A_192_interp/output/",
-                  192, 192, 192, 800., 800., 400., "A")
+                   192, 192, 192, 800., 800., 400., "A")
+# B
+s192B = simulation("/home/bgreene/simulations/B_192_interp/output/",
+                   192, 192, 192, 800., 800., 400., "B")
+# C
+s192C = simulation("/home/bgreene/simulations/C_192_interp/output/",
+                   192, 192, 192, 800., 800., 400., "C")
 # F
-s128F = simulation("/home/bgreene/simulations/F_128_interp/output/",
-                  128, 128, 128, 800., 800., 400., "F")
-s160F = simulation("/home/bgreene/simulations/F_160_interp/output/",
-                  160, 160, 160, 800., 800., 400., "F")
+# s128F = simulation("/home/bgreene/simulations/F_128_interp/output/",
+#                   128, 128, 128, 800., 800., 400., "F")
+# s160F = simulation("/home/bgreene/simulations/F_160_interp/output/",
+#                   160, 160, 160, 800., 800., 400., "F")
 s192F = simulation("/home/bgreene/simulations/F_192_interp/output/",
-                  192, 192, 192, 800., 800., 400., "F")
+                   192, 192, 192, 800., 800., 400., "F")
 
 # put everything into a list for looping
 # s_all = [s128A, s160A, s192A]
 # s_all = [s128F, s160F, s192F]
-s_all = [s192A, s192F]
+s_all = [s192A, s192B, s192C, s192F]
 for s in s_all:
     s.read_csv()
     s.calc_Ri()
@@ -635,15 +641,15 @@ for s in s_all:
 # --------------------------------
 for s in s_all:
     # sigma_f versus all delta_x for filtered
-    #plot_sigma_filt(s)
+    plot_sigma_filt(s)
     # MSE{x~_delta}/var{x} vs. delta/T_H
-    #plot_MSE(s)
+    plot_MSE(s)
     # compare rel rand err from RFM and autocorr
-    #plot_err(s)
+    plot_err(s)
     # 2d errors for ws, wd, theta
-    #plot_2d_err(s)
+    plot_2d_err(s)
     # 2d Tavg for u, v, theta
-    plot_2d_Tavg(s)
+#     plot_2d_Tavg(s)
     
     
 # length and timescales from autocorr
