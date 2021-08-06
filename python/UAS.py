@@ -29,15 +29,21 @@ sA = UAS_emulator("/home/bgreene/simulations/A_192_interp/output/",
 # B
 sB = UAS_emulator("/home/bgreene/simulations/B_192_interp/output/",
                   192, 192, 192, 800., 800., 400., "B")
-# CsC.read_time
+# C
 sC = UAS_emulator("/home/bgreene/simulations/C_192_interp/output/",
                   192, 192, 192, 800., 800., 400., "C")
+# D
+sD = UAS_emulator("/home/bgreene/simulations/D_192_interp/output/",
+                  192, 192, 192, 800., 800., 400., "D")
+# E
+sE = UAS_emulator("/home/bgreene/simulations/E_192_interp/output/",
+                  192, 192, 192, 800., 800., 400., "E")
 # F
 sF = UAS_emulator("/home/bgreene/simulations/F_192_interp/output/",
                   192, 192, 192, 800., 800., 400., "F")
 
 # combine in list for looping
-s_all = [sA, sB, sC, sF]
+s_all = [sA, sB, sC, sD, sE, sF]
 for s in s_all:
     s.read_timeseries(720000, 0.02, raw=False)
     s.profile(ascent_rate=1.0, time_average=3.0, time_start=0.0)

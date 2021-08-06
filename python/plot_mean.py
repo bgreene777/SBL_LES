@@ -42,6 +42,12 @@ sB = simulation("/home/bgreene/simulations/B_192_interp/output/",
 # C
 sC = simulation("/home/bgreene/simulations/C_192_interp/output/",
                 192, 192, 192, 800., 800., 400., "C")
+# D
+sD = simulation("/home/bgreene/simulations/D_192_interp/output/",
+                192, 192, 192, 800., 800., 400., "D")
+# E
+sE = simulation("/home/bgreene/simulations/E_192_interp/output/",
+                192, 192, 192, 800., 800., 400., "E")
 # F
 # s128F = simulation("/home/bgreene/simulations/F_128_interp/output/average_statistics.csv",
 #                   128, 128, 128, 800., 800., 400., "F")
@@ -52,7 +58,7 @@ sF = simulation("/home/bgreene/simulations/F_192_interp/output/",
 
 # put everything into a list for looping
 # s_all = [s128A, s160A, s192A]
-s_all = [sA, sB, sC, sF]
+s_all = [sA, sB, sC, sD, sE, sF]
 for s in s_all:
     s.read_csv()
     s.calc_Ri()

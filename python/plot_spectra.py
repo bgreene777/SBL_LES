@@ -28,16 +28,23 @@ colors = [(225./255, 156./255, 131./255),
 #
 # Create simulation objects
 #
+# s_all = []
+# for stab in ["A", "F"]:
+#     for res in ["128", "192", "160"]:
+#         if (stab=="F") & (res=="160"):
+#             break
+#         s = simulation(f"/home/bgreene/simulations/{stab}_{res}_interp/output/average_statistics.csv",
+#                       int(res), int(res), int(res), 800., 800., 400., stab)
+#         s.read_csv()
+#         s.read_spectra(f"/home/bgreene/SBL_LES/output/spectra_{s.stab}_{s.lab}.npz")
+#         s_all.append(s)
 s_all = []
-for stab in ["A", "F"]:
-    for res in ["128", "192", "160"]:
-        if (stab=="F") & (res=="160"):
-            break
-        s = simulation(f"/home/bgreene/simulations/{stab}_{res}_interp/output/average_statistics.csv",
-                      int(res), int(res), int(res), 800., 800., 400., stab)
-        s.read_csv()
-        s.read_spectra(f"/home/bgreene/SBL_LES/output/spectra_{s.stab}_{s.lab}.npz")
-        s_all.append(s)
+s = simulation("/home/bgreene/simulations/F_192_interp/output/",
+               192, 192, 192, 800., 800., 400., "F")
+s_all.append(s)
+for s in s_all:
+    s.read_csv()
+    s.read_spectra(f"/home/bgreene/SBL_LES/output/spectra_{s.stab}_{s.lab}.npz")
 
 # --------------------------------
 # Begin plotting
@@ -69,3 +76,30 @@ for s in s_all:
     print(f"Saving figure: {fsave1}")
     fig1.savefig(fsave1, format="pdf", bbox_inches="tight")
     plt.close(fig1)
+    
+#
+# Figure 2: E_tt for select simulation
+# loop over all s in s_all and create individual figure
+#
+for s in s_all:
+    fig2, ax2 = plt.subplots(1, figsize=(12, 8))
+    imax = int(np.sqrt(s.i_h))
+    xmid = s.nx//2
+    # loop over heights in s, up to maximum of imax
+    for i, jz in enumerate(np.arange(imax, dtype=int)**2):
+        ax2.plot(s.spec["freqz"][1:xmid], 
+                 s.spec["E_tt"][1:xmid,jz]*s.spec["freqz"][1:xmid]/s.cov["thetastar"][jz]/s.cov["thetastar"][jz], 
+                 fstr[i], label=f"$z={{{s.z[jz]:4.1f}}}$m")
+    # clean up figure
+    ax2.set_xscale("log")
+    ax2.set_yscale("log")
+    ax2.grid()
+    ax2.set_xlabel("$k_x$ [m]")
+    ax2.set_ylabel("$k_x E_{\\theta \\theta}(z) / \\theta_{*}^2$")
+    ax2.set_title(f"{s.stab}{s.lab} Potential Temperature Energy Spectra")
+    ax2.legend()
+    # save and close
+    fsave2 = f"{fdir_save}{s.stab}{s.lab}_theta.pdf"
+    print(f"Saving figure: {fsave2}")
+    fig2.savefig(fsave2, format="pdf", bbox_inches="tight")
+    plt.close(fig2)
