@@ -115,7 +115,7 @@ class simulation():
         self.L_H = np.zeros(self.nz, dtype=float)
         
     def read_csv(self):
-        print(f"--Beginning loading data for {self.nx}^3 simulation--")
+        print(f"--Beginning loading data for simulation {self.stab}--")
         print(f"Reading file: {self.path}average_statistics.csv")
         
         data = np.genfromtxt(f"{self.path}average_statistics.csv", 
@@ -273,6 +273,19 @@ class simulation():
         
         return
     
+    def print_sim_stats(self):
+        # only run this *after* calling read_csv, calc_Ri, and calc_most
+        # print simulation parameters to be used in table for paper
+        print(f"Stability: {self.stab}")
+        print(f"h:         {self.h:4.1f} m")
+        print(f"ustar0:    {self.cov['ustar'][0]:4.3f} m/s")
+        print(f"Tstar0:    {self.cov['thetastar'][0]:4.3f} K")
+        print(f"Q0:        {self.cov['thetaw_cov_tot'][0]:8.7f} K m/s")
+        print(f"L:         {self.cov['L'][0]:4.3f} m")
+        print(f"h/L:       {self.h/self.cov['L'][0]:3.2f}")
+        print(f"zj/h:      {self.xytavg['zj']/self.h:4.3f}")
+        return
+    
     def read_filt_len(self, npz, label):
         self.flen[label] = np.load(npz)
         return
@@ -309,10 +322,30 @@ class simulation():
         self.spec = np.load(npz)
         return
     
-    def read_RFM(self, npz):
+    def read_RFM(self, npz, ierr_ws=False):
         dat = np.load(npz, allow_pickle=True)
         for key in dat.keys():
             self.RFM[key] = dat[key]
+        # if ierr_ws, calculate ws and wd error
+        if ierr_ws:
+            isbl = self.isbl
+            sig_u = self.RFM["err_u2"] * abs(self.xytavg["u"][isbl])
+            sig_v = self.RFM["err_v2"] * abs(self.xytavg["v"][isbl])
+            # calculate ws error and assign to RFM
+            err_ws = np.sqrt( (sig_u**2. * self.xytavg["u"][isbl]**2. +\
+                               sig_v**2. * self.xytavg["v"][isbl]**2.)/\
+                              (self.xytavg["u"][isbl]**2. +\
+                               self.xytavg["v"][isbl]**2.) ) /\
+                     self.xytavg["ws"][isbl]
+            self.RFM["err_ws"] = err_ws
+            # calculate wd error and assign to RFM
+            err_wd = np.sqrt( (sig_u**2. * self.xytavg["v"][isbl]**2. +\
+                               sig_v**2. * self.xytavg["u"][isbl]**2.)/\
+                              ((self.xytavg["u"][isbl]**2. +\
+                                self.xytavg["v"][isbl]**2.)**2.) ) /\
+                     (self.xytavg["wd"][isbl] * np.pi/180.)  # normalize w/ rad
+            self.RFM["err_wd"] = err_wd        
+        
         return
     
     def recalc_rand_err(self, Tnew):
