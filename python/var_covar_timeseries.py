@@ -72,10 +72,10 @@ u_scale = 0.4
 theta_scale = 300.
 
 # start with A_192_interp and evaluate theta
-fdir = "/home/bgreene/simulations/F_192_interp/output/"
+fdir = "/home/bgreene/simulations/A_192_interp/output/"
 
 # if F192_stationarity3.npz exists, then load
-fdat = "/home/bgreene/SBL_LES/output/F192_stationarity3.npz"
+fdat = "/home/bgreene/SBL_LES/output/A192_stationarity3.npz"
 
 if os.path.exists(fdat):
     print(f"Reading file: {fdat}")
@@ -96,7 +96,7 @@ else:
     zero = np.zeros((nx,ny,nz), dtype=np.float64)
     # calculate timeseries of prescribed surface temp from simulation
     T0 = 265.  # K
-    Tc = 2.5   # K/hr
+    Tc = 0.25   # K/hr
     # starting temp for last 3 hours:
     # 6 hours before interp + 1 hour after interp
     T3h0 = T0 - (Tc * 7.)
@@ -187,9 +187,9 @@ ax1[2].set_xlabel("Time [hrs]")
 ax1[2].set_ylabel("$\\theta'\\theta'$ [K$^2$]", fontsize=16)
 ax1[2].legend()
 
-fig1.suptitle("Simulation F Variances Timeseries - Last 3 Hours")
+fig1.suptitle("Simulation A Variances Timeseries - Last 3 Hours")
 # save and close
-fsave1 = f"{fdir_save}F192_u_v_w_theta_var_timeseries.pdf"
+fsave1 = f"{fdir_save}A192_u_v_w_theta_var_timeseries.pdf"
 print(f"Saving figure: {fsave1}")
 fig1.savefig(fsave1, format="pdf", bbox_inches="tight")
 plt.close(fig1)
@@ -216,9 +216,9 @@ ax2[1].set_xlabel("Time [hrs]")
 ax2[1].set_ylabel("$\\theta'w'$ [K m s$^{-1}$]", fontsize=16)
 ax2[1].legend()
 
-fig2.suptitle("Simulation F Covariances Timeseries - Last 3 Hours")
+fig2.suptitle("Simulation A Covariances Timeseries - Last 3 Hours")
 # save and close
-fsave2 = f"{fdir_save}F192_uw_vw_thetaw_timeseries.pdf"
+fsave2 = f"{fdir_save}A192_uw_vw_thetaw_timeseries.pdf"
 print(f"Saving figure: {fsave2}")
 fig2.savefig(fsave2, format="pdf", bbox_inches="tight")
 plt.close(fig2)
@@ -233,7 +233,7 @@ ax3.grid()
 ax3.set_xlabel("Time [hrs]")
 ax3.set_ylabel("$\\partial T / \\partial z$ [K m$^{-1}$]")
 # save and close
-fsave3 = f"{fdir_save}F192_dtheta_dz_timeseries.pdf"
+fsave3 = f"{fdir_save}A192_dtheta_dz_timeseries.pdf"
 print(f"Saving figure: {fsave3}")
 fig3.savefig(fsave3, format="pdf", bbox_inches="tight")
 plt.close(fig3)
