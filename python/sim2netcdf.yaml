@@ -1,0 +1,42 @@
+# --------------------------------
+# Name: sim2netcdf.yaml
+# Author: Brian R. Greene
+# University of Oklahoma
+# Created: 31 August 2021
+# Purpose: parameters for loading output files from LES and saving
+# to new netcdf
+# --------------------------------
+
+res: 192
+stab: "A"
+fdir: "/home/bgreene/simulations/A_192_interp/output/"
+sdir: "/home/bgreene/simulations/A_192_interp/output/netcdf/"
+t0: 900000
+t1: 1260000
+dt: 1000
+Lx: 800.0
+Ly: 800.0
+Lz: 400.0
+uscale: 0.4
+Tscale: 300
+var_attrs:
+    u:
+        units: "m/s"
+    v:
+        units: "m/s"
+    w:
+        units: "m/s"
+    theta:
+        units: "K"
+    txz:
+        units: "m^2/s^2"
+    tyz:
+        units: "m^2/s^2"
+    q3:
+        units: "K m/s"
+    x:
+        units: "m"
+    y:
+        units: "m"
+    z:
+        units: "m"
