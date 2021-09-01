@@ -601,6 +601,70 @@ def plot_2d_Tavg(s, fsave=fdir_save):
     
     return
 # --------------------------------
+def plot_optimal_ascent(s, fsave=fdir_save, delta_z=1., err=0.05):
+    # input delta_z (fixed) and target error threshold
+    # array of new times at which to recalculate errors
+    # start with 1 s intervals from 1-60 s
+    t_recalc = np.arange(0.1, 120.1, 0.1, dtype=np.float64)
+    # number of time intervals
+    nt = len(t_recalc)
+    # number of heights
+    nz = len(s.RFM["isbl"])
+    # initialize empty 2d arrays for ws, wd, theta with shape(nz,nt)
+    ws_all, wd_all, theta_all =\
+    [np.zeros((nz,nt), dtype=np.float64) for _ in range(3)]
+    # begin looping over times
+    for jt, t in enumerate(t_recalc):
+        s.recalc_rand_err(t)
+        ws_all[:,jt] = s.RFM_new["err_ws"]
+        wd_all[:,jt] = s.RFM_new["err_wd"]
+        theta_all[:,jt] = s.RFM_new["err_theta"]
+        
+    # now find averaging time to be below err at each z
+    t_ws, t_wd, t_theta = [np.zeros(nz, dtype=np.float64) for _ in range(3)]
+    for jz in range(nz):
+        iws = np.where(ws_all[jz,:] <= err)[0]
+        if np.size(iws) > 0:
+            t_ws[jz] = t_recalc[iws[0]]
+        else:
+            t_ws[jz] = np.nan
+        iwd = np.where(wd_all[jz,:] <= err)[0]
+        if np.size(iwd) > 0:
+            t_wd[jz] = t_recalc[iwd[0]]
+        else:
+            t_wd[jz] = np.nan
+        itheta = np.where(theta_all[jz,:] <= err)[0]
+        if np.size(itheta) > 0:
+            t_theta[jz] = t_recalc[itheta[0]]
+        else:
+            t_theta[jz] = np.nan
+            
+    # now can calculate ascent rate based on fixed delta_z and t_ws
+    vz_ws = delta_z / t_ws
+    vz_wd = delta_z / t_wd
+    vz_theta = delta_z / t_theta
+    
+    # plot results
+    fig1, ax1 = plt.subplots(1, figsize=(5, 6))
+    # ws
+    ax1.plot(vz_ws, s.z[:nz]/s.h, "-k", lw=2, label="$u_h$")
+    ax1.plot(vz_wd, s.z[:nz]/s.h, "--k", lw=2, label="$\\alpha$")
+    ax1.plot(vz_theta, s.z[:nz]/s.h, ":k", lw=2, label="$\\theta$")
+    ax1.grid()
+    ax1.legend()
+    ax1.set_xlabel(f"Max Ascent Rate for $\\epsilon \le {err*100.:3.0f}\%$")
+    ax1.set_ylabel("$z/h$")
+    ax1.set_title(f"{s.stab}{s.lab} $\\Delta z = {delta_z}$ m")
+    ax1.set_xlim([0., 5.])
+    ax1.set_ylim([0., 1.])
+    # save and close
+    fsave1 = f"{fsave}{s.stab}{s.lab}_vz_optimal.pdf"
+    print(f"Saving figure: {fsave1}")
+    fig1.savefig(fsave1, format="pdf", bbox_inches="tight")
+    plt.close(fig1)
+    
+    return
+# --------------------------------
 #
 # Create simulation objects
 #
@@ -652,9 +716,11 @@ for s in s_all:
     # compare rel rand err from RFM and autocorr
 #     plot_err(s)
     # 2d errors for ws, wd, theta
-    plot_2d_err(s)
+#     plot_2d_err(s)
     # 2d Tavg for u, v, theta
 #     plot_2d_Tavg(s)
+    # optimal ascent rate
+    plot_optimal_ascent(s)
     
     
 # length and timescales from autocorr
