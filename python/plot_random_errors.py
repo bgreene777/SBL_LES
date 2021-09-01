@@ -8,6 +8,7 @@
 import os
 import pickle
 import numpy as np
+import seaborn
 import matplotlib.pyplot as plt
 from matplotlib import rc
 from matplotlib.ticker import MultipleLocator
@@ -17,9 +18,10 @@ from simulation import simulation
 # Configure plots
 rc('font',weight='normal',size=20,family='serif',serif='Computer Modern Roman')
 rc('text',usetex='True')
-colors = [(252./255, 193./255, 219./255), (225./255, 156./255, 131./255),
-          (134./255, 149./255, 68./255), (38./255, 131./255, 63./255),
-          (0., 85./255, 80./255), (20./255, 33./255, 61./255) ]
+# colors = [(252./255, 193./255, 219./255), (225./255, 156./255, 131./255),
+#           (134./255, 149./255, 68./255), (38./255, 131./255, 63./255),
+#           (0., 85./255, 80./255), (20./255, 33./255, 61./255) ]
+colors = seaborn.color_palette("crest")
 fdir_save = "/home/bgreene/SBL_LES/figures/random_errors/"
 plt.close("all")
 
@@ -65,7 +67,7 @@ fig1, ax1 = plt.subplots(1, figsize=(6, 8))
 # loop over all sims
 for i, s in enumerate(s_all):
     ax1.plot(100.*s.RFM["err_u"], s.z[s.isbl]/s.h, 
-             ls="-", c=colors[i], label=s.stab)
+             ls="-", lw=2, c=colors[i], label=s.stab)
 # labels
 # ax1.set_xlim()
 ax1.set_ylim([0., 1.])
@@ -87,15 +89,15 @@ fig2, ax2 = plt.subplots(nrows=1, ncols=2, sharey=True, figsize=(12, 8))
 # loop over all sims
 for i, s in enumerate(s_all):
     ax2[0].plot(100.*s.RFM["err_ws"], s.z[s.isbl]/s.h, 
-                ls="-", c=colors[i], label=s.stab)
+                ls="-", lw=2, c=colors[i], label=s.stab)
     ax2[1].plot(100.*s.RFM["err_wd"], s.z[s.isbl]/s.h, 
-                ls="-", c=colors[i], label=s.stab)
+                ls="-", lw=2, c=colors[i], label=s.stab)
 # labels
 # ax2.set_xlim()
 ax2[0].set_ylim([0., 1.])
 ax2[0].grid()
 ax2[0].legend()
-ax2[0].set_xlabel("$\\epsilon_{|U|}$ [$\%$]")
+ax2[0].set_xlabel("$\\epsilon_{u_h}$ [$\%$]")
 ax2[0].set_ylabel("$z/h$")
 ax2[1].grid()
 ax2[1].set_xlabel("$\\epsilon_{\\alpha}$ [$\%$]")
@@ -113,7 +115,7 @@ fig3, ax3 = plt.subplots(1, figsize=(6, 8))
 # loop over all sims
 for i, s in enumerate(s_all):
     ax3.plot(100.*s.RFM["err_theta"], s.z[s.isbl]/s.h, 
-             ls="-", c=colors[i], label=s.stab)
+             ls="-", lw=2, c=colors[i], label=s.stab)
 # labels
 # ax3.set_xlim()
 ax3.set_ylim([0., 1.])
@@ -135,11 +137,11 @@ fig4, ax4 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(12, 8))
 # loop over all sims
 for i, s in enumerate(s_all):
     ax4[0].plot(100.*s.RFM["err_uw"], s.z[s.isbl]/s.h, 
-                ls="-", c=colors[i], label=s.stab)
+                ls="-", lw=2, c=colors[i], label=s.stab)
     ax4[1].plot(100.*s.RFM["err_vw"], s.z[s.isbl]/s.h, 
-                ls="-", c=colors[i], label=s.stab)
+                ls="-", lw=2, c=colors[i], label=s.stab)
     ax4[2].plot(100.*s.RFM["err_tw"], s.z[s.isbl]/s.h, 
-                ls="-", c=colors[i], label=s.stab)
+                ls="-", lw=2, c=colors[i], label=s.stab)
     for iax in ax4:
         iax.axhline(s.xytavg["zj"]/s.h, ls=":", c=colors[i])
     
@@ -173,13 +175,13 @@ fig5, ax5 = plt.subplots(nrows=1, ncols=4, sharey=True, figsize=(16, 8))
 # loop over all sims
 for i, s in enumerate(s_all):
     ax5[0].plot(100.*s.RFM["err_uu"], s.z[s.isbl]/s.h, 
-                ls="-", c=colors[i], label=s.stab)
+                ls="-", lw=2, c=colors[i], label=s.stab)
     ax5[1].plot(100.*s.RFM["err_vv"], s.z[s.isbl]/s.h, 
-                ls="-", c=colors[i], label=s.stab)
+                ls="-", lw=2, c=colors[i], label=s.stab)
     ax5[2].plot(100.*s.RFM["err_ww"], s.z[s.isbl]/s.h, 
-                ls="-", c=colors[i], label=s.stab)
+                ls="-", lw=2, c=colors[i], label=s.stab)
     ax5[3].plot(100.*s.RFM["err_tt"], s.z[s.isbl]/s.h, 
-                ls="-", c=colors[i], label=s.stab)
+                ls="-", lw=2, c=colors[i], label=s.stab)
     for iax in ax5:
         iax.axhline(s.xytavg["zj"]/s.h, ls=":", c=colors[i])
     

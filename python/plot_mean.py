@@ -11,6 +11,7 @@
 # --------------------------------
 import os
 import pickle
+import seaborn
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rc
@@ -21,9 +22,10 @@ from simulation import simulation
 # Configure plots
 rc('font',weight='normal',size=20,family='serif',serif='Computer Modern Roman')
 rc('text',usetex='True')
-colors = [(225./255, 156./255, 131./255),
-          (134./255, 149./255, 68./255), (38./255, 131./255, 63./255),
-          (0., 85./255, 80./255), (20./255, 33./255, 61./255), (252./255, 193./255, 219./255)]
+# colors = [(225./255, 156./255, 131./255),
+#           (134./255, 149./255, 68./255), (38./255, 131./255, 63./255),
+#           (0., 85./255, 80./255), (20./255, 33./255, 61./255), (252./255, 193./255, 219./255)]
+colors = seaborn.color_palette("crest")
 fdir_save = "/home/bgreene/SBL_LES/figures/grid_sensitivity/"
 plt.close("all")
 
@@ -77,13 +79,13 @@ for s in s_all:
 fig1, ax1 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(14.8, 5))
 for i, s in enumerate(s_all):
     # u
-    ax1[0].plot(s.xytavg["u"], s.z, color=colors[i], linestyle="--")
+    ax1[0].plot(s.xytavg["u"], s.z, color=colors[i], linestyle="--", lw=2,)
     # v
-    ax1[0].plot(s.xytavg["v"], s.z, color=colors[i], linestyle=":")
+    ax1[0].plot(s.xytavg["v"], s.z, color=colors[i], linestyle=":", lw=2,)
     # ws
-    ax1[0].plot(s.xytavg["ws"], s.z, color=colors[i], linestyle="-", label=s.stab)
+    ax1[0].plot(s.xytavg["ws"], s.z, color=colors[i], linestyle="-", lw=2, label=s.stab)
     # wdir
-    ax1[1].plot(s.xytavg["wd"], s.z, color=colors[i], linestyle="-")
+    ax1[1].plot(s.xytavg["wd"], s.z, color=colors[i], linestyle="-", lw=2,)
     # theta
     ax1[2].plot(s.xytavg["theta"], s.z, color=colors[i], linestyle="-")
     ax1[2].axhline(s.h, color=colors[i], linestyle=":", linewidth=2, 
@@ -111,11 +113,11 @@ plt.close(fig1)
 fig2, ax2 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(14.8, 5))
 for i, s in enumerate(s_all):
     # u'w'
-    ax2[0].plot(s.cov["uw_cov_tot"], s.z/s.h, color=colors[i], linestyle="-", label=s.stab)
+    ax2[0].plot(s.cov["uw_cov_tot"], s.z/s.h, color=colors[i], linestyle="-", label=s.stab, lw=2)
     # v'w'
-    ax2[1].plot(s.cov["vw_cov_tot"], s.z/s.h, color=colors[i], linestyle="-")
+    ax2[1].plot(s.cov["vw_cov_tot"], s.z/s.h, color=colors[i], linestyle="-", lw=2)
     # theta'w'
-    ax2[2].plot(s.cov["thetaw_cov_tot"], s.z/s.h, color=colors[i], linestyle="-")
+    ax2[2].plot(s.cov["thetaw_cov_tot"], s.z/s.h, color=colors[i], linestyle="-", lw=2)
 # clean up
 ax2[0].grid()
 ax2[0].legend()
@@ -139,11 +141,11 @@ plt.close(fig2)
 fig3, ax3 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(14.8, 5))
 for i, s in enumerate(s_all):
     # u'u'
-    ax3[0].plot(s.var["u_var_tot"], s.z/s.h, color=colors[i], linestyle="-", label=s.stab)
+    ax3[0].plot(s.var["u_var_tot"], s.z/s.h, color=colors[i], linestyle="-", label=s.stab, lw=2)
     # v'v'
-    ax3[1].plot(s.var["v_var_tot"], s.z/s.h, color=colors[i], linestyle="-")
+    ax3[1].plot(s.var["v_var_tot"], s.z/s.h, color=colors[i], linestyle="-", lw=2)
     # theta'w'
-    ax3[2].plot(s.var["w_var_tot"], s.z/s.h, color=colors[i], linestyle="-")
+    ax3[2].plot(s.var["w_var_tot"], s.z/s.h, color=colors[i], linestyle="-", lw=2)
 # clean up
 ax3[0].grid()
 ax3[0].legend()
@@ -168,11 +170,11 @@ fig4, ax4 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(14.8, 5))
 for i, s in enumerate(s_all):
     # TKE
     ax4[0].plot(s.var["TKE_tot"]/s.cov["ustar"][0]/s.cov["ustar"][0], s.z/s.h, color=colors[i], 
-                linestyle="-", label=s.stab)
+                linestyle="-", label=s.stab, lw=2)
     # theta var
-    ax4[1].plot(s.var["theta_var_tot"], s.z/s.h, color=colors[i], linestyle="-")
+    ax4[1].plot(s.var["theta_var_tot"], s.z/s.h, color=colors[i], linestyle="-", lw=2)
     # ustar
-    ax4[2].plot(s.cov["ustar"], s.z/s.h, color=colors[i], linestyle="-")
+    ax4[2].plot(s.cov["ustar"], s.z/s.h, color=colors[i], linestyle="-", lw=2)
     
 # clean up
 ax4[0].grid()
@@ -198,13 +200,13 @@ plt.close(fig4)
 fig5, ax5 = plt.subplots(nrows=1, ncols=2, sharey=True, figsize=(14.8, 5))
 for i, s in enumerate(s_all):
     # S2
-    ax5[0].plot(s.Ri["S2"], s.z[1:-1]/s.h, color=colors[i], linestyle="-", label=s.stab)
+    ax5[0].plot(s.Ri["S2"], s.z[1:-1]/s.h, color=colors[i], linestyle="-", label=s.stab, lw=2)
     # N2
-    ax5[0].plot(s.Ri["N2"], s.z[1:-1]/s.h, color=colors[i], linestyle=":")
+    ax5[0].plot(s.Ri["N2"], s.z[1:-1]/s.h, color=colors[i], linestyle=":", lw=2)
     # Ri
-    ax5[1].plot(s.Ri["Ri"], s.z[1:-1]/s.h, color=colors[i], linestyle="-")
+    ax5[1].plot(s.Ri["Ri"], s.z[1:-1]/s.h, color=colors[i], linestyle="-", lw=2)
     # Ri_f
-    ax5[1].plot(s.Ri["Ri_f"], s.z[1:-1]/s.h, color=colors[i], linestyle=":")
+    ax5[1].plot(s.Ri["Ri_f"], s.z[1:-1]/s.h, color=colors[i], linestyle=":", lw=2)
 # clean up
 ax5[0].grid()
 ax5[0].legend()
@@ -228,13 +230,13 @@ plt.close(fig5)
 for s in s_all:
     fig6, ax6 = plt.subplots(1, figsize=(12,8))
 
-    ax6.plot(s.tke["shear"][1:]/s.tke["scale"], s.tke["z"][1:], label="Shear Production")
-    ax6.plot(s.tke["buoy"][1:]/s.tke["scale"], s.tke["z"][1:], label="Buoyancy Production")
-    ax6.plot(s.tke["trans"][1:]/s.tke["scale"], s.tke["z"][1:], label="Turbulent Transport")
-    ax6.plot(s.tke["diss"][1:]/s.tke["scale"], s.tke["z"][1:], label="3D Dissipation")
-    ax6.plot(s.tke["residual"][1:]/s.tke["scale"], s.tke["z"][1:], label="Residual")
-    ax6.axhline(s.h, color="k", linestyle="--", label="h")
-    ax6.axhline(s.xytavg["zj"], color="k", linestyle=":", label="LLJ")
+    ax6.plot(s.tke["shear"][1:]/s.tke["scale"], s.tke["z"][1:], label="Shear Production", lw=2)
+    ax6.plot(s.tke["buoy"][1:]/s.tke["scale"], s.tke["z"][1:], label="Buoyancy Production", lw=2)
+    ax6.plot(s.tke["trans"][1:]/s.tke["scale"], s.tke["z"][1:], label="Turbulent Transport", lw=2)
+    ax6.plot(s.tke["diss"][1:]/s.tke["scale"], s.tke["z"][1:], label="3D Dissipation", lw=2)
+    ax6.plot(s.tke["residual"][1:]/s.tke["scale"], s.tke["z"][1:], label="Residual", lw=2)
+    ax6.axhline(s.h, color="k", linestyle="--", label="h", lw=2)
+    ax6.axhline(s.xytavg["zj"], color="k", linestyle=":", label="LLJ", lw=2)
     ax6.grid()
     ax6.legend(loc="upper right")
     ax6.set_xlabel("Dimensionless TKE Budget Terms [-]")
@@ -252,10 +254,10 @@ for s in s_all:
 #
 fig7, ax7 = plt.subplots(1, figsize=(8, 6))
 for i, s in enumerate(s_all):
-    ax7.plot(s.Ri["Lo"], s.z[1:-1], "-", label=s.stab, c=colors[i])
+    ax7.plot(s.Ri["Lo"], s.z[1:-1], "-", label=s.stab, c=colors[i], lw=2)
 #     ax7.axhline(s.xytavg["zj"], linestyle=":", color=colors[i], label=f"LLJ$^{{{s.nx}}}$")
-    ax7.axhline(s.h, linestyle=":", color=colors[i], label=f"h$_{{{s.stab}}}$")
-ax7.axvline(s.dd, linestyle="--", color=colors[i], label=f"$\Delta$")
+    ax7.axhline(s.h, linestyle=":", color=colors[i], lw=2)
+ax7.axvline(s.dd, linestyle="--", color=colors[i], label=f"$\Delta$", lw=2)
 ax7.grid()
 ax7.legend()
 ax7.set_ylabel("z [m]")

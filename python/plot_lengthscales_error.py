@@ -406,8 +406,7 @@ def plot_2d_err(s, fsave=fdir_save):
         s.recalc_rand_err(t)
         ws_all[:,jt] = s.RFM_new["err_ws"]
         wd_all[:,jt] = s.RFM_new["err_wd"]
-        theta_all[:,jt] = s.RFM_new["err_theta"]
-        
+        theta_all[:,jt] = s.RFM_new["err_theta"] * s.xytavg["theta"][:nz]
     # now can begin plotting
     # define meshgrids - t_recalc (x) and z/h (y)
     tt, zz = np.meshgrid(t_recalc, s.z[s.RFM["isbl"]]/s.h)
@@ -415,15 +414,15 @@ def plot_2d_err(s, fsave=fdir_save):
     
     # figure 1: wind speed
     fig1, ax1 = plt.subplots(1, figsize=(12, 8))
-    cfax1 = ax1.pcolormesh(tt, zz, ws_all*100., cmap=cmocean.cm.matter, 
-                       vmin=0., vmax=50.)
-#                          levels=np.linspace(0, 110, 111, dtype=np.float64))
+    cfax1 = ax1.contourf(tt, zz, ws_all*100., cmap=cmocean.cm.matter, 
+                         extend="max",
+                         levels=np.linspace(0, 50, 11, dtype=np.float64))
     cax1 = ax1.contour(tt, zz, ws_all*100., "-k", levels=[10.], linewidths=4.)
-    cfax1.set_edgecolor("face")
+#     cfax1.set_edgecolor("face")
     cbar1 = fig1.colorbar(cfax1, ax=ax1, ticks=np.linspace(0, 50, 11))
-    cbar1.ax.set_ylabel("$\\epsilon_{ws}$ [$\%$]")
+    cbar1.ax.set_ylabel("$\\epsilon_{u_h}$ [$\%$]")
     # plot blue line outside of window to use in legend
-    ax1.axhline(-10, ls="-", lw=4, c="k", label="$\\epsilon_{ws}=10\%$")
+    ax1.axhline(-10, ls="-", lw=4, c="k", label="$\\epsilon_{u_h}=10\%$")
     # plot vertical dashed line at T = 3 s
     ax1.axvline(3., ls="--", lw=4, c="k", label="$T = 3$ s")
     ax1.set_xlabel("Averaging Time [s]")
@@ -443,16 +442,16 @@ def plot_2d_err(s, fsave=fdir_save):
     
     # figure 2: wind direction
     fig2, ax2 = plt.subplots(1, figsize=(12, 8))
-    cfax2 = ax2.pcolormesh(tt, zz, wd_all*100., cmap=cmocean.cm.matter,
-                           vmin=0., vmax=12.)
-#                          levels=np.linspace(0, 30, 31))
+    cfax2 = ax2.contourf(tt, zz, wd_all*100., cmap=cmocean.cm.matter,
+                         extend="max",
+                         levels=np.linspace(0, 15, 16))
     cax2 = ax2.contour(tt, zz, wd_all*100., "-k", levels=[2.], linewidths=4.)
-    cfax2.set_edgecolor("face")
-    cbar2 = fig2.colorbar(cfax2, ax=ax2, ticks=np.linspace(0, 12, 13))
+#     cfax2.set_edgecolor("face")
+    cbar2 = fig2.colorbar(cfax2, ax=ax2, ticks=np.linspace(0, 15, 16))
     # plot blue line outside of window to use in legend
-    ax2.axhline(-10, ls="-", lw=4, c="k", label="$\\epsilon_{wd}=2\%$")
+    ax2.axhline(-10, ls="-", lw=4, c="k", label="$\\epsilon_{\\alpha}=2\%$")
     ax2.axvline(3., ls="--", lw=4, c="k", label="$T = 3$ s")
-    cbar2.ax.set_ylabel("$\\epsilon_{wd}$ [$\%$]")
+    cbar2.ax.set_ylabel("$\\epsilon_{\\alpha}$ [$\%$]")
     ax2.set_xlabel("Averaging Time [s]")
     ax2.set_ylabel("$z/h$")
     ax2.set_xlim([0, 15])
@@ -470,14 +469,14 @@ def plot_2d_err(s, fsave=fdir_save):
     
     # figure 3: theta
     fig3, ax3 = plt.subplots(1, figsize=(12, 8))
-    cfax3 = ax3.contourf(tt, zz, theta_all*100., 
-                         cmap=cmocean.cm.matter, levels=np.linspace(0, 0.3, 21))
+    cfax3 = ax3.contourf(tt, zz, theta_all, 
+                         cmap=cmocean.cm.matter)#, levels=np.linspace(0, 0.3, 21))
 #     cax3 = ax3.contour(tt, zz, theta_all*100., "-b", levels=[10.], linewidths=4.)
 #     cfax1.set_edgecolor("face")
-    cbar3 = fig3.colorbar(cfax3, ax=ax3, ticks=np.linspace(0, 0.3, 11))
+    cbar3 = fig3.colorbar(cfax3, ax=ax3)#, ticks=np.linspace(0, 0.3, 11))
     # plot blue line outside of window to use in legend
 #     ax3.axhline(-10, ls="-", lw=4, c="b", label="$\\epsilon_{\\theta}=10\%$")
-    cbar3.ax.set_ylabel("$\\epsilon_{\\theta}$ [$\%$]")
+    cbar3.ax.set_ylabel("$\\sigma_{\\theta}$ [K]")
     ax3.set_xlabel("Averaging Time [s]")
     ax3.set_ylabel("$z/h$")
     ax3.set_xlim([0, 15])
@@ -618,6 +617,12 @@ s192B = simulation("/home/bgreene/simulations/B_192_interp/output/",
 # C
 s192C = simulation("/home/bgreene/simulations/C_192_interp/output/",
                    192, 192, 192, 800., 800., 400., "C")
+# D
+s192D = simulation("/home/bgreene/simulations/D_192_interp/output/",
+                   192, 192, 192, 800., 800., 400., "D")
+# E
+s192E = simulation("/home/bgreene/simulations/E_192_interp/output/",
+                   192, 192, 192, 800., 800., 400., "E")
 # F
 # s128F = simulation("/home/bgreene/simulations/F_128_interp/output/",
 #                   128, 128, 128, 800., 800., 400., "F")
@@ -629,7 +634,7 @@ s192F = simulation("/home/bgreene/simulations/F_192_interp/output/",
 # put everything into a list for looping
 # s_all = [s128A, s160A, s192A]
 # s_all = [s128F, s160F, s192F]
-s_all = [s192A, s192B, s192C, s192F]
+s_all = [s192A, s192B, s192C, s192D, s192E, s192F]
 for s in s_all:
     s.read_csv()
     s.calc_Ri()
@@ -641,11 +646,11 @@ for s in s_all:
 # --------------------------------
 for s in s_all:
     # sigma_f versus all delta_x for filtered
-    plot_sigma_filt(s)
+#     plot_sigma_filt(s)
     # MSE{x~_delta}/var{x} vs. delta/T_H
-    plot_MSE(s)
+#     plot_MSE(s)
     # compare rel rand err from RFM and autocorr
-    plot_err(s)
+#     plot_err(s)
     # 2d errors for ws, wd, theta
     plot_2d_err(s)
     # 2d Tavg for u, v, theta
