@@ -11,10 +11,12 @@ import yaml
 import numpy as np
 import xarray as xr
 import matplotlib.pyplot as plt
+from datetime import datetime, timedelta
 from simulation import read_f90_bin
 # --------------------------------
 # Settings and Configuration
 # --------------------------------
+dt0 = datetime.utcnow()
 # load yaml settings file (will be in same dir)
 fyaml = "sim2netcdf.yaml"
 with open(fyaml) as f:
@@ -23,6 +25,9 @@ with open(fyaml) as f:
 # directories and configuration
 fdir = config["fdir"]
 sdir = config["sdir"]
+# check if sdir exists
+if not os.path.exists(sdir):
+    os.mkdir(sdir)
 nx, ny, nz = [config["res"]] * 3
 Lx, Ly, Lz = config["Lx"], config["Ly"], config["Lz"]
 dx, dy, dz = Lx/nx, Ly/ny, Lz/nz
@@ -39,6 +44,7 @@ z = np.linspace(dz, Lz-dz, nz)
 # Loop over timesteps to load and save new files
 # --------------------------------
 for i in range(nt):
+    dt1 = datetime.utcnow()
     # load files - DONT FORGET SCALES!
     f1 = f"{fdir}u_{timesteps[i]:07d}.out"
     u_in = read_f90_bin(f1,nx,ny,nz,8) * u_scale
@@ -54,6 +60,8 @@ for i in range(nt):
     tyz_in = read_f90_bin(f6,nx,ny,nz,8) * u_scale * u_scale
     f7 = f"{fdir}q3_{timesteps[i]:07d}.out"
     q3_in = read_f90_bin(f7,nx,ny,nz,8) * u_scale * theta_scale
+    f8 = f"{fdir}dissip_{timesteps[i]:07d}.out"
+    diss_in = read_f90_bin(f8,nx,ny,nz,8) * u_scale * u_scale * u_scale / Lz
     # construct dataset from these variables
     ds = xr.Dataset(
          {
@@ -63,7 +71,8 @@ for i in range(nt):
              "theta": (["x","y","z"], theta_in),
              "txz": (["x","y","z"], txz_in),
              "tyz": (["x","y","z"], tyz_in),
-             "q3": (["x","y","z"], q3_in)
+             "q3": (["x","y","z"], q3_in),
+             "dissip": (["x","y","z"], diss_in)
          },
          coords={
              "x": x,
@@ -89,5 +98,12 @@ for i in range(nt):
     fsave = f"{sdir}all_{timesteps[i]:07d}.nc"
     print(f"Saving file: {fsave.split(os.sep)[-1]}")
     ds.to_netcdf(fsave)
+    dt2 = datetime.utcnow()
+    tdelta = (dt2-dt1).total_seconds()/60.
+    print(f"Time processing file: {tdelta:3.2f} min")
+    if i % 10 == 0:
+        print(f"Estimated time remaining: {(nt-i)*tdelta:4.1f} min")
 
 print("Finished saving all files!")
+dt3 = datetime.utcnow()
+print(f"Total time elapsed: {(dt3-dt0).total_seconds()/60.:5.1f} min")
