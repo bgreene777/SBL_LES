@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from matplotlib import rc
 from matplotlib.ticker import MultipleLocator
 import cmocean
+import seaborn
 from simulation import simulation
 
 # Configure plots
@@ -25,9 +26,12 @@ plt.close("all")
 
 # useful plotting stuff
 fstr = ["-k", "--k", ":k", ".-k", "-r", "--r", ":r", ".-r", "-b", "--b", ":b", ".-b"]
-colors = [(225./255, 156./255, 131./255),
-          (134./255, 149./255, 68./255), (38./255, 131./255, 63./255),
-          (0., 85./255, 80./255), (20./255, 33./255, 61./255), (252./255, 193./255, 219./255)]
+# colors = [(225./255, 156./255, 131./255),
+#           (134./255, 149./255, 68./255), (38./255, 131./255, 63./255),
+#           (0., 85./255, 80./255), (20./255, 33./255, 61./255), (252./255, 193./255, 219./255)]
+colors = seaborn.color_palette("crest")
+lines = ["-", "--", ":", ".-"]
+colors2 = seaborn.color_palette("colorblind")
 
 # --------------------------------
 # Define plotting routines
@@ -601,15 +605,17 @@ def plot_2d_Tavg(s, fsave=fdir_save):
     
     return
 # --------------------------------
-def plot_optimal_ascent(s, fsave=fdir_save, delta_z=1., err=0.05):
-    # input delta_z (fixed) and target error threshold
+def plot_optimal_ascent(s, fsave=fdir_save, delta_z=3., err=[0.10, 0.05, 0.01]):
+    # input delta_z (fixed) and target error threshold(s)
     # array of new times at which to recalculate errors
-    # start with 1 s intervals from 1-60 s
+    # 0.1 s intervals from 0.1-120 s
     t_recalc = np.arange(0.1, 120.1, 0.1, dtype=np.float64)
     # number of time intervals
     nt = len(t_recalc)
     # number of heights
     nz = len(s.RFM["isbl"])
+    # number of error levels
+    ne = len(err)
     # initialize empty 2d arrays for ws, wd, theta with shape(nz,nt)
     ws_all, wd_all, theta_all =\
     [np.zeros((nz,nt), dtype=np.float64) for _ in range(3)]
@@ -621,23 +627,25 @@ def plot_optimal_ascent(s, fsave=fdir_save, delta_z=1., err=0.05):
         theta_all[:,jt] = s.RFM_new["err_theta"]
         
     # now find averaging time to be below err at each z
-    t_ws, t_wd, t_theta = [np.zeros(nz, dtype=np.float64) for _ in range(3)]
-    for jz in range(nz):
-        iws = np.where(ws_all[jz,:] <= err)[0]
-        if np.size(iws) > 0:
-            t_ws[jz] = t_recalc[iws[0]]
-        else:
-            t_ws[jz] = np.nan
-        iwd = np.where(wd_all[jz,:] <= err)[0]
-        if np.size(iwd) > 0:
-            t_wd[jz] = t_recalc[iwd[0]]
-        else:
-            t_wd[jz] = np.nan
-        itheta = np.where(theta_all[jz,:] <= err)[0]
-        if np.size(itheta) > 0:
-            t_theta[jz] = t_recalc[itheta[0]]
-        else:
-            t_theta[jz] = np.nan
+    t_ws, t_wd, t_theta = [np.zeros((nz, ne), dtype=np.float64) for _ in range(3)]
+    # loop over error and z
+    for je in range(ne):
+        for jz in range(nz):
+            iws = np.where(ws_all[jz,:] <= err[je])[0]
+            if np.size(iws) > 0:
+                t_ws[jz,je] = t_recalc[iws[0]]
+            else:
+                t_ws[jz,je] = np.nan
+            iwd = np.where(wd_all[jz,:] <= err[je])[0]
+            if np.size(iwd) > 0:
+                t_wd[jz,je] = t_recalc[iwd[0]]
+            else:
+                t_wd[jz,je] = np.nan
+            itheta = np.where(theta_all[jz,:] <= err[je])[0]
+            if np.size(itheta) > 0:
+                t_theta[jz,je] = t_recalc[itheta[0]]
+            else:
+                t_theta[jz,je] = np.nan
             
     # now can calculate ascent rate based on fixed delta_z and t_ws
     vz_ws = delta_z / t_ws
@@ -646,16 +654,34 @@ def plot_optimal_ascent(s, fsave=fdir_save, delta_z=1., err=0.05):
     
     # plot results
     fig1, ax1 = plt.subplots(1, figsize=(5, 6))
-    # ws
-    ax1.plot(vz_ws, s.z[:nz]/s.h, "-k", lw=2, label="$u_h$")
-    ax1.plot(vz_wd, s.z[:nz]/s.h, "--k", lw=2, label="$\\alpha$")
-    ax1.plot(vz_theta, s.z[:nz]/s.h, ":k", lw=2, label="$\\theta$")
+    # loop over error levels
+    for je in range(ne):
+        # ws
+        l1=ax1.plot(vz_ws[:,je], s.z[:nz]/s.h, ls=lines[je], c=colors2[0], 
+                    lw=2, label="$u_h$")
+        # wd
+        l2=ax1.plot(vz_wd[:,je], s.z[:nz]/s.h, ls=lines[je], c=colors2[2],
+                    lw=2, label="$\\alpha$")
+        # theta
+        l3=ax1.plot(vz_theta[:,je], s.z[:nz]/s.h, ls=lines[je], c=colors2[4],
+                    lw=2, label="$\\theta$")
+        if je == 0:
+            ltot = l1+l2+l3
     ax1.grid()
-    ax1.legend()
-    ax1.set_xlabel(f"Max Ascent Rate for $\\epsilon \le {err*100.:3.0f}\%$")
+    l4=ax1.plot([], [], ls=lines[0], c="k", 
+                label=f"$\\epsilon={err[0]*100.:3.0f}\%$")
+    l5=ax1.plot([], [], ls=lines[1], c="k", 
+                label=f"$\\epsilon={err[1]*100.:3.0f}\%$")
+    l6=ax1.plot([], [], ls=lines[2], c="k", 
+                label=f"$\\epsilon={err[2]*100.:3.0f}\%$")
+    ltot += l4 + l5 + l6
+    ax1.legend(handles=ltot, loc="upper right", labelspacing=0.25, 
+                handletextpad=0.4, shadow=True, fontsize=14)
+#     ax1.set_xlabel(f"Max Ascent Rate for $\\epsilon \le {err*100.:3.0f}\%$")
+    ax1.set_xlabel("Ascent Rate [m s$^{-1}$]")
     ax1.set_ylabel("$z/h$")
     ax1.set_title(f"{s.stab}{s.lab} $\\Delta z = {delta_z}$ m")
-    ax1.set_xlim([0., 5.])
+#     ax1.set_xlim([0., 5.])
     ax1.set_ylim([0., 1.])
     # save and close
     fsave1 = f"{fsave}{s.stab}{s.lab}_vz_optimal.pdf"
