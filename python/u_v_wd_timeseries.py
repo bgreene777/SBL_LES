@@ -68,86 +68,100 @@ colors = seaborn.color_palette("colorblind")
 # figure save directory
 dsave = config["dsave"]
 plt.close("all")
+# --------------------------------
+# Check for already-processed netcdf file
+# --------------------------------
+if os.path.exists(config["fnetcdf"]):
+    # load netcdf and grab data
+    dd = xr.load_dataset(config["fnetcdf"])
+    u_mean_spin = dd.u_mean_spin.values
+    v_mean_spin = dd.v_mean_spin.values
+    wd_spin = dd.wd_mean_spin.values
+    hrs_spin = dd.t_spin.values
+    u_mean_int = dd.u_mean_int.values
+    v_mean_int = dd.v_mean_int.values
+    wd_int = dd.wd_mean_int.values
+    hrs_int = dd.t_int.values    
+else:
+    # --------------------------------
+    # Load files and calc xy averages
+    # --------------------------------
+    print("Begin reading spinup files...")
+    for jt in range(nf_spin):
+        # load files
+        u_in = read_f90_bin(fspin_u[jt],rspin,rspin,rspin,8) * config["uscale"]
+        v_in = read_f90_bin(fspin_v[jt],rspin,rspin,rspin,8) * config["uscale"]
+        # calc averages and store
+        u_mean_spin[:,jt] = np.mean(u_in, axis=(0,1))
+        v_mean_spin[:,jt] = np.mean(v_in, axis=(0,1))
+        # grab timestep
+        t_in = int(fspin_u[jt].split(".")[0][-7:])
+        time_spin.append(t_in * config["dt_spin"])
 
-# --------------------------------
-# Load files and calc xy averages
-# --------------------------------
-print("Begin reading spinup files...")
-for jt in range(nf_spin):
-    # load files
-    u_in = read_f90_bin(fspin_u[jt],rspin,rspin,rspin,8) * config["uscale"]
-    v_in = read_f90_bin(fspin_v[jt],rspin,rspin,rspin,8) * config["uscale"]
-    # calc averages and store
-    u_mean_spin[:,jt] = np.mean(u_in, axis=(0,1))
-    v_mean_spin[:,jt] = np.mean(v_in, axis=(0,1))
-    # grab timestep
-    t_in = int(fspin_u[jt].split(".")[0][-7:])
-    time_spin.append(t_in * config["dt_spin"])
-    
-print("Begin reading interpolated files...")
-for jt in range(nf_int):
-    # load files
-    u_in = read_f90_bin(fint_u[jt],rint,rint,rint,8) * config["uscale"]
-    v_in = read_f90_bin(fint_v[jt],rint,rint,rint,8) * config["uscale"]
-    # calc averages and store
-    u_mean_int[:,jt] = np.mean(u_in, axis=(0,1))
-    v_mean_int[:,jt] = np.mean(v_in, axis=(0,1))
-    # grab timestep
-    t_in = int(fint_u[jt].split(".")[0][-7:])
-    # some janky math to get times to transition properly
-    # for first timestep, the previous one was the last from spinup
-    if jt==0:
-        t_in_prev = int(fspin_u[-1].split(".")[0][-7:])
-        t_prev = time_spin[-1]
-    # otherwise, calculate number of timesteps in between during interp
-    else:
-        t_in_prev = int(fint_u[jt-1].split(".")[0][-7:])
-        t_prev = time_int[-1]
-    time_int.append(t_prev + (t_in-t_in_prev) * config["dt_int"])
-    
-# convert times to array and calculate hours
-time_spin = np.array(time_spin)
-time_int = np.array(time_int)
-hrs_spin = time_spin/3600.
-hrs_int = time_int/3600.
+    print("Begin reading interpolated files...")
+    for jt in range(nf_int):
+        # load files
+        u_in = read_f90_bin(fint_u[jt],rint,rint,rint,8) * config["uscale"]
+        v_in = read_f90_bin(fint_v[jt],rint,rint,rint,8) * config["uscale"]
+        # calc averages and store
+        u_mean_int[:,jt] = np.mean(u_in, axis=(0,1))
+        v_mean_int[:,jt] = np.mean(v_in, axis=(0,1))
+        # grab timestep
+        t_in = int(fint_u[jt].split(".")[0][-7:])
+        # some janky math to get times to transition properly
+        # for first timestep, the previous one was the last from spinup
+        if jt==0:
+            t_in_prev = int(fspin_u[-1].split(".")[0][-7:])
+            t_prev = time_spin[-1]
+        # otherwise, calculate number of timesteps in between during interp
+        else:
+            t_in_prev = int(fint_u[jt-1].split(".")[0][-7:])
+            t_prev = time_int[-1]
+        time_int.append(t_prev + (t_in-t_in_prev) * config["dt_int"])
 
-# calculate wdirs
-wd_spin = np.arctan2(-u_mean_spin, -v_mean_spin) * 180./np.pi
-wd_spin[wd_spin < 0.] += 360.
-wd_int = np.arctan2(-u_mean_int, -v_mean_int) * 180./np.pi
-wd_int[wd_int < 0.] += 360.
+    # convert times to array and calculate hours
+    time_spin = np.array(time_spin)
+    time_int = np.array(time_int)
+    hrs_spin = time_spin/3600.
+    hrs_int = time_int/3600.
 
-# --------------------------------
-# Save to netcdf file
-# --------------------------------
-fsave = config["fnetcdf"]
-ds = xr.Dataset(
-        {
-            "u_mean_spin": (["z_spin", "t_spin"], u_mean_spin),
-            "v_mean_spin": (["z_spin", "t_spin"], v_mean_spin),
-            "wd_mean_spin": (["z_spin", "t_spin"], wd_spin),
-            "u_mean_int": (["z_int", "t_int"], u_mean_int),
-            "v_mean_int": (["z_int", "t_int"], v_mean_int),
-            "wd_mean_int": (["z_int", "t_int"], wd_int)
+    # calculate wdirs
+    wd_spin = np.arctan2(-u_mean_spin, -v_mean_spin) * 180./np.pi
+    wd_spin[wd_spin < 0.] += 360.
+    wd_int = np.arctan2(-u_mean_int, -v_mean_int) * 180./np.pi
+    wd_int[wd_int < 0.] += 360.
+
+    # --------------------------------
+    # Save to netcdf file
+    # --------------------------------
+    fsave = config["fnetcdf"]
+    ds = xr.Dataset(
+            {
+                "u_mean_spin": (["z_spin", "t_spin"], u_mean_spin),
+                "v_mean_spin": (["z_spin", "t_spin"], v_mean_spin),
+                "wd_mean_spin": (["z_spin", "t_spin"], wd_spin),
+                "u_mean_int": (["z_int", "t_int"], u_mean_int),
+                "v_mean_int": (["z_int", "t_int"], v_mean_int),
+                "wd_mean_int": (["z_int", "t_int"], wd_int)
+            },
+        coords={
+            "z_spin": z_spin,
+            "t_spin": hrs_spin,
+            "z_int": z_int,
+            "t_int": hrs_int
         },
-    coords={
-        "z_spin": z_spin,
-        "t_spin": hrs_spin,
-        "z_int": z_int,
-        "t_int": hrs_int
-    },
-    attrs={
-        "Lz": config["Lz"],
-        "nz_spin": rspin,
-        "nz_int": rint,
-        "stability": config["stab"]
-    })
-# loop and assign attributes
-for var in config["var_attrs"].keys():
-    ds[var].attrs["units"] = config["var_attrs"][var]["units"]
-# save to netcdf file and continue
-print(f"Saving file: {fsave}")
-ds.to_netcdf(fsave)
+        attrs={
+            "Lz": config["Lz"],
+            "nz_spin": rspin,
+            "nz_int": rint,
+            "stability": config["stab"]
+        })
+    # loop and assign attributes
+    for var in config["var_attrs"].keys():
+        ds[var].attrs["units"] = config["var_attrs"][var]["units"]
+    # save to netcdf file and continue
+    print(f"Saving file: {fsave}")
+    ds.to_netcdf(fsave)
 
 # --------------------------------
 # Plot
@@ -259,7 +273,7 @@ cbar3.ax.set_ylabel("Wind Direction [deg]")
 ax3.set_xlim([0, 10])
 ax3.xaxis.set_major_locator(MultipleLocator(1))
 ax3.xaxis.set_minor_locator(MultipleLocator(1./6))
-ax3.set_ylim([0, 400])
+ax3.set_ylim([0, 250])
 ax3.yaxis.set_major_locator(MultipleLocator(50))
 ax3.yaxis.set_minor_locator(MultipleLocator(10))
 ax3.axvline(hrs_spin[-1], c="k", lw=2)
@@ -304,11 +318,11 @@ cbar43.ax.set_ylabel("$v$ [m/s]")
 ax4[1].set_xlim([0, 10])
 ax4[1].xaxis.set_major_locator(MultipleLocator(1))
 ax4[1].xaxis.set_minor_locator(MultipleLocator(1./6))
-ax4[0].set_ylim([0, 400])
+ax4[0].set_ylim([0, 250])
 ax4[0].yaxis.set_major_locator(MultipleLocator(50))
 ax4[0].yaxis.set_minor_locator(MultipleLocator(10))
 ax4[0].axvline(hrs_spin[-1], c="k", lw=2)
-ax4[1].set_ylim([0, 400])
+ax4[1].set_ylim([0, 250])
 ax4[1].yaxis.set_major_locator(MultipleLocator(50))
 ax4[1].yaxis.set_minor_locator(MultipleLocator(10))
 ax4[1].axvline(hrs_spin[-1], c="k", lw=2)
