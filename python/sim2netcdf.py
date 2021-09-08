@@ -34,7 +34,7 @@ dx, dy, dz = Lx/nx, Ly/ny, Lz/nz
 u_scale = config["uscale"]
 theta_scale = config["Tscale"]
 # define timestep array
-timesteps = np.arange(config["t0"], config["t1"]+1, config["dt"], dtype=np.int)
+timesteps = np.arange(config["t0"], config["t1"]+1, config["dt"], dtype=np.int32)
 nt = len(timesteps)
 # dimensions
 x, y = np.linspace(0., Lx, nx), np.linspace(0, Ly, ny)

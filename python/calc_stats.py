@@ -60,7 +60,26 @@ dd_stat["tw_cov_tot"] = dd_stat.tw_cov_res + dd.q3.mean(dim=("time","x","y"))
 # calculate vars
 for s in base[:-1]:
     dd_stat[f"{s}_var"] = dd[s].var(dim=("time", "x", "y"))
-    
+# rotate u_mean and v_mean so <v> = 0
+angle = np.arctan2(dd_stat.v_mean, dd_stat.u_mean)
+dd_stat["alpha"] = angle
+dd_stat["u_mean_rot"] = dd_stat.u_mean*np.cos(angle) + dd_stat.v_mean*np.sin(angle)
+dd_stat["v_mean_rot"] =-dd_stat.u_mean*np.sin(angle) + dd_stat.v_mean*np.cos(angle)
+# rotate instantaneous u and v
+u_rot = dd.u*np.cos(angle) + dd.v*np.sin(angle)
+v_rot =-dd.u*np.sin(angle) + dd.v*np.cos(angle)
+# recalculate u_var_rot, v_var_rot
+dd_stat["u_var_rot"] = u_rot.var(dim=("time", "x", "y"))
+dd_stat["v_var_rot"] = v_rot.var(dim=("time", "x", "y"))
+
+# --------------------------------
+# Add attributes
+# --------------------------------
+# copy from dd
+dd_stat.attrs = dd.attrs
+dd_stat.attrs["delta"] = (dd.dx * dd.dy * dd.dz) ** (1./3.)
+dd_stat.attrs["tavg"] = config["tavg"]
+
 # --------------------------------
 # Save output file
 # --------------------------------
