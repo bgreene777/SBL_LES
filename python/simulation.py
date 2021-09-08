@@ -151,6 +151,7 @@ class simulation():
         
         # calculate ustar and thetastar and assign to cov
         ustar = ((self.cov["uw_cov_tot"]**2.) + (self.cov["vw_cov_tot"]**2.)) ** 0.25
+        ustar2 = ustar ** 2.
         self.cov["ustar"] = ustar
         thetastar = -self.cov["thetaw_cov_tot"] / ustar
         self.cov["thetastar"] = thetastar
@@ -166,11 +167,21 @@ class simulation():
         TKE_sgs = 0.5 * (u_var_sgs + v_var_sgs + w_var_sgs)
         self.var["TKE_sgs"] = TKE_sgs
         
-        # calculate zi based on linear extrapolated method
-        i_h = np.where(ustar <= 0.05*ustar[0])[0][0]
+        # calculate h based on linear extrapolated method
+        i_h = np.where(ustar2 <= 0.05*ustar2[0])[0][0]
         self.h = self.z[i_h] / 0.95
         self.i_h = i_h
-        self.isbl = np.where(self.z <= self.h)[0]
+        self.isbl = np.where(self.z <= self.h+self.dz)[0]
+        
+        # calculate zi based on max average pot temp gradient
+        dtheta_dz = []
+        for jz in range(10, self.nz-1):
+            dtheta = self.xytavg["theta"][jz+1] - self.xytavg["theta"][jz-1]
+            dtheta_dz.append(dtheta/(2.*self.dz))
+        dtheta_dz = np.array(dtheta_dz)
+        i_zi = np.argmax(dtheta_dz)
+        self.zi = self.z[10:-1][i_zi]
+        self.izi = np.where(self.z <= self.zi)[0]
         
         # calculate ws and wd and assign to xytavg
         self.xytavg["ws"] = np.sqrt( self.xytavg["u"]**2. + self.xytavg["v"]**2. )
@@ -278,6 +289,7 @@ class simulation():
         # print simulation parameters to be used in table for paper
         print(f"Stability: {self.stab}")
         print(f"h:         {self.h:4.1f} m")
+        print(f"z_i:       {self.zi:4.1f} m")
         print(f"ustar0:    {self.cov['ustar'][0]:4.3f} m/s")
         print(f"Tstar0:    {self.cov['thetastar'][0]:4.3f} K")
         print(f"Q0:        {self.cov['thetaw_cov_tot'][0]:8.7f} K m/s")
@@ -324,11 +336,19 @@ class simulation():
     
     def read_RFM(self, npz, ierr_ws=False):
         dat = np.load(npz, allow_pickle=True)
+        isbl = self.isbl
         for key in dat.keys():
-            self.RFM[key] = dat[key]
+            if np.ndim(dat[key]) == 2:
+                self.RFM[key] = dat[key][:, isbl]
+            elif np.ndim(dat[key]) == 1:
+                if np.size(dat[key]) == np.size(dat["isbl"]):
+                    self.RFM[key] = dat[key][isbl]
+                else:
+                    self.RFM[key] = dat[key]
+            else:
+                self.RFM[key] = dat[key]
         # if ierr_ws, calculate ws and wd error
         if ierr_ws:
-            isbl = self.isbl
             sig_u = self.RFM["err_u2"] * abs(self.xytavg["u"][isbl])
             sig_v = self.RFM["err_v2"] * abs(self.xytavg["v"][isbl])
             # calculate ws error and assign to RFM
