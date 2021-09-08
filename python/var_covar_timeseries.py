@@ -165,7 +165,8 @@ colors = [(252./255, 193./255, 219./255), (225./255, 156./255, 131./255),
 #
 fig1, ax1 = plt.subplots(nrows=3, ncols=1, sharex=True, figsize=(12, 12))
 # loop and plot various heights
-for i, jz in enumerate(np.arange(6, dtype=np.int64)**2):
+# for i, jz in enumerate(np.arange(6, dtype=np.int64)**2):
+for i, jz in enumerate(np.arange(72, 81, 2, dtype=np.int64)):
     # u var
     ax1[0].plot(t_hr, uu_var[jz,:], ls="-", c=colors[i])
     # v var
