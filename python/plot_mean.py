@@ -8,27 +8,33 @@
 # for comparisons
 # 19 July 2021 Update: now that resolution has been selected, can plot same
 # figures to compare stabilities
+# 3 September 2021 Update: use the averaged netcdf files and xarray to plot
+# more concisely
 # --------------------------------
 import os
 import pickle
 import seaborn
 import numpy as np
+import xarray as xr
 import matplotlib.pyplot as plt
 from matplotlib import rc
 from matplotlib.ticker import MultipleLocator
 from datetime import datetime, timedelta
-from simulation import simulation
+# from simulation import simulation
 
 # Configure plots
-rc('font',weight='normal',size=20,family='serif',serif='Computer Modern Roman')
+rc('font',weight='normal',size=20,family='serif',serif='Times New Roman')
 rc('text',usetex='True')
 # colors = [(225./255, 156./255, 131./255),
 #           (134./255, 149./255, 68./255), (38./255, 131./255, 63./255),
 #           (0., 85./255, 80./255), (20./255, 33./255, 61./255), (252./255, 193./255, 219./255)]
-colors = seaborn.color_palette("crest")
-fdir_save = "/home/bgreene/SBL_LES/figures/grid_sensitivity/"
+# colors = seaborn.color_palette("crest")
+colors = seaborn.color_palette("colorblind")
+fdir_save = "/home/bgreene/SBL_LES/figures/mean_profiles/"
+if not os.path.exists(fdir_save):
+    os.mkdir(fdir_save)
 plt.close("all")
-
+"""
 # --------------------------------
 # initialize simulation objects
 # A
@@ -68,11 +74,174 @@ for s in s_all:
 #     # save as pickle files
 #     with open(f"/home/bgreene/SBL_LES/output/pickle/{s.stab}{s.lab}.pickle", "wb") as fn:
 #         pickle.dump(s, fn)
-    
+"""
+# --------------------------------
+# Load netcdf stats files
+# --------------------------------
+stabs = ["A", "B", "C", "D", "E", "F"]
+s_all = []
+# for s in stabs:
+#     fread = f"/home/bgreene/simulations/{s}_192_interp/output/netcdf/average_statistics.nc"
+#     print(f"Reading file: {fread}")
+#     s_all.append(xr.load_dataset(fread))
+f_all = ["/home/bgreene/simulations/F_192_interp/output/netcdf/average_statistics.nc",
+         "/home/bgreene/simulations/F_192_interp/output/netcdf/average_statistics_1.5h.nc",
+         "/home/bgreene/simulations/F_192_interp/output/netcdf/average_statistics_2h.nc"]
+for f in f_all:
+    print(f"Reading file: {f}")
+    s_all.append(xr.load_dataset(f))
+means = ["1h", "1.5h", "2h"]
 # --------------------------------
 # Begin plotting
 # --------------------------------
+#
+props=dict(boxstyle='square',facecolor='white',alpha=0.5)
+# Figure 1: 9-panel everything
+# (a) <u>, <v>; (b) wdir; (c) <\Theta>;
+# (d) <u'w'>, <v'w'>; (e) <\theta'w'>; (f) <u'^2>;
+# (g) <v'^2>; (h) <w'^2>; (i) <\theta'^2>
+fig1, ax1 = plt.subplots(nrows=3, ncols=3, sharey=True, figsize=(14.8, 14.8))
+for i, s in enumerate(s_all):
+    # calculate ustar and h
+    s["ustar"] = ((s.uw_cov_tot**2.) + (s.vw_cov_tot**2.)) ** 0.25
+    s["ustar2"] = s.ustar ** 2.
+    s["h"] = s.z.where(s.ustar2 <= 0.05*s.ustar2[0], drop=True)[0] / 0.95
+#     s["h"] = 400./1.5  # to quickly look again at just z
+    # now plot
+    # row 1
+    # (a) <u>, <v>
+    s["ws"] = np.sqrt(s.u_mean**2. + s.v_mean**2.)
+    ax1[0,0].plot(s.u_mean, s.z/s.h, ls="-", c=colors[i], lw=2)
+    ax1[0,0].plot(s.v_mean, s.z/s.h, ls=":", c=colors[i], lw=2)
+#     ax1[0,0].plot(s.ws, s.z/s.h, ls="-", c=colors[i], lw=2)
+    # (b) wind direction
+    s["wdir"] = np.arctan2(-s.u_mean, -s.v_mean) * 180./np.pi
+    s["wdir"] = s.wdir.where(s.wdir < 0.) + 360.
+    ax1[0,1].plot(s.wdir, s.z/s.h, ls="-", c=colors[i], lw=2, 
+                  label=f"{s.stability}{means[i]}")
+    # (c) <\Theta>
+    ax1[0,2].plot(s.theta_mean, s.z/s.h, ls="-", c=colors[i], lw=2)
+    # row 2
+    # (d) <u'w'>, <v'w'>
+    ax1[1,0].plot(s.uw_cov_tot, s.z/s.h, ls="-", c=colors[i], lw=2)
+    ax1[1,0].plot(s.vw_cov_tot, s.z/s.h, ls=":", c=colors[i], lw=2)
+    # (e) <\theta'w'>
+    ax1[1,1].plot(s.tw_cov_tot, s.z/s.h, ls="-", c=colors[i], lw=2)
+    # (f) <u'^2> ROTATED
+    ax1[1,2].plot(s.u_var, s.z/s.h, ls="-", c=colors[i], lw=2)
+    # row 3
+    # (g) <v'^2> ROTATED
+    ax1[2,0].plot(s.v_var, s.z/s.h, ls="-", c=colors[i], lw=2)
+    # (h) <w'^2>
+    ax1[2,1].plot(s.w_var, s.z/s.h, ls="-", c=colors[i], lw=2)
+    # (i) <\theta'^2>
+    ax1[2,2].plot(s.theta_var, s.z/s.h, ls="-", c=colors[i], lw=2)
+# clean up
+# (a)
+ax1[0,0].set_xlabel("$\\langle u \\rangle$, $\\langle v \\rangle$ [m s$^{-1}$]")
+ax1[0,0].set_ylabel("$z/h$")
+ax1[0,0].set_xlim([-2., 12.])
+ax1[0,0].xaxis.set_major_locator(MultipleLocator(2))
+ax1[0,0].xaxis.set_minor_locator(MultipleLocator(1))
+ax1[0,0].set_ylim([0, 1.5])
+ax1[0,0].axvline(0., c="k", alpha=0.5)
+ax1[0,0].text(0.05,0.90,r'\textbf{(a)}',fontsize=20,bbox=props, 
+              transform=ax1[0,0].transAxes)
+# (b)
+ax1[0,1].set_xlabel("$\\langle \\alpha \\rangle$ [deg]")
+ax1[0,1].set_xlim([220, 280.])
+ax1[0,1].xaxis.set_major_locator(MultipleLocator(10))
+ax1[0,1].xaxis.set_minor_locator(MultipleLocator(5))
+ax1[0,1].axvline(270., c="k", alpha=0.5)
+ax1[0,1].text(0.05,0.90,r'\textbf{(b)}',fontsize=20,bbox=props, 
+              transform=ax1[0,1].transAxes)
+ax1[0,1].legend(loc=(0.02, 0.30), labelspacing=0.25, 
+                handletextpad=0.4, shadow=True)
+# (c)
+ax1[0,2].set_xlabel("$\\langle \\Theta \\rangle$ [K]")
+ax1[0,2].set_xlim([240, 270.])
+ax1[0,2].xaxis.set_major_locator(MultipleLocator(5))
+ax1[0,2].xaxis.set_minor_locator(MultipleLocator(1))
+ax1[0,2].text(0.05,0.90,r'\textbf{(c)}',fontsize=20,bbox=props, 
+              transform=ax1[0,2].transAxes)
+# (d)
+ax1[1,0].set_xlabel("$\\langle u'w' \\rangle$, $\\langle v'w' \\rangle$ [m$^2$ s$^{-2}$]")
+ax1[1,0].set_ylabel("$z/h$")
+ax1[1,0].set_ylim([0, 1.5])
+ax1[1,0].set_xlim([-0.05, 0.01])
+ax1[1,0].xaxis.set_major_locator(MultipleLocator(0.02))
+ax1[1,0].xaxis.set_minor_locator(MultipleLocator(0.005))
+ax1[1,0].axvline(0., c="k", alpha=0.5)
+ax1[1,0].text(0.05,0.90,r'\textbf{(d)}',fontsize=20,bbox=props, 
+              transform=ax1[1,0].transAxes)
+# (e)
+ax1[1,1].set_xlabel("$\\langle \\theta'w' \\rangle$ [K m s$^{-1}$]")
+ax1[1,1].set_xlim([-0.05, 0.005])
+ax1[1,1].xaxis.set_major_locator(MultipleLocator(0.02))
+ax1[1,1].xaxis.set_minor_locator(MultipleLocator(0.005))
+ax1[1,1].axvline(0., c="k", alpha=0.5)
+ax1[1,1].text(0.05,0.90,r'\textbf{(e)}',fontsize=20,bbox=props, 
+              transform=ax1[1,1].transAxes)
+# (f)
+ax1[1,2].set_xlabel("$\\langle u'^2 \\rangle$ [m$^2$ s$^{-2}$]")
+ax1[1,2].set_xlim([-0.01, 0.3])
+ax1[1,2].xaxis.set_major_locator(MultipleLocator(0.1))
+ax1[1,2].xaxis.set_minor_locator(MultipleLocator(0.05))
+ax1[1,2].axvline(0., c="k", alpha=0.5)
+ax1[1,2].text(0.05,0.90,r'\textbf{(f)}',fontsize=20,bbox=props, 
+              transform=ax1[1,2].transAxes)
+# (g)
+ax1[2,0].set_xlabel("$\\langle v'^2 \\rangle$ [m$^2$ s$^{-2}$]")
+ax1[2,0].set_ylabel("$z/h$")
+ax1[2,0].set_ylim([0, 1.5])
+ax1[2,0].set_xlim([-0.001, 0.13])
+ax1[2,0].xaxis.set_major_locator(MultipleLocator(0.02))
+ax1[2,0].xaxis.set_minor_locator(MultipleLocator(0.01))
+ax1[2,0].axvline(0., c="k", alpha=0.5)
+ax1[2,0].text(0.05,0.90,r'\textbf{(g)}',fontsize=20,bbox=props, 
+              transform=ax1[2,0].transAxes)
+# (h)
+ax1[2,1].set_xlabel("$\\langle w'^2 \\rangle$ [m$^2$ s$^{-2}$]")
+ax1[2,1].set_xlim([-0.001, 0.1])
+ax1[2,1].xaxis.set_major_locator(MultipleLocator(0.02))
+ax1[2,1].xaxis.set_minor_locator(MultipleLocator(0.01))
+ax1[2,1].axvline(0., c="k", alpha=0.5)
+ax1[2,1].text(0.05,0.90,r'\textbf{(h)}',fontsize=20,bbox=props, 
+              transform=ax1[2,1].transAxes)
+# (i)
+ax1[2,2].set_xlabel("$\\langle \\theta'^2 \\rangle$ [K$^2$]")
+ax1[2,2].set_xlim([-0.01, 0.7])
+ax1[2,2].xaxis.set_major_locator(MultipleLocator(0.2))
+ax1[2,2].xaxis.set_minor_locator(MultipleLocator(0.05))
+ax1[2,2].axvline(0., c="k", alpha=0.5)
+ax1[2,2].text(0.05,0.90,r'\textbf{(i)}',fontsize=20,bbox=props, 
+              transform=ax1[2,2].transAxes)
+# save and close
+fig1.tight_layout()
+fig1.savefig(f"{fdir_save}mean_prof_3x3.pdf", format="pdf")
+plt.close(fig1)
 
+# Figure 2: 2-panel TKE and ustar
+# (a) TKE; (b) ustar
+fig2, ax2 = plt.subplots(nrows=1, ncols=2, sharey=True, figsize=(8, 6))
+for i, s in enumerate(s_all):
+    TKE = (s.u_var_rot**2.) + (s.v_var_rot**2.) + (s.w_var**2.)
+    ax2[0].plot(TKE, s.z/s.h, ls="-", c=colors[i], lw=2, 
+                label=f"{s.stability}{means[i]}")
+    ax2[1].plot(s.ustar, s.z/s.h, ls="-", c=colors[i], lw=2)
+# clean up
+ax2[0].set_xlabel("TKE [m2/s2]")
+ax2[0].set_ylabel("$z/h$")
+ax2[0].set_ylim([0, 1.2])
+ax2[0].grid()
+ax2[0].legend()
+ax2[1].set_xlabel("$u_{*}$ [m/s]")
+ax2[1].grid()
+# save and close
+fig2.tight_layout()
+fig2.savefig(f"{fdir_save}mean_tke_ustar.pdf", format="pdf")
+plt.close(fig2)
+"""
 #
 # Figure 1: unrotated u, v, wspd; wdir; theta
 #
@@ -265,3 +434,4 @@ ax7.set_xlabel(r"$L_o = \sqrt{ \langle \epsilon \rangle / \langle N^2 \rangle ^{
 
 # save figure
 fig7.savefig(f"{fdir_save}all_Lo.pdf", format="pdf", bbox_inches="tight")
+"""
