@@ -23,7 +23,7 @@ props=dict(boxstyle='square',facecolor='white',alpha=0.5)
 #           (134./255, 149./255, 68./255), (38./255, 131./255, 63./255),
 #           (0., 85./255, 80./255), (20./255, 33./255, 61./255) ]
 colors = seaborn.color_palette("crest")
-fdir_save = "/home/bgreene/SBL_LES/figures/random_errors/"
+fdir_save = "/home/bgreene/SBL_LES/figures/random_errors/Mean_LH/"
 plt.close("all")
 
 # --------------------------------
@@ -31,29 +31,30 @@ plt.close("all")
 # A
 sA = simulation("/home/bgreene/simulations/A_192_interp/output/",
                 192, 192, 192, 800., 800., 400., "A")
-# B
-sB = simulation("/home/bgreene/simulations/B_192_interp/output/",
-                192, 192, 192, 800., 800., 400., "B")
-# C
-sC = simulation("/home/bgreene/simulations/C_192_interp/output/",
-                192, 192, 192, 800., 800., 400., "C")
-# D
-sD = simulation("/home/bgreene/simulations/D_192_interp/output/",
-                192, 192, 192, 800., 800., 400., "D")
-# E
-sE = simulation("/home/bgreene/simulations/E_192_interp/output/",
-                192, 192, 192, 800., 800., 400., "E")
-# F
-sF = simulation("/home/bgreene/simulations/F_192_interp/output/",
-                192, 192, 192, 800., 800., 400., "F")
+# # B
+# sB = simulation("/home/bgreene/simulations/B_192_interp/output/",
+#                 192, 192, 192, 800., 800., 400., "B")
+# # C
+# sC = simulation("/home/bgreene/simulations/C_192_interp/output/",
+#                 192, 192, 192, 800., 800., 400., "C")
+# # D
+# sD = simulation("/home/bgreene/simulations/D_192_interp/output/",
+#                 192, 192, 192, 800., 800., 400., "D")
+# # E
+# sE = simulation("/home/bgreene/simulations/E_192_interp/output/",
+#                 192, 192, 192, 800., 800., 400., "E")
+# # F
+# sF = simulation("/home/bgreene/simulations/F_192_interp/output/",
+#                 192, 192, 192, 800., 800., 400., "F")
 
 # put everything into a list for looping
-s_all = [sA, sB, sC, sD, sE, sF]
+# s_all = [sA, sB, sC, sD, sE, sF]
+s_all = [sA]
 for s in s_all:
     s.read_csv()
     s.calc_Ri()
     s.calc_most()
-    s.read_RFM(f"/home/bgreene/SBL_LES/output/RFM_{s.stab}{s.lab}.npz", ierr_ws=True)
+    s.read_RFM(f"/home/bgreene/SBL_LES/output/Mean_LH/RFM_{s.stab}{s.lab}.npz", ierr_ws=True)
     s.print_sim_stats()
     
 # --------------------------------
@@ -262,3 +263,64 @@ print(f"Saving figure: {fsave5}")
 fig5.tight_layout()
 fig5.savefig(fsave5, format="pdf")
 plt.close(fig5)
+
+#
+# Figure 6, 7
+# L_H for each of the variance profiles
+# L_H for mean variables
+#
+fig6, ax6 = plt.subplots(nrows=1, ncols=4, sharey=True, figsize=(16, 8))
+fig7, ax7 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(12, 8))
+for i, s in enumerate(s_all):
+    L_H_u = s.RFM["delta_x"][0] / s.RFM["dx_LH_u"][0]
+    L_H_v = s.RFM["delta_x"][0] / s.RFM["dx_LH_v"][0]
+    L_H_t = s.RFM["delta_x"][0] / s.RFM["dx_LH_t"][0]
+    L_H_uu = s.RFM["delta_x"][0] / s.RFM["dx_LH_uu"][0]
+    L_H_vv = s.RFM["delta_x"][0] / s.RFM["dx_LH_vv"][0]
+    L_H_ww = s.RFM["delta_x"][0] / s.RFM["dx_LH_ww"][0]
+    L_H_tt = s.RFM["delta_x"][0] / s.RFM["dx_LH_tt"][0]
+    # fig 6
+    ax6[0].plot(L_H_uu, s.z[s.isbl]/s.h, ls="-", lw=2, c=colors[i],
+                marker="x", markeredgecolor=colors[i], label=s.stab)
+    ax6[1].plot(L_H_vv, s.z[s.isbl]/s.h, ls="-", lw=2, c=colors[i],
+                marker="x", markeredgecolor=colors[i])
+    ax6[2].plot(L_H_ww, s.z[s.isbl]/s.h, ls="-", lw=2, c=colors[i],
+                marker="x", markeredgecolor=colors[i])
+    ax6[3].plot(L_H_tt, s.z[s.isbl]/s.h, ls="-", lw=2, c=colors[i],
+                marker="x", markeredgecolor=colors[i])
+    # fig 7
+    ax7[0].plot(L_H_u, s.z[s.isbl]/s.h, ls="-", lw=2, c=colors[i],
+                marker="x", markeredgecolor=colors[i], label=s.stab)
+    ax7[1].plot(L_H_v, s.z[s.isbl]/s.h, ls="-", lw=2, c=colors[i],
+                marker="x", markeredgecolor=colors[i])
+    ax7[2].plot(L_H_t, s.z[s.isbl]/s.h, ls="-", lw=2, c=colors[i],
+                marker="x", markeredgecolor=colors[i])
+
+# labels
+ax6[0].set_xlabel("$\mathcal{L}_H^{uu}$ [m]")
+ax6[0].set_ylabel("$z/h$")
+ax6[0].set_ylim([0, 1])
+ax6[0].legend(loc=0)
+ax6[1].set_xlabel("$\mathcal{L}_H^{vv}$ [m]")
+ax6[2].set_xlabel("$\mathcal{L}_H^{ww}$ [m]")
+ax6[3].set_xlabel("$\mathcal{L}_H^{\\theta\\theta}$ [m]")
+
+ax7[0].set_xlabel("$\mathcal{L}_H^{u}$ [m]")
+ax7[0].set_ylabel("$z/h$")
+ax7[0].set_ylim([0, 1])
+ax7[0].legend(loc=0)
+ax7[1].set_xlabel("$\mathcal{L}_H^{v}$ [m]")
+ax7[2].set_xlabel("$\mathcal{L}_H^{\\theta}$ [m]")
+
+# save and close
+fsave6 = f"{fdir_save}LH_vars.pdf"
+print(f"Saving figure: {fsave6}")
+fig6.tight_layout()
+fig6.savefig(fsave6, format="pdf")
+plt.close(fig6)
+
+fsave7 = f"{fdir_save}LH_uvtheta.pdf"
+print(f"Saving figure: {fsave7}")
+fig7.tight_layout()
+fig7.savefig(fsave7, format="pdf")
+plt.close(fig7)

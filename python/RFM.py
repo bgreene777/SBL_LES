@@ -490,32 +490,46 @@ err_tt_LP = LP_error(len_tt, config["T_sample_cov"],
 
 
 # now can calculate L_H
-L_H_u = Bartlett(Ruu, Ubar_rot[isbl], xlags)
-L_H_u2 = Bartlett(Ruu2, Ubar_rot[isbl], xlags)
-L_H_v = Bartlett(Rvv, Ubar_rot[isbl], xlags)
-L_H_v2 = Bartlett(Rvv2, Ubar_rot[isbl], xlags)
-L_H_t = Bartlett(Rtt, Ubar_rot[isbl], xlags)
-L_H_uw = Bartlett(Ruwuw, Ubar_rot[isbl], xlags)
-L_H_vw = Bartlett(Rvwvw, Ubar_rot[isbl], xlags)
-L_H_tw = Bartlett(Rtwtw, Ubar_rot[isbl], xlags)
-L_H_uu = Bartlett(Ruuuu, Ubar_rot[isbl], xlags)
-L_H_vv = Bartlett(Rvvvv, Ubar_rot[isbl], xlags)
-L_H_ww = Bartlett(Rwwww, Ubar_rot[isbl], xlags)
-L_H_tt = Bartlett(Rtttt, Ubar_rot[isbl], xlags)
+L_H_u = np.mean(Bartlett(Ruu, Ubar_rot[isbl], xlags))
+L_H_u2 = np.mean(Bartlett(Ruu2, Ubar_rot[isbl], xlags))
+L_H_v = np.mean(Bartlett(Rvv, Ubar_rot[isbl], xlags))
+L_H_v2 = np.mean(Bartlett(Rvv2, Ubar_rot[isbl], xlags))
+L_H_t = np.mean(Bartlett(Rtt, Ubar_rot[isbl], xlags))
+L_H_uw = np.mean(Bartlett(Ruwuw, Ubar_rot[isbl], xlags))
+L_H_vw = np.mean(Bartlett(Rvwvw, Ubar_rot[isbl], xlags))
+L_H_tw = np.mean(Bartlett(Rtwtw, Ubar_rot[isbl], xlags))
+L_H_uu = np.mean(Bartlett(Ruuuu, Ubar_rot[isbl], xlags))
+L_H_vv = np.mean(Bartlett(Rvvvv, Ubar_rot[isbl], xlags))
+L_H_ww = np.mean(Bartlett(Rwwww, Ubar_rot[isbl], xlags))
+L_H_tt = np.mean(Bartlett(Rtttt, Ubar_rot[isbl], xlags))
+
+# # create 2d array of delta_x/L_H for each z
+# dx_LH_u = np.array([delta_x / iLH for iLH in L_H_u]).T  # shape(len(delta_x), nz)
+# dx_LH_u2 = np.array([delta_x / iLH for iLH in L_H_u2]).T  # shape(len(delta_x), nz)
+# dx_LH_v = np.array([delta_x / iLH for iLH in L_H_v]).T  # shape(len(delta_x), nz)
+# dx_LH_v2 = np.array([delta_x / iLH for iLH in L_H_v2]).T  # shape(len(delta_x), nz)
+# dx_LH_t = np.array([delta_x / iLH for iLH in L_H_t]).T  # shape(len(delta_x), nz)
+# dx_LH_uw = np.array([delta_x / iLH for iLH in L_H_uw]).T  # shape(len(delta_x), nz)
+# dx_LH_vw = np.array([delta_x / iLH for iLH in L_H_vw]).T  # shape(len(delta_x), nz)
+# dx_LH_tw = np.array([delta_x / iLH for iLH in L_H_tw]).T  # shape(len(delta_x), nz)
+# dx_LH_uu = np.array([delta_x / iLH for iLH in L_H_uu]).T  # shape(len(delta_x), nz)
+# dx_LH_vv = np.array([delta_x / iLH for iLH in L_H_vv]).T  # shape(len(delta_x), nz)
+# dx_LH_ww = np.array([delta_x / iLH for iLH in L_H_ww]).T  # shape(len(delta_x), nz)
+# dx_LH_tt = np.array([delta_x / iLH for iLH in L_H_tt]).T  # shape(len(delta_x), nz)
 
 # create 2d array of delta_x/L_H for each z
-dx_LH_u = np.array([delta_x / iLH for iLH in L_H_u]).T  # shape(len(delta_x), nz)
-dx_LH_u2 = np.array([delta_x / iLH for iLH in L_H_u2]).T  # shape(len(delta_x), nz)
-dx_LH_v = np.array([delta_x / iLH for iLH in L_H_v]).T  # shape(len(delta_x), nz)
-dx_LH_v2 = np.array([delta_x / iLH for iLH in L_H_v2]).T  # shape(len(delta_x), nz)
-dx_LH_t = np.array([delta_x / iLH for iLH in L_H_t]).T  # shape(len(delta_x), nz)
-dx_LH_uw = np.array([delta_x / iLH for iLH in L_H_uw]).T  # shape(len(delta_x), nz)
-dx_LH_vw = np.array([delta_x / iLH for iLH in L_H_vw]).T  # shape(len(delta_x), nz)
-dx_LH_tw = np.array([delta_x / iLH for iLH in L_H_tw]).T  # shape(len(delta_x), nz)
-dx_LH_uu = np.array([delta_x / iLH for iLH in L_H_uu]).T  # shape(len(delta_x), nz)
-dx_LH_vv = np.array([delta_x / iLH for iLH in L_H_vv]).T  # shape(len(delta_x), nz)
-dx_LH_ww = np.array([delta_x / iLH for iLH in L_H_ww]).T  # shape(len(delta_x), nz)
-dx_LH_tt = np.array([delta_x / iLH for iLH in L_H_tt]).T  # shape(len(delta_x), nz)
+dx_LH_u = delta_x / L_H_u     # shape(len(delta_x))
+dx_LH_u2 = delta_x / L_H_u2   # shape(len(delta_x))
+dx_LH_v = delta_x / L_H_v     # shape(len(delta_x))
+dx_LH_v2 = delta_x / L_H_v2   # shape(len(delta_x))
+dx_LH_t = delta_x / L_H_t     # shape(len(delta_x))
+dx_LH_uw = delta_x / L_H_uw   # shape(len(delta_x))
+dx_LH_vw = delta_x / L_H_vw   # shape(len(delta_x))
+dx_LH_tw = delta_x / L_H_tw   # shape(len(delta_x))
+dx_LH_uu = delta_x / L_H_uu   # shape(len(delta_x))
+dx_LH_vv = delta_x / L_H_vv   # shape(len(delta_x))
+dx_LH_ww = delta_x / L_H_ww   # shape(len(delta_x))
+dx_LH_tt = delta_x / L_H_tt   # shape(len(delta_x))
             
 # grab the relevant dx_LH and variance values used at each kz for fitting
 dx_LH_u_fit = {}
@@ -545,52 +559,52 @@ var_tt_fit = {}
 for kz in range(nz_sbl):
     # grab dx_LH values
     # u
-    i_dx_u = np.where((dx_LH_u[:,kz] >= dmin_u) & (dx_LH_u[:,kz] <= dmax_u))[0]
-    dx_LH_u_fit[kz] = dx_LH_u[i_dx_u,kz]
+    i_dx_u = np.where((dx_LH_u >= dmin_u) & (dx_LH_u <= dmax_u))[0]
+    dx_LH_u_fit[kz] = dx_LH_u[i_dx_u]
     var_u_fit[kz] = var_u_all[i_dx_u,kz]
     # u unrotated
-    i_dx_u2 = np.where((dx_LH_u2[:,kz] >= dmin_u) & (dx_LH_u2[:,kz] <= dmax_u))[0]
-    dx_LH_u_fit2[kz] = dx_LH_u2[i_dx_u2,kz]
+    i_dx_u2 = np.where((dx_LH_u2 >= dmin_u) & (dx_LH_u2 <= dmax_u))[0]
+    dx_LH_u_fit2[kz] = dx_LH_u2[i_dx_u2]
     var_u_fit2[kz] = var_u_all2[i_dx_u2,kz]
     # v
-    i_dx_v = np.where((dx_LH_v[:,kz] >= dmin_u) & (dx_LH_v[:,kz] <= dmax_u))[0]
-    dx_LH_v_fit[kz] = dx_LH_v[i_dx_v,kz]
+    i_dx_v = np.where((dx_LH_v >= dmin_u) & (dx_LH_v <= dmax_u))[0]
+    dx_LH_v_fit[kz] = dx_LH_v[i_dx_v]
     var_v_fit[kz] = var_v_all[i_dx_v,kz]
     # v unrotated
-    i_dx_v2 = np.where((dx_LH_v2[:,kz] >= dmin_u) & (dx_LH_v2[:,kz] <= dmax_u))[0]
-    dx_LH_v_fit2[kz] = dx_LH_v2[i_dx_v2,kz]
+    i_dx_v2 = np.where((dx_LH_v2 >= dmin_u) & (dx_LH_v2 <= dmax_u))[0]
+    dx_LH_v_fit2[kz] = dx_LH_v2[i_dx_v2]
     var_v_fit2[kz] = var_v_all2[i_dx_v2,kz]
     # theta
-    i_dx_t = np.where((dx_LH_t[:,kz] >= dmin_u) & (dx_LH_t[:,kz] <= dmax_u))[0]
-    dx_LH_t_fit[kz] = dx_LH_t[i_dx_t,kz]
+    i_dx_t = np.where((dx_LH_t >= dmin_u) & (dx_LH_t <= dmax_u))[0]
+    dx_LH_t_fit[kz] = dx_LH_t[i_dx_t]
     var_theta_fit[kz] = var_theta_all[i_dx_t,kz]
     # u'w'
-    i_dx_uw = np.where((dx_LH_uw[:,kz] >= dmin_cov) & (dx_LH_uw[:,kz] <= dmax_cov))[0]
-    dx_LH_uw_fit[kz] = dx_LH_uw[i_dx_uw,kz]
+    i_dx_uw = np.where((dx_LH_uw >= dmin_cov) & (dx_LH_uw <= dmax_cov))[0]
+    dx_LH_uw_fit[kz] = dx_LH_uw[i_dx_uw]
     var_uw_fit[kz] = var_uw_all[i_dx_uw,kz]
     # v'w'
-    i_dx_vw = np.where((dx_LH_vw[:,kz] >= dmin_cov) & (dx_LH_vw[:,kz] <= dmax_cov))[0]
-    dx_LH_vw_fit[kz] = dx_LH_vw[i_dx_vw,kz]
+    i_dx_vw = np.where((dx_LH_vw >= dmin_cov) & (dx_LH_vw <= dmax_cov))[0]
+    dx_LH_vw_fit[kz] = dx_LH_vw[i_dx_vw]
     var_vw_fit[kz] = var_vw_all[i_dx_vw,kz]
     # theta'w'
-    i_dx_tw = np.where((dx_LH_tw[:,kz] >= dmin_cov) & (dx_LH_tw[:,kz] <= dmax_cov))[0]
-    dx_LH_tw_fit[kz] = dx_LH_tw[i_dx_tw,kz]
+    i_dx_tw = np.where((dx_LH_tw >= dmin_cov) & (dx_LH_tw <= dmax_cov))[0]
+    dx_LH_tw_fit[kz] = dx_LH_tw[i_dx_tw]
     var_tw_fit[kz] = var_tw_all[i_dx_tw,kz]
     # u'u'
-    i_dx_uu = np.where((dx_LH_uu[:,kz] >= dmin_var) & (dx_LH_uu[:,kz] <= dmax_var))[0]
-    dx_LH_uu_fit[kz] = dx_LH_uu[i_dx_uu,kz]
+    i_dx_uu = np.where((dx_LH_uu >= dmin_var) & (dx_LH_uu <= dmax_var))[0]
+    dx_LH_uu_fit[kz] = dx_LH_uu[i_dx_uu]
     var_uu_fit[kz] = var_uu_all[i_dx_uu,kz]
     # v'v'
-    i_dx_vv = np.where((dx_LH_vv[:,kz] >= dmin_var) & (dx_LH_vv[:,kz] <= dmax_var))[0]
-    dx_LH_vv_fit[kz] = dx_LH_vv[i_dx_vv,kz]
+    i_dx_vv = np.where((dx_LH_vv >= dmin_var) & (dx_LH_vv <= dmax_var))[0]
+    dx_LH_vv_fit[kz] = dx_LH_vv[i_dx_vv]
     var_vv_fit[kz] = var_vv_all[i_dx_vv,kz]
     # w'w'
-    i_dx_ww = np.where((dx_LH_ww[:,kz] >= dmin_var) & (dx_LH_ww[:,kz] <= dmax_var))[0]
-    dx_LH_ww_fit[kz] = dx_LH_ww[i_dx_ww,kz]
+    i_dx_ww = np.where((dx_LH_ww >= dmin_var) & (dx_LH_ww <= dmax_var))[0]
+    dx_LH_ww_fit[kz] = dx_LH_ww[i_dx_ww]
     var_ww_fit[kz] = var_ww_all[i_dx_ww,kz]
     # theta'theta'
-    i_dx_tt = np.where((dx_LH_tt[:,kz] >= dmin_var) & (dx_LH_tt[:,kz] <= dmax_var))[0]
-    dx_LH_tt_fit[kz] = dx_LH_tt[i_dx_tt,kz]
+    i_dx_tt = np.where((dx_LH_tt >= dmin_var) & (dx_LH_tt <= dmax_var))[0]
+    dx_LH_tt_fit[kz] = dx_LH_tt[i_dx_tt]
     var_tt_fit[kz] = var_tt_all[i_dx_tt,kz]
     
 # now can loop over z to fit power law to each set of var_u_all vs dx_LH_u
@@ -739,4 +753,4 @@ np.savez(fsave, z=z, h=h, isbl=isbl, delta_x=delta_x, yaml=config,
          err_tt=err_tt, C_tt=Ctt, p_tt=ptt
         )
 
-send_sms("/home/bgreene/SBL_LES/python/sms.yaml", f"Finished RFM.py, saved {config['fsave']}")
+# send_sms("/home/bgreene/SBL_LES/python/sms.yaml", f"Finished RFM.py, saved {config['fsave']}")

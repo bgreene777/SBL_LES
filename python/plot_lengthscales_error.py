@@ -21,7 +21,7 @@ rc('font',weight='normal',size=20,family='serif',serif='Computer Modern Roman')
 rc('text',usetex='True')
 
 # figure save directory
-fdir_save = "/home/bgreene/SBL_LES/figures/lengthscales/"
+fdir_save = "/home/bgreene/SBL_LES/figures/lengthscales/Mean_LH/"
 plt.close("all")
 
 # useful plotting stuff
@@ -363,7 +363,7 @@ def plot_MSE(s, fsave=fdir_save):
         # loop over heights in s, up to maximum of imax
         for i, jz in enumerate(np.arange(imax, dtype=int)**2):
             # plot versus delta_x/L_H
-            ax1[0].plot(s.RFM[f"dx_LH_{var}"][:,jz], 
+            ax1[0].plot(s.RFM["delta_x"], 
                         s.RFM[f"var_{var2}"][:,jz]/variance[var][jz],
                      fstr[i], label=f"jz={jz}")
             # plot versus delta_x/integral length scale
@@ -724,12 +724,13 @@ s192F = simulation("/home/bgreene/simulations/F_192_interp/output/",
 # put everything into a list for looping
 # s_all = [s128A, s160A, s192A]
 # s_all = [s128F, s160F, s192F]
-s_all = [s192A, s192B, s192C, s192D, s192E, s192F]
+# s_all = [s192A, s192B, s192C, s192D, s192E, s192F]
+s_all = [s192A]
 for s in s_all:
     s.read_csv()
     s.calc_Ri()
     s.calc_most()
-    s.read_RFM(f"/home/bgreene/SBL_LES/output/RFM_{s.stab}{s.lab}.npz")
+    s.read_RFM(f"/home/bgreene/SBL_LES/output/Mean_LH/RFM_{s.stab}{s.lab}.npz")
     
 # --------------------------------
 # Begin plotting
@@ -738,7 +739,7 @@ for s in s_all:
     # sigma_f versus all delta_x for filtered
 #     plot_sigma_filt(s)
     # MSE{x~_delta}/var{x} vs. delta/T_H
-#     plot_MSE(s)
+    plot_MSE(s)
     # compare rel rand err from RFM and autocorr
 #     plot_err(s)
     # 2d errors for ws, wd, theta
@@ -746,7 +747,7 @@ for s in s_all:
     # 2d Tavg for u, v, theta
 #     plot_2d_Tavg(s)
     # optimal ascent rate
-    plot_optimal_ascent(s)
+#     plot_optimal_ascent(s)
     
     
 # length and timescales from autocorr
