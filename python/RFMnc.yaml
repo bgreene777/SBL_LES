@@ -1,0 +1,27 @@
+# --------------------------------
+# Name: RFMnc.yaml
+# Author: Brian R. Greene
+# University of Oklahoma
+# Created: 27 October 2021
+# Purpose: parameters for processing SBL simulations with
+# relaxed filtering method (RFM) from Dias et al. 2018
+# --------------------------------
+
+fdir: "/home/bgreene/simulations/A_192_interp/output/netcdf/"
+fstat: "average_statistics.nc"
+fsave: "/home/bgreene/SBL_LES/output/No_LH/RFM_A192.nc"
+# start and end timesteps to read: last 1 hour
+t0: 1080000
+t1: 1260000
+dt: 1000
+# time step in seconds
+delta_t: 0.02
+nfilt: 50
+dmin_u: 1.0
+dmax_u: 5.0
+dmin_cov: 2.0
+dmax_cov: 16.0
+dmin_var: 1.0
+dmax_var: 7.0
+T_sample_u: 3.0
+T_sample_cov: 1800.0
