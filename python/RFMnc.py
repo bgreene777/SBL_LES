@@ -9,6 +9,8 @@
 # Combines code from random_errors_filter.py and integral_lengthscales.py
 # Remastered from RFM.py to load netcdf files and streamline
 # --------------------------------
+import os
+import sys
 import yaml
 import numpy as np
 import xarray as xr
@@ -21,6 +23,23 @@ from dask.diagnostics import ProgressBar
 # --------------------------------
 # Define Functions
 # --------------------------------
+def print_both(s, fsave):
+    """
+    Print statements to both the command line (sys.stdout) and to a
+    text file (fsave) for future reference on running time
+    -input-
+    s: string to print
+    fsave: text file to append text
+    """
+    with open(fsave, "a") as f:
+        # print to command line
+        print(s, file=sys.stdout)
+        # print to file with a UTC timestamp
+        print(datetime.utcnow(), file=f)
+        print(s, file=f)
+    return
+
+# --------------------------------
 def autocorrelation(f):
     # input 4d parameter, e.g. u(x,y,z,t)
     # output DataArray yt-averaged autocorrelation R_ff(xlag,z)
@@ -28,7 +47,7 @@ def autocorrelation(f):
     # calculate along the x-dimension
     # keep track of how long it takes
     dt0 = datetime.utcnow()
-    print(f"Calculating autocorrelation for: {f.name}")
+    print_both(f"Calculating autocorrelation for: {f.name}", fprint)
     # calculate normalized perturbations
     temp = (f - f.mean("x")) / f.std("x")
     # fftconvolve along axis=1, i.e. x
@@ -45,7 +64,7 @@ def autocorrelation(f):
                             z = f.z)
                        )
     dt1 = datetime.utcnow()
-    print(f"Calc time for {f.name} autocorr: {(dt1-dt0).total_seconds()/60.:5.2f} min")
+    print_both(f"Calc time for {f.name} autocorr: {(dt1-dt0).total_seconds()/60.:5.2f} min", fprint)
     return R_ff
 # --------------------------------
 def relaxed_filter(f, delta_x, Lx):
@@ -59,7 +78,7 @@ def relaxed_filter(f, delta_x, Lx):
     """
     # keep track of time
     dt0 = datetime.utcnow()
-    print(f"Performing relaxed filter method for: {f.name}")
+    print_both(f"Performing relaxed filter method for: {f.name}", fprint)
     # initialize numpy array of shape(nfilt, nz) to store all sigma_f
     nfilt = len(delta_x)
     nx = f.x.size
@@ -111,19 +130,22 @@ def relaxed_filter(f, delta_x, Lx):
     var_f_all /= nt
     
     dt1 = datetime.utcnow()
-    print(f"Calc time for {f.name} RFM: {(dt1-dt0).total_seconds()/60.:5.2f} min")
+    print_both(f"Calc time for {f.name} RFM: {(dt1-dt0).total_seconds()/60.:5.2f} min", fprint)
     return var_f_all
     
 # --------------------------------
-# Main
+# Main: calculate 4th order vars, autocorrelations, and RFM
 # --------------------------------
 def main():
-    # load yaml file
-    with open("/home/bgreene/SBL_LES/python/RFMnc.yaml") as f:
-        config = yaml.safe_load(f)
-
+    # config loaded in global scope
     # simulation output directory
     fdir = config["fdir"]
+    # check to see if files have been created and can skip main()
+    if os.path.exists(f"{fdir}RFM.nc"):
+        print_both("Files already created...moving on to curve fitting and error calculations!",
+                   fprint)
+        return
+    
     # load average statistics netcdf file
     fstat = config["fstat"]
     stat = xr.load_dataset(fdir+fstat)
@@ -148,7 +170,7 @@ def main():
     # calculate array of times represented by each file
     times = np.array([i*config["delta_t"]*config["dt"] for i in range(nf)])
     # load all files into mfdataset
-    print("Reading files...")
+    print_both("Reading files...", fprint)
     dd = xr.open_mfdataset(fall, combine="nested", concat_dim="time")
     dd.coords["time"] = times
     dd.time.attrs["units"] = "s"
@@ -167,7 +189,7 @@ def main():
     #
     # Calculate "instantaneous" vars and covars to store in dd
     #
-    print("Calculate 'instantaneous' vars and covars")
+    print_both("Calculate 'instantaneous' vars and covars", fprint)
     # u'w'
     dd["uw_cov_res"] = (dd.u - stat.u_mean) * (dd.w - stat.w_mean)
     dd["uw_cov_tot"] = dd.uw_cov_res + dd.txz
@@ -230,7 +252,7 @@ def main():
     #
     # Calculate autocorrelations for _everything_
     #
-    print("Begin calculating autocorrelations...")
+    print_both("Begin calculating autocorrelations...", fprint)
     # initialize empty xarray dataset for each autocorrelation and loop
     R = xr.Dataset(data_vars=None,
                    coords=dict(x=dd.x,
@@ -249,11 +271,11 @@ def main():
     #
     # Perform relaxed filter method for _everything_
     #
-    print("Begin RFM calculations...")
+    print_both("Begin RFM calculations...", fprint)
     # initialize empty xarray dataset for each RFM and loop
     RFM = xr.Dataset(data_vars=None,
                      coords=dict(delta_x=delta_x,
-                                 z=d.z),
+                                 z=dd.z),
                      attrs=dd.attrs
                     )
     # define list of parameters for looping
@@ -269,28 +291,65 @@ def main():
     #
     # 4th order variances, var4
     fsave_var4 = f"{fdir}variances_4_order.nc"
-    print(f"Saving file: {fsave_var4}")
+    print_both(f"Saving file: {fsave_var4}", fprint)
     with ProgressBar():
         var4.to_netcdf(fsave_var4, mode="w")
     # autocorrelations, R
     fsave_R = f"{fdir}autocorr.nc"
-    print(f"Saving file: {fsave_R}")
+    print_both(f"Saving file: {fsave_R}", fprint)
     with ProgressBar():
         R.to_netcdf(fsave_R, mode="w")
     # relaxed filter output, RFM
     fsave_RFM = f"{fdir}RFM.nc"
-    print(f"Saving file: {fsave_RFM}")
+    print_both(f"Saving file: {fsave_RFM}", fprint)
     with ProgressBar():
         RFM.to_netcdf(fsave_RFM, mode="w")
         
-    print("RFMnc.py:main() finished!")
+    print_both("RFMnc.py:main() finished!", fprint)
     return
+
+# --------------------------------
+# Main2: read results from main() and fit power laws to estimate errors
+# --------------------------------
+def main2():
+    # config loaded in global scope
+    # simulation output directory
+    fdir = config["fdir"]
+    # load average statistics netcdf file
+    fstat = config["fstat"]
+    stat = xr.load_dataset(fdir+fstat)
+    # calculate important parameters
+    # ustar
+    stat["ustar"] = ((stat.uw_cov_tot ** 2.) + (stat.vw_cov_tot ** 2.)) ** 0.25
+    stat["ustar2"] = stat.ustar ** 2.
+    # SBL height
+    stat["h"] = stat.z.where(stat.ustar2 <= 0.05*stat.ustar2[0], drop=True)[0]/0.95
+    # z indices within sbl
+    isbl = np.where(stat.z <= stat.h)[0]
+    nz_sbl = len(isbl)    
+    # load files created in main()
+    var4 = xr.load_dataset(f"{fdir}variances_4_order.nc")
+    R = xr.load_dataset(f"{fdir}autocorr.nc")
+    RFM = xr.load_dataset(f"{fdir}RFM.nc")
+    
+    #
+    # 
+    #
+    
+    
+    
+    
+    print("Rose is ugly")
         
 # --------------------------------
 # Run script
 # --------------------------------
 if __name__ == "__main__":
+    # load yaml file in global scope
+    with open("/home/bgreene/SBL_LES/python/RFMnc.yaml") as f:
+        config = yaml.safe_load(f)
+    fprint = config["fprint"]
     dt0 = datetime.utcnow()
     main()
     dt1 = datetime.utcnow()
-    print(f"Total run time for RFMnc.py: {(dt1-dt0).total_seconds()/60.:5.2f} min")
+    print_both(f"Total run time for RFMnc.py: {(dt1-dt0).total_seconds()/60.:5.2f} min", fprint)

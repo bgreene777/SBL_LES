@@ -10,6 +10,8 @@
 fdir: "/home/bgreene/simulations/A_192_interp/output/netcdf/"
 fstat: "average_statistics.nc"
 fsave: "/home/bgreene/SBL_LES/output/No_LH/RFM_A192.nc"
+# text file to save print statements
+fprint: "/home/bgreene/SBL_LES/output/Print/RFMnc.txt"
 # start and end timesteps to read: last 1 hour
 t0: 1080000
 t1: 1260000
