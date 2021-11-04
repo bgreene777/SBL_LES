@@ -15,10 +15,10 @@ import yaml
 import numpy as np
 import xarray as xr
 import xrft
-from numpy.fft import fft, ifft
-from scipy.signal import fftconvolve, correlate
+from scipy.signal import fftconvolve
+from scipy.optimize import curve_fit
 from datetime import datetime, timedelta
-from numba import njit
+from matplotlib import pyplot as plt
 from dask.diagnostics import ProgressBar
 # --------------------------------
 # Define Functions
@@ -132,7 +132,11 @@ def relaxed_filter(f, delta_x, Lx):
     dt1 = datetime.utcnow()
     print_both(f"Calc time for {f.name} RFM: {(dt1-dt0).total_seconds()/60.:5.2f} min", fprint)
     return var_f_all
-    
+# --------------------------------
+def power_law(delta_x, C, p):
+    # function to be used with curve_fit
+    return C * (delta_x ** (-p))
+
 # --------------------------------
 # Main: calculate 4th order vars, autocorrelations, and RFM
 # --------------------------------
@@ -309,9 +313,9 @@ def main():
     return
 
 # --------------------------------
-# Main2: read results from main() and fit power laws to estimate errors
+# Main2: read results from main() to fit power laws and save C, p files
 # --------------------------------
-def main2():
+def main2(plot_MSE=True):
     # config loaded in global scope
     # simulation output directory
     fdir = config["fdir"]
@@ -327,20 +331,254 @@ def main2():
     # z indices within sbl
     isbl = np.where(stat.z <= stat.h)[0]
     nz_sbl = len(isbl)    
+    z_sbl = stat.z.isel(z=isbl)
     # load files created in main()
     var4 = xr.load_dataset(f"{fdir}variances_4_order.nc")
     R = xr.load_dataset(f"{fdir}autocorr.nc")
     RFM = xr.load_dataset(f"{fdir}RFM.nc")
-    
+    # calculate Ozmidov scale Lo = sqrt[<dissipation>/(N^2)^3/2]
+    dtheta_dz = stat.theta_mean.differentiate("z", 2)
+    N2 = dtheta_dz * 9.81 / stat.theta_mean.isel(z=0)
+    stat["Lo"] = np.sqrt(-stat.dissip_mean / (N2 ** (3./2.)))
     #
-    # 
+    # plot MSE versus filter width
+    # 3 multi-panel figures
     #
-    
-    
-    
-    
-    print("Rose is ugly")
+    if plot_MSE:
+        # 1) u, u_rot, v, v_rot
+        fig1, ax1 = plt.subplots(nrows=2, ncols=2, figsize=(12, 12))
+        for jz in np.arange(9)**2:
+            ax1[0,0].plot(RFM.delta_x, RFM.u.isel(z=jz)/stat.u_var.isel(z=jz), label=f"jz={jz}")
+            ax1[0,1].plot(RFM.delta_x, RFM.v.isel(z=jz)/stat.v_var.isel(z=jz), label=f"jz={jz}")
+            ax1[1,0].plot(RFM.delta_x, RFM.u_rot.isel(z=jz)/stat.u_var_rot.isel(z=jz))
+            ax1[1,1].plot(RFM.delta_x, RFM.v_rot.isel(z=jz)/stat.v_var_rot.isel(z=jz))
+        ax1[0,0].set_xlabel("$\Delta x$")
+        ax1[0,0].set_ylabel("$MSE(\\tilde{x}) / var\{x\}$")
+        ax1[0,0].set_title("Variable: $u$")
+        ax1[0,0].legend()
+        ax1[0,0].set_xscale("log")
+        ax1[0,0].set_yscale("log")
+        ax1[0,1].set_xlabel("$\Delta x$")
+        ax1[0,1].set_ylabel("$MSE(\\tilde{x}) / var\{x\}$")
+        ax1[0,1].set_title("Variable: $v$")
+        ax1[0,1].legend()
+        ax1[0,1].set_xscale("log")
+        ax1[0,1].set_yscale("log")
+        ax1[1,0].set_xlabel("$\Delta x$")
+        ax1[1,0].set_ylabel("$MSE(\\tilde{x}) / var\{x\}$")
+        ax1[1,0].set_title("Variable: $u$ rotated")
+        ax1[1,0].set_xscale("log")
+        ax1[1,0].set_yscale("log")
+        ax1[1,1].set_xlabel("$\Delta x$")
+        ax1[1,1].set_ylabel("$MSE(\\tilde{x}) / var\{x\}$")
+        ax1[1,1].set_title("Variable: $v$ rotated")
+        ax1[1,1].set_xscale("log")
+        ax1[1,1].set_yscale("log")
+
+        # save and close
+        figdir = config["figdir"]
+        fig1.savefig(f"{figdir}MSEuv_varuv_vs_deltax.png")
+        plt.close(fig1)
+
+        # 2) theta, u'w', v'w', theta'w'
+        fig2, ax2 = plt.subplots(nrows=2, ncols=2, figsize=(12, 12))
+        for jz in np.arange(9)**2:
+            ax2[0,0].plot(RFM.delta_x, RFM.theta.isel(z=jz)/stat.theta_var.isel(z=jz), label=f"jz={jz}")
+            ax2[0,1].plot(RFM.delta_x, RFM.tw_cov_tot.isel(z=jz)/var4.twtw_var.isel(z=jz), label=f"jz={jz}")
+            ax2[1,0].plot(RFM.delta_x, RFM.uw_cov_tot.isel(z=jz)/var4.uwuw_var.isel(z=jz))
+            ax2[1,1].plot(RFM.delta_x, RFM.vw_cov_tot.isel(z=jz)/var4.uwuw_var.isel(z=jz))
+        ax2[0,0].set_xlabel("$\Delta x$")
+        ax2[0,0].set_ylabel("$MSE(\\tilde{x}) / var\{x\}$")
+        ax2[0,0].set_title("Variable: $\\theta$")
+        ax2[0,0].legend()
+        ax2[0,0].set_xscale("log")
+        ax2[0,0].set_yscale("log")
+        ax2[0,1].set_xlabel("$\Delta x$")
+        ax2[0,1].set_ylabel("$MSE(\\tilde{x}) / var\{x\}$")
+        ax2[0,1].set_title("Variable: $\\theta'w'$")
+        ax2[0,1].legend()
+        ax2[0,1].set_xscale("log")
+        ax2[0,1].set_yscale("log")
+        ax2[1,0].set_xlabel("$\Delta x$")
+        ax2[1,0].set_ylabel("$MSE(\\tilde{x}) / var\{x\}$")
+        ax2[1,0].set_title("Variable: $u'w'$")
+        ax2[1,0].set_xscale("log")
+        ax2[1,0].set_yscale("log")
+        ax2[1,1].set_xlabel("$\Delta x$")
+        ax2[1,1].set_ylabel("$MSE(\\tilde{x}) / var\{x\}$")
+        ax2[1,1].set_title("Variable: $v'w'$")
+        ax2[1,1].set_xscale("log")
+        ax2[1,1].set_yscale("log")
+
+        # save and close
+        fig2.savefig(f"{figdir}MSEcov_var4_vs_deltax.png")
+        plt.close(fig2)
+
+        # 3) u var, u var rot, v var, v var rot, ww var, tt var
+        fig3, ax3 = plt.subplots(nrows=2, ncols=3, figsize=(18, 12))
+        for jz in np.arange(9)**2:
+            ax3[0,0].plot(RFM.delta_x, RFM.uu_var.isel(z=jz)/var4.uuuu_var.isel(z=jz), label=f"jz={jz}")
+            ax3[0,1].plot(RFM.delta_x, RFM.vv_var.isel(z=jz)/var4.vvvv_var.isel(z=jz), label=f"jz={jz}")
+            ax3[0,2].plot(RFM.delta_x, RFM.ww_var.isel(z=jz)/var4.wwww_var.isel(z=jz), label=f"jz={jz}")
+            ax3[1,0].plot(RFM.delta_x, RFM.uu_var_rot.isel(z=jz)/var4.uuuu_var_rot.isel(z=jz))
+            ax3[1,1].plot(RFM.delta_x, RFM.vv_var_rot.isel(z=jz)/var4.vvvv_var_rot.isel(z=jz))
+            ax3[1,2].plot(RFM.delta_x, RFM.tt_var.isel(z=jz)/var4.tttt_var.isel(z=jz))
+        ax3[0,0].set_xlabel("$\Delta x$")
+        ax3[0,0].set_ylabel("$MSE(\\tilde{x}) / var\{x\}$")
+        ax3[0,0].set_title("Variable: $u'u'$")
+        ax3[0,0].legend()
+        ax3[0,0].set_xscale("log")
+        ax3[0,0].set_yscale("log")
+        ax3[0,1].set_xlabel("$\Delta x$")
+        ax3[0,1].set_ylabel("$MSE(\\tilde{x}) / var\{x\}$")
+        ax3[0,1].set_title("Variable: $v'v'$")
+        ax3[0,1].legend()
+        ax3[0,1].set_xscale("log")
+        ax3[0,1].set_yscale("log")
+        ax3[0,2].set_xlabel("$\Delta x$")
+        ax3[0,2].set_ylabel("$MSE(\\tilde{x}) / var\{x\}$")
+        ax3[0,2].set_title("Variable: $w'w'$")
+        ax3[0,2].legend()
+        ax3[0,2].set_xscale("log")
+        ax3[0,2].set_yscale("log")
+        ax3[1,0].set_xlabel("$\Delta x$")
+        ax3[1,0].set_ylabel("$MSE(\\tilde{x}) / var\{x\}$")
+        ax3[1,0].set_title("Variable: $u'u'$ rotated")
+        ax3[1,0].set_xscale("log")
+        ax3[1,0].set_yscale("log")
+        ax3[1,1].set_xlabel("$\Delta x$")
+        ax3[1,1].set_ylabel("$MSE(\\tilde{x}) / var\{x\}$")
+        ax3[1,1].set_title("Variable: $v'v'$ rotated")
+        ax3[1,1].set_xscale("log")
+        ax3[1,1].set_yscale("log")
+        ax3[1,2].set_xlabel("$\Delta x$")
+        ax3[1,2].set_ylabel("$MSE(\\tilde{x}) / var\{x\}$")
+        ax3[1,2].set_title("Variable: $\\theta'\\theta'$")
+        ax3[1,2].set_xscale("log")
+        ax3[1,2].set_yscale("log")
+
+        # save and close
+        fig3.savefig(f"{figdir}MSEvar_var4_vs_deltax.png")
+        plt.close(fig3)
         
+    #
+    # Fit power law for all variables and store C, p in separate xarray Datasets
+    #
+    C = xr.Dataset(data_vars=None,
+                   coords=dict(z=z_sbl),
+                   attrs=config)
+    p = xr.Dataset(data_vars=None,
+                   coords=dict(z=z_sbl),
+                   attrs=config)
+    # loop through variables - separately for 1st and 2nd order moments (stat vs var4)
+    # first order moments and variances
+    param_RFM1 = ["u", "u_rot", "v", "v_rot", "theta"]
+    param_var2 = ["u_var", "u_var_rot", "v_var", "v_var_rot", "theta_var"]
+    # covariances and their 4th order variances
+    param_RFM2 = ["uw_cov_tot", "vw_cov_tot", "tw_cov_tot"]
+    param_cov = ["uwuw_var", "vwvw_var", "twtw_var"]
+    # variances and their 4th order variances
+    param_RFM3 = ["uu_var", "uu_var_rot", "vv_var", "vv_var_rot", 
+                  "ww_var", "tt_var"]
+    param_var = ["uuuu_var", "uuuu_var_rot", "vvvv_var", "vvvv_var_rot", 
+                 "wwww_var", "tttt_var"]
+    # need to grab delta_x ranges based on RFMnc.yaml file 
+    # separately for u/v/theta, var, covar
+    ix_uvt = np.where((RFM.delta_x >= config["dmin_u"]) &\
+                      (RFM.delta_x <= config["dmax_u"]))[0]
+    ix_cov = np.where((RFM.delta_x >= config["dmin_cov"]) &\
+                      (RFM.delta_x <= config["dmax_cov"]))[0]
+    ix_var = np.where((RFM.delta_x >= config["dmin_var"]) &\
+                      (RFM.delta_x <= config["dmax_var"]))[0]
+    # loop through first order moments
+    for i, v in enumerate(param_RFM1):
+        print_both(f"Calculating power law coefficients for: {v}", fprint)
+        C[v] = xr.DataArray(np.zeros(nz_sbl, dtype=np.float64), 
+                              dims="z",
+                              coords=dict(z=z_sbl))
+        p[v] = xr.DataArray(np.zeros(nz_sbl, dtype=np.float64), 
+                              dims="z",
+                              coords=dict(z=z_sbl))
+        for jz in range(nz_sbl):
+            xfit = RFM.delta_x.isel(delta_x=ix_uvt)
+            yfit = RFM[v].isel(z=jz, delta_x=ix_uvt)/\
+                              stat[param_var2[i]].isel(z=jz)
+            (C[v][jz], p[v][jz]), _ = curve_fit(f=power_law, 
+                                                xdata=xfit,
+                                                ydata=yfit,
+                                                p0=[0.001,0.001])
+    # loop through second order moments - covariances
+    for i, v in enumerate(param_RFM2):
+        print_both(f"Calculating power law coefficients for: {v}", fprint)
+        C[v] = xr.DataArray(np.zeros(nz_sbl, dtype=np.float64), 
+                              dims="z",
+                              coords=dict(z=z_sbl))
+        p[v] = xr.DataArray(np.zeros(nz_sbl, dtype=np.float64), 
+                              dims="z",
+                              coords=dict(z=z_sbl))
+        for jz in range(nz_sbl):
+            xfit = RFM.delta_x.isel(delta_x=ix_cov)
+            yfit = RFM[v].isel(z=jz, delta_x=ix_cov)/\
+                              var4[param_cov[i]].isel(z=jz)
+            (C[v][jz], p[v][jz]), _ = curve_fit(f=power_law, 
+                                                xdata=xfit,
+                                                ydata=yfit,
+                                                p0=[0.001,0.001])
+    # loop through second order moments - variances
+    for i, v in enumerate(param_RFM3):
+        print_both(f"Calculating power law coefficients for: {v}", fprint)
+        C[v] = xr.DataArray(np.zeros(nz_sbl, dtype=np.float64), 
+                              dims="z",
+                              coords=dict(z=z_sbl))
+        p[v] = xr.DataArray(np.zeros(nz_sbl, dtype=np.float64), 
+                              dims="z",
+                              coords=dict(z=z_sbl))
+        for jz in range(nz_sbl):
+            xfit = RFM.delta_x.isel(delta_x=ix_var)
+            yfit = RFM[v].isel(z=jz, delta_x=ix_var)/\
+                              var4[param_var[i]].isel(z=jz)
+            yfit = yfit.fillna(0.)
+            (C[v][jz], p[v][jz]), _ = curve_fit(f=power_law, 
+                                                xdata=xfit,
+                                                ydata=yfit,
+                                                p0=[0.001,0.001])
+    #
+    # Save C and p as netcdf files to be used in error calculations later
+    #
+    fsave_C = f"{fdir}fit_C.nc"
+    print_both(f"Saving file: {fsave_C}", fprint)
+    with ProgressBar():
+        C.to_netcdf(fsave_C, mode="w")
+    fsave_p = f"{fdir}fit_p.nc"
+    print_both(f"Saving file: {fsave_p}", fprint)
+    with ProgressBar():
+        p.to_netcdf(fsave_p, mode="w")  
+        
+    return   
+
+# --------------------------------
+# Main3: read results from main1(), main2() to calculate errors based on LP and RFM methods
+# --------------------------------
+def main3():
+    #
+    # Calculate RFM relative random errors: epsilon = RMSE(x_delta) / <x>
+    # RMSE = C**0.5 * delta**(-p/2)
+    # use T from config and convert to x/L_H via Taylor
+    # separate for u,v,theta / uw,vw,tw
+    #
+    T1 = config["T_sample_u"] # s
+    T2 = config["T_sample_cov"] # s
+    x_u = stat.u_mean_rot.isel(z=isbl) * T1
+    # use values of C and p to extrapolate calculation of MSE/var{x}
+    MSE_u = stat.u_var.isel(z=isbl) * (C.u * (x_u**-p.u))
+    # take sqrt to get RMSE
+    RMSE_u = np.sqrt(MSE_u)
+    # divide by <x> to get epsilon
+    err_u = RMSE_u / abs(stat.u_mean.isel(z=isbl))
+    
+    print(err_u * 100.)
+
+    return
 # --------------------------------
 # Run script
 # --------------------------------
@@ -351,5 +589,6 @@ if __name__ == "__main__":
     fprint = config["fprint"]
     dt0 = datetime.utcnow()
     main()
+    main2(plot_MSE=False)
     dt1 = datetime.utcnow()
     print_both(f"Total run time for RFMnc.py: {(dt1-dt0).total_seconds()/60.:5.2f} min", fprint)

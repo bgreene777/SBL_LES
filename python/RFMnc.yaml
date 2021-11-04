@@ -11,7 +11,9 @@ fdir: "/home/bgreene/simulations/A_192_interp/output/netcdf/"
 fstat: "average_statistics.nc"
 fsave: "/home/bgreene/SBL_LES/output/No_LH/RFM_A192.nc"
 # text file to save print statements
-fprint: "/home/bgreene/SBL_LES/output/Print/RFMnc.txt"
+fprint: "/home/bgreene/SBL_LES/output/Print/RFMnc_A192.txt"
+# figure save directory
+figdir: "/home/bgreene/SBL_LES/figures/RFMnc/"
 # start and end timesteps to read: last 1 hour
 t0: 1080000
 t1: 1260000
@@ -19,11 +21,12 @@ dt: 1000
 # time step in seconds
 delta_t: 0.02
 nfilt: 50
-dmin_u: 1.0
-dmax_u: 5.0
-dmin_cov: 2.0
-dmax_cov: 16.0
-dmin_var: 1.0
-dmax_var: 7.0
+# upper and lower RFM fit bounds (meters)
+dmin_u: 5.0
+dmax_u: 20.0
+dmin_cov: 5.0
+dmax_cov: 10.0
+dmin_var: 7.0
+dmax_var: 30.0
 T_sample_u: 3.0
 T_sample_cov: 1800.0
