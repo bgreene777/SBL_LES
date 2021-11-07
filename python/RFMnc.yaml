@@ -7,6 +7,7 @@
 # relaxed filtering method (RFM) from Dias et al. 2018
 # --------------------------------
 
+stability: "A"
 fdir: "/home/bgreene/simulations/A_192_interp/output/netcdf/"
 fstat: "average_statistics.nc"
 fsave: "/home/bgreene/SBL_LES/output/No_LH/RFM_A192.nc"
@@ -21,12 +22,20 @@ dt: 1000
 # time step in seconds
 delta_t: 0.02
 nfilt: 50
-# upper and lower RFM fit bounds (meters)
-dmin_u: 5.0
-dmax_u: 20.0
-dmin_cov: 5.0
-dmax_cov: 10.0
-dmin_var: 7.0
-dmax_var: 30.0
+# # upper and lower RFM fit bounds (meters)
+dmin_u: 300.0
+dmax_u: 700.0
+dmin_cov: 300.0
+dmax_cov: 700.0
+dmin_var: 300.0
+dmax_var: 700.0
+# sampling time to extrapolate
 T_sample_u: 3.0
 T_sample_cov: 1800.0
+# upper and lower RFM fit bounds (seconds)
+# dmin_u: 30.0
+# dmax_u: 70.0
+# dmin_cov: 30.0
+# dmax_cov: 70.0
+# dmin_var: 30.0
+# dmax_var: 70.0

@@ -340,6 +340,7 @@ def main2(plot_MSE=True):
     dtheta_dz = stat.theta_mean.differentiate("z", 2)
     N2 = dtheta_dz * 9.81 / stat.theta_mean.isel(z=0)
     stat["Lo"] = np.sqrt(-stat.dissip_mean / (N2 ** (3./2.)))
+    
     #
     # plot MSE versus filter width
     # 3 multi-panel figures
@@ -347,15 +348,20 @@ def main2(plot_MSE=True):
     if plot_MSE:
         # 1) u, u_rot, v, v_rot
         fig1, ax1 = plt.subplots(nrows=2, ncols=2, figsize=(12, 12))
-        for jz in np.arange(9)**2:
-            ax1[0,0].plot(RFM.delta_x, RFM.u.isel(z=jz)/stat.u_var.isel(z=jz), label=f"jz={jz}")
-            ax1[0,1].plot(RFM.delta_x, RFM.v.isel(z=jz)/stat.v_var.isel(z=jz), label=f"jz={jz}")
-            ax1[1,0].plot(RFM.delta_x, RFM.u_rot.isel(z=jz)/stat.u_var_rot.isel(z=jz))
-            ax1[1,1].plot(RFM.delta_x, RFM.v_rot.isel(z=jz)/stat.v_var_rot.isel(z=jz))
+        for jz in np.arange(0, nz_sbl, 4):
+            ax1[0,0].plot(RFM.delta_x,#/stat.u_mean_rot.isel(z=jz), 
+                          RFM.u.isel(z=jz)/stat.u_var.isel(z=jz), 
+                          label=f"z/h={(stat.z.isel(z=jz)/stat.h).values:4.3f}")
+            ax1[0,1].plot(RFM.delta_x,#/stat.u_mean_rot.isel(z=jz), 
+                          RFM.v.isel(z=jz)/stat.v_var.isel(z=jz), label=f"jz={jz}")
+            ax1[1,0].plot(RFM.delta_x,#/stat.u_mean_rot.isel(z=jz), 
+                          RFM.u_rot.isel(z=jz)/stat.u_var_rot.isel(z=jz))
+            ax1[1,1].plot(RFM.delta_x,#/stat.u_mean_rot.isel(z=jz), 
+                          RFM.v_rot.isel(z=jz)/stat.v_var_rot.isel(z=jz))
         ax1[0,0].set_xlabel("$\Delta x$")
         ax1[0,0].set_ylabel("$MSE(\\tilde{x}) / var\{x\}$")
         ax1[0,0].set_title("Variable: $u$")
-        ax1[0,0].legend()
+        ax1[0,0].legend(loc="lower left")
         ax1[0,0].set_xscale("log")
         ax1[0,0].set_yscale("log")
         ax1[0,1].set_xlabel("$\Delta x$")
@@ -374,23 +380,32 @@ def main2(plot_MSE=True):
         ax1[1,1].set_title("Variable: $v$ rotated")
         ax1[1,1].set_xscale("log")
         ax1[1,1].set_yscale("log")
+        for iax in ax1.flatten():
+            iax.axvline(config["dmin_u"], c="k", ls="--")
+            iax.axvline(config["dmax_u"], c="k", ls="--")
 
         # save and close
         figdir = config["figdir"]
-        fig1.savefig(f"{figdir}MSEuv_varuv_vs_deltax.png")
+        fig1.savefig(f"{figdir}{stat.stability}_MSEuv_varuv_vs_deltax.png")
         plt.close(fig1)
 
         # 2) theta, u'w', v'w', theta'w'
         fig2, ax2 = plt.subplots(nrows=2, ncols=2, figsize=(12, 12))
-        for jz in np.arange(9)**2:
-            ax2[0,0].plot(RFM.delta_x, RFM.theta.isel(z=jz)/stat.theta_var.isel(z=jz), label=f"jz={jz}")
-            ax2[0,1].plot(RFM.delta_x, RFM.tw_cov_tot.isel(z=jz)/var4.twtw_var.isel(z=jz), label=f"jz={jz}")
-            ax2[1,0].plot(RFM.delta_x, RFM.uw_cov_tot.isel(z=jz)/var4.uwuw_var.isel(z=jz))
-            ax2[1,1].plot(RFM.delta_x, RFM.vw_cov_tot.isel(z=jz)/var4.uwuw_var.isel(z=jz))
+#         for jz in np.arange(9)**2:
+        for jz in np.arange(0, nz_sbl, 4):
+            ax2[0,0].plot(RFM.delta_x,#/stat.u_mean_rot.isel(z=jz), 
+                          RFM.theta.isel(z=jz)/stat.theta_var.isel(z=jz), 
+                          label=f"z/h={(stat.z.isel(z=jz)/stat.h).values:4.3f}")
+            ax2[0,1].plot(RFM.delta_x,#/stat.u_mean_rot.isel(z=jz), 
+                          RFM.tw_cov_tot.isel(z=jz)/var4.twtw_var.isel(z=jz), label=f"jz={jz}")
+            ax2[1,0].plot(RFM.delta_x,#/stat.u_mean_rot.isel(z=jz), 
+                          RFM.uw_cov_tot.isel(z=jz)/var4.uwuw_var.isel(z=jz))
+            ax2[1,1].plot(RFM.delta_x,#/stat.u_mean_rot.isel(z=jz), 
+                          RFM.vw_cov_tot.isel(z=jz)/var4.uwuw_var.isel(z=jz))
         ax2[0,0].set_xlabel("$\Delta x$")
         ax2[0,0].set_ylabel("$MSE(\\tilde{x}) / var\{x\}$")
         ax2[0,0].set_title("Variable: $\\theta$")
-        ax2[0,0].legend()
+        ax2[0,0].legend(loc="lower left")
         ax2[0,0].set_xscale("log")
         ax2[0,0].set_yscale("log")
         ax2[0,1].set_xlabel("$\Delta x$")
@@ -409,30 +424,43 @@ def main2(plot_MSE=True):
         ax2[1,1].set_title("Variable: $v'w'$")
         ax2[1,1].set_xscale("log")
         ax2[1,1].set_yscale("log")
+        # plot vertical lines to show where fitting
+        ax2[0,0].axvline(config["dmin_u"], c="k", ls="--")
+        ax2[0,0].axvline(config["dmax_u"], c="k", ls="--")
+        for iax in ax2.flatten()[1:]:
+            iax.axvline(config["dmin_cov"], c="k", ls="--")
+            iax.axvline(config["dmax_cov"], c="k", ls="--")
 
         # save and close
-        fig2.savefig(f"{figdir}MSEcov_var4_vs_deltax.png")
+        fig2.savefig(f"{figdir}{stat.stability}_MSEcov_var4_vs_deltax.png")
         plt.close(fig2)
 
         # 3) u var, u var rot, v var, v var rot, ww var, tt var
         fig3, ax3 = plt.subplots(nrows=2, ncols=3, figsize=(18, 12))
-        for jz in np.arange(9)**2:
-            ax3[0,0].plot(RFM.delta_x, RFM.uu_var.isel(z=jz)/var4.uuuu_var.isel(z=jz), label=f"jz={jz}")
-            ax3[0,1].plot(RFM.delta_x, RFM.vv_var.isel(z=jz)/var4.vvvv_var.isel(z=jz), label=f"jz={jz}")
-            ax3[0,2].plot(RFM.delta_x, RFM.ww_var.isel(z=jz)/var4.wwww_var.isel(z=jz), label=f"jz={jz}")
-            ax3[1,0].plot(RFM.delta_x, RFM.uu_var_rot.isel(z=jz)/var4.uuuu_var_rot.isel(z=jz))
-            ax3[1,1].plot(RFM.delta_x, RFM.vv_var_rot.isel(z=jz)/var4.vvvv_var_rot.isel(z=jz))
-            ax3[1,2].plot(RFM.delta_x, RFM.tt_var.isel(z=jz)/var4.tttt_var.isel(z=jz))
+        for jz in np.arange(0, nz_sbl, 4):
+            ax3[0,0].plot(RFM.delta_x,#/stat.u_mean_rot.isel(z=jz), 
+                          RFM.uu_var.isel(z=jz)/var4.uuuu_var.isel(z=jz), 
+                          label=f"z/h={(stat.z.isel(z=jz)/stat.h).values:4.3f}")
+            ax3[0,1].plot(RFM.delta_x,#/stat.u_mean_rot.isel(z=jz), 
+                          RFM.vv_var.isel(z=jz)/var4.vvvv_var.isel(z=jz), label=f"jz={jz}")
+            ax3[0,2].plot(RFM.delta_x,#/stat.u_mean_rot.isel(z=jz), 
+                          RFM.ww_var.isel(z=jz)/var4.wwww_var.isel(z=jz), label=f"jz={jz}")
+            ax3[1,0].plot(RFM.delta_x,#/stat.u_mean_rot.isel(z=jz), 
+                          RFM.uu_var_rot.isel(z=jz)/var4.uuuu_var_rot.isel(z=jz))
+            ax3[1,1].plot(RFM.delta_x,#/stat.u_mean_rot.isel(z=jz), 
+                          RFM.vv_var_rot.isel(z=jz)/var4.vvvv_var_rot.isel(z=jz))
+            ax3[1,2].plot(RFM.delta_x,#/stat.u_mean_rot.isel(z=jz), 
+                          RFM.tt_var.isel(z=jz)/var4.tttt_var.isel(z=jz))
         ax3[0,0].set_xlabel("$\Delta x$")
         ax3[0,0].set_ylabel("$MSE(\\tilde{x}) / var\{x\}$")
         ax3[0,0].set_title("Variable: $u'u'$")
-        ax3[0,0].legend()
+        ax3[0,0].legend(loc="lower left")
         ax3[0,0].set_xscale("log")
         ax3[0,0].set_yscale("log")
         ax3[0,1].set_xlabel("$\Delta x$")
         ax3[0,1].set_ylabel("$MSE(\\tilde{x}) / var\{x\}$")
         ax3[0,1].set_title("Variable: $v'v'$")
-        ax3[0,1].legend()
+        ax3[0,1].legend(loc="lower left")
         ax3[0,1].set_xscale("log")
         ax3[0,1].set_yscale("log")
         ax3[0,2].set_xlabel("$\Delta x$")
@@ -456,11 +484,20 @@ def main2(plot_MSE=True):
         ax3[1,2].set_title("Variable: $\\theta'\\theta'$")
         ax3[1,2].set_xscale("log")
         ax3[1,2].set_yscale("log")
-
-        # save and close
-        fig3.savefig(f"{figdir}MSEvar_var4_vs_deltax.png")
-        plt.close(fig3)
+        for iax in ax3.flatten():
+            iax.axvline(config["dmin_cov"], c="k", ls="--")
+            iax.axvline(config["dmax_cov"], c="k", ls="--")
         
+        # save and close
+        fig3.savefig(f"{figdir}{stat.stability}_MSEvar_var4_vs_deltax.png")
+        plt.close(fig3)
+    #
+    # skip the rest if files already exist
+    #
+    if os.path.exists(f"{fdir}fit_C.nc"):
+        print_both("Curve fit files already created...moving on to error calculations!",
+                   fprint)
+        return    
     #
     # Fit power law for all variables and store C, p in separate xarray Datasets
     #
@@ -500,6 +537,10 @@ def main2(plot_MSE=True):
                               dims="z",
                               coords=dict(z=z_sbl))
         for jz in range(nz_sbl):
+            # need to grab delta_t ranges based on RFMnc.yaml file 
+            # separately for u/v/theta, var, covar
+            it_uvt = np.where((RFM.delta_x/stat.u_mean_rot.isel(z=jz) >= config["dmin_u"]) &\
+                              (RFM.delta_x/stat.u_mean_rot.isel(z=jz) <= config["dmax_u"]))[0]
             xfit = RFM.delta_x.isel(delta_x=ix_uvt)
             yfit = RFM[v].isel(z=jz, delta_x=ix_uvt)/\
                               stat[param_var2[i]].isel(z=jz)
@@ -517,6 +558,10 @@ def main2(plot_MSE=True):
                               dims="z",
                               coords=dict(z=z_sbl))
         for jz in range(nz_sbl):
+            # need to grab delta_t ranges based on RFMnc.yaml file 
+            # separately for u/v/theta, var, covar
+            it_cov = np.where((RFM.delta_x/stat.u_mean_rot.isel(z=jz) >= config["dmin_cov"]) &\
+                              (RFM.delta_x/stat.u_mean_rot.isel(z=jz) <= config["dmax_cov"]))[0]
             xfit = RFM.delta_x.isel(delta_x=ix_cov)
             yfit = RFM[v].isel(z=jz, delta_x=ix_cov)/\
                               var4[param_cov[i]].isel(z=jz)
@@ -534,6 +579,10 @@ def main2(plot_MSE=True):
                               dims="z",
                               coords=dict(z=z_sbl))
         for jz in range(nz_sbl):
+            # need to grab delta_t ranges based on RFMnc.yaml file 
+            # separately for u/v/theta, var, covar
+            it_var = np.where((RFM.delta_x/stat.u_mean_rot.isel(z=jz) >= config["dmin_var"]) &\
+                              (RFM.delta_x/stat.u_mean_rot.isel(z=jz) <= config["dmax_var"]))[0]
             xfit = RFM.delta_x.isel(delta_x=ix_var)
             yfit = RFM[v].isel(z=jz, delta_x=ix_var)/\
                               var4[param_var[i]].isel(z=jz)
@@ -566,18 +615,171 @@ def main3():
     # use T from config and convert to x/L_H via Taylor
     # separate for u,v,theta / uw,vw,tw
     #
-    T1 = config["T_sample_u"] # s
-    T2 = config["T_sample_cov"] # s
-    x_u = stat.u_mean_rot.isel(z=isbl) * T1
-    # use values of C and p to extrapolate calculation of MSE/var{x}
-    MSE_u = stat.u_var.isel(z=isbl) * (C.u * (x_u**-p.u))
-    # take sqrt to get RMSE
-    RMSE_u = np.sqrt(MSE_u)
-    # divide by <x> to get epsilon
-    err_u = RMSE_u / abs(stat.u_mean.isel(z=isbl))
+    fdir = config["fdir"]
+    figdir = config["figdir"]
+    # load average statistics netcdf file
+    fstat = config["fstat"]
+    stat = xr.load_dataset(fdir+fstat)
+    # calculate important parameters
+    # ustar
+    stat["ustar"] = ((stat.uw_cov_tot ** 2.) + (stat.vw_cov_tot ** 2.)) ** 0.25
+    stat["ustar2"] = stat.ustar ** 2.
+    # SBL height
+    stat["h"] = stat.z.where(stat.ustar2 <= 0.05*stat.ustar2[0], drop=True)[0]/0.95
+    # z indices within sbl
+    isbl = np.where(stat.z <= stat.h)[0]
+    nz_sbl = len(isbl)    
+    z_sbl = stat.z.isel(z=isbl)
+    # load files created in main()
+    var4 = xr.load_dataset(f"{fdir}variances_4_order.nc")
+    R = xr.load_dataset(f"{fdir}autocorr.nc")
+    RFM = xr.load_dataset(f"{fdir}RFM.nc")
+    # load files created in main2()
+    C = xr.load_dataset(f"{fdir}fit_C.nc")
+    p = xr.load_dataset(f"{fdir}fit_p.nc")
     
-    print(err_u * 100.)
-
+    # 
+    # Begin calculating errors
+    #
+    # load averaging times from config file
+    T1 = config["T_sample_u"]   # s
+    T2 = config["T_sample_cov"] # s
+    # use Taylor hypothesis to convert time to space
+    x_u = stat.u_mean_rot.isel(z=isbl) * T1   # first-order moments
+    x_cov = stat.u_mean_rot.isel(z=isbl) * T2 # second-order moments
+    # since new fit is using time as x-coordinate, need to use time for error calc too
+    t_u = T1 * np.ones(len(isbl))
+    t_cov = T2 * np.ones(len(isbl))
+    # create xarray Datasets for MSE and err
+    MSE = xr.Dataset(data_vars=None,
+                     coords=dict(z=C.z),
+                     attrs=C.attrs)
+    err = xr.Dataset(data_vars=None,
+                     coords=dict(z=C.z),
+                     attrs=C.attrs)
+    # parameters for looping through C, p + stat, var4 data
+    # first order moments
+    # keys for looping through C, p
+    param_RFM1 = ["u", "u_rot", "v", "v_rot", "theta"] 
+    # keys for looping through stat to normalize MSE
+    param_var2 = ["u_var", "u_var_rot", "v_var", "v_var_rot", "theta_var"] 
+    # keys for looping through stat to normalize relative errors
+    param_mean1 = ["u_mean", "u_mean_rot", "v_mean", "v_mean_rot", "theta_mean"] 
+    # covariances and their 4th order variances
+    param_RFM2 = ["uw_cov_tot", "vw_cov_tot", "tw_cov_tot"]
+    param_cov = ["uwuw_var", "vwvw_var", "twtw_var"]
+    param_mean2 = param_RFM2
+    # variances and their 4th order variances
+    param_RFM3 = ["uu_var", "uu_var_rot", "vv_var", "vv_var_rot", 
+                  "ww_var", "tt_var"]
+    param_var = ["uuuu_var", "uuuu_var_rot", "vvvv_var", "vvvv_var_rot", 
+                 "wwww_var", "tttt_var"]
+    param_mean3 = ["u_var", "u_var_rot", "v_var", "v_var_rot", "w_var", "theta_var"]
+    # Loop through first-order moments to calculate MSE and error
+    for i, v in enumerate(param_RFM1):
+        # use values of C and p to extrapolate calculation of MSE/var{x}
+        # renormalize with variances in param_var2
+        MSE[v] = stat[param_var2[i]].isel(z=isbl) * (C[v] * (x_u**-p[v]))
+        # take sqrt to get RMSE
+        RMSE = np.sqrt(MSE[v])
+        # divide by <x> to get epsilon
+        err[v] = RMSE / abs(stat[param_mean1[i]].isel(z=isbl))
+    # Loop through covariances to calculate MSE and error
+    for i, v in enumerate(param_RFM2):
+        # use values of C and p to extrapolate calculation of MSE/var{x}
+        # renormalize with variances in param_var2
+        MSE[v] = var4[param_cov[i]].isel(z=isbl) * (C[v] * (x_cov**-p[v]))
+        # take sqrt to get RMSE
+        RMSE = np.sqrt(MSE[v])
+        # divide by <x> to get epsilon
+        err[v] = RMSE / abs(stat[param_mean2[i]].isel(z=isbl))    
+    # Loop through variances to calculate MSE and error
+    for i, v in enumerate(param_RFM3):
+        # use values of C and p to extrapolate calculation of MSE/var{x}
+        # renormalize with variances in param_var2
+        MSE[v] = var4[param_var[i]].isel(z=isbl) * (C[v] * (x_cov**-p[v]))
+        # take sqrt to get RMSE
+        RMSE = np.sqrt(MSE[v])
+        # divide by <x> to get epsilon
+        err[v] = RMSE / abs(stat[param_mean3[i]].isel(z=isbl))
+        
+    #
+    # Calculate errors by integrating autocorrelation and using LP method
+    # as a comparison for RFM errors
+    #
+    print_both("Calculate integral lengthscales...", fprint)
+    # first calculate lengthscales for each variable as func of z
+    # use z from C since that is only isbl
+    L = xr.Dataset(data_vars=None,
+                     coords=dict(z=C.z),
+                     attrs=C.attrs)
+    for v in (param_RFM1+param_RFM2+param_RFM3):
+        # start with zero array for each parameter
+        L[v] = xr.DataArray(np.zeros(C.z.size, np.float64),
+                            dims="z",
+                            coords=dict(z=C.z))
+        # integrate R up to first zero crossing
+        # loop over altitudes
+        for jz in range(C.z.size):
+            # find first zero crossing
+            izero = np.where(R[v].isel(z=jz) < 0.)[0]
+            # make sure this isn't an empty array
+            if len(izero) > 0:
+                # grab first instance
+                izero = izero[0]
+            else:
+                izero = 1
+            # integrate from index 0 to izero
+            L[v][jz] = R[v].isel(z=jz,x=range(izero)).integrate("x")
+    # calculate integral *timescales* from L and Ubar_rot
+    T = L / stat.u_mean_rot.isel(z=isbl)
+            
+    #
+    # calculate error from Lumley and Panofsky for given sample time
+    # use x_u and x_cov calculated earlier
+    # err_LP = sqrt[(2*int_lengh*ens_variance)/(ens_mean^2*sample_length)]
+    #
+    print_both("Calculate LP relative random errors...", fprint)
+    err_LP = xr.Dataset(data_vars=None,
+                        coords=dict(z=C.z),
+                        attrs=C.attrs)    
+    # Loop through first-order moments to calculate LP error
+    for i, v in enumerate(param_RFM1):
+        err_LP[v] = np.sqrt((2. * L[v] * stat[param_var2[i]].isel(z=isbl))/\
+                            (x_u * stat[param_mean1[i]].isel(z=isbl)**2.))
+    # Loop through covariances to calculate LP error
+    for i, v in enumerate(param_RFM2):
+        err_LP[v] = np.sqrt((2. * L[v] * var4[param_cov[i]].isel(z=isbl))/\
+                            (x_cov * stat[param_mean2[i]].isel(z=isbl)**2.))
+    # Loop through variances to calculate LP error
+    for i, v in enumerate(param_RFM3):
+        err_LP[v] = np.sqrt((2. * L[v] * var4[param_var[i]].isel(z=isbl))/\
+                            (x_cov * stat[param_mean3[i]].isel(z=isbl)**2.)) 
+            
+    #
+    # Plot error profiles for each parameter from both methods to compare
+    #
+    for v in (param_RFM1+param_RFM2+param_RFM3):
+        fig, ax = plt.subplots(1)
+        ax.plot(100.*err[v], err.z/stat.h, label="RFM")
+        ax.plot(100.*err_LP[v], err_LP.z/stat.h, label="LP")
+        ax.set_xlabel("$\\epsilon$ [%]")
+        ax.set_ylabel("$z/h$")
+        ax.set_title(f"Relative random error for: {err[v].name}")
+        ax.legend() 
+        # save and close
+        fig.savefig(f"{figdir}{config['stability']}_error_{err[v].name}.png")
+        plt.close(fig)
+        # also plot integral lengthscales
+#         fig, ax = plt.subplots(1)
+#         ax.plot(L[v], L.z/stat.h)
+#         ax.set_xlabel("$\mathcal{L}$ [m]")
+#         ax.set_ylabel("$z/h$")
+#         ax.set_title(f"Integral length scale for: {err[v].name}")
+#         # save and close
+#         fig.savefig(f"{figdir}{config['stability']}_lengthscale_{L[v].name}.png")
+#         plt.close(fig)
+    
     return
 # --------------------------------
 # Run script
@@ -589,6 +791,7 @@ if __name__ == "__main__":
     fprint = config["fprint"]
     dt0 = datetime.utcnow()
     main()
-    main2(plot_MSE=False)
+    main2(plot_MSE=True)
+    main3()
     dt1 = datetime.utcnow()
     print_both(f"Total run time for RFMnc.py: {(dt1-dt0).total_seconds()/60.:5.2f} min", fprint)
