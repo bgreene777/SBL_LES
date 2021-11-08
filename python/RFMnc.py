@@ -608,13 +608,17 @@ def main2(plot_MSE=True):
 # --------------------------------
 # Main3: read results from main1(), main2() to calculate errors based on LP and RFM methods
 # --------------------------------
-def main3():
+def main3(recalc_err):
     #
     # Calculate RFM relative random errors: epsilon = RMSE(x_delta) / <x>
     # RMSE = C**0.5 * delta**(-p/2)
     # use T from config and convert to x/L_H via Taylor
     # separate for u,v,theta / uw,vw,tw
     #
+    if not recalc_err:
+        print_both("Errors already calculated! Finished with main3()", fprint)
+        return
+        
     fdir = config["fdir"]
     figdir = config["figdir"]
     # load average statistics netcdf file
@@ -626,6 +630,9 @@ def main3():
     stat["ustar2"] = stat.ustar ** 2.
     # SBL height
     stat["h"] = stat.z.where(stat.ustar2 <= 0.05*stat.ustar2[0], drop=True)[0]/0.95
+    # correct wind angle alpha for negative values
+    ineg = np.where(stat.alpha < 0)
+    stat["alpha"][ineg] += 2.*np.pi  # alpha in radians already
     # z indices within sbl
     isbl = np.where(stat.z <= stat.h)[0]
     nz_sbl = len(isbl)    
@@ -702,6 +709,30 @@ def main3():
         RMSE = np.sqrt(MSE[v])
         # divide by <x> to get epsilon
         err[v] = RMSE / abs(stat[param_mean3[i]].isel(z=isbl))
+    
+    # now calculate errors in wind speed and wind direction through error prop.
+    # wind speed = uh, wind direction = alpha
+    sig_u = np.sqrt(MSE["u"])
+    sig_v = np.sqrt(MSE["v"])
+    # calculate ws error and assign to RFM
+    err_uh = np.sqrt( (sig_u**2. * stat.u_mean.isel(z=isbl)**2. +\
+                       sig_v**2. * stat.v_mean.isel(z=isbl)**2.)/\
+                      (stat.u_mean.isel(z=isbl)**2. +\
+                       stat.v_mean.isel(z=isbl)**2.) ) / stat.u_mean_rot.isel(z=isbl)
+    err["uh"] = err_uh
+    # calculate wd error and assign to RFM
+    err_alpha = np.sqrt( (sig_u**2. * stat.v_mean.isel(z=isbl)**2. +\
+                          sig_v**2. * stat.u_mean.isel(z=isbl)**2.)/\
+                         ((stat.u_mean.isel(z=isbl)**2. +\
+                           stat.v_mean.isel(z=isbl)**2.)**2.) ) /\
+             (stat.alpha.isel(z=isbl))  # normalize w/ rad
+    err["alpha"] = err_alpha    
+
+    # Save err as netcdf
+    fsave_err = f"{fdir}err.nc"
+    print_both(f"Saving file: {fsave_err}", fprint)
+    with ProgressBar():
+        err.to_netcdf(fsave_err, mode="w")  
         
     #
     # Calculate errors by integrating autocorrelation and using LP method
@@ -733,7 +764,11 @@ def main3():
             L[v][jz] = R[v].isel(z=jz,x=range(izero)).integrate("x")
     # calculate integral *timescales* from L and Ubar_rot
     T = L / stat.u_mean_rot.isel(z=isbl)
-            
+    # Save L as netcdf
+    fsave_L = f"{fdir}L.nc"
+    print_both(f"Saving file: {fsave_L}", fprint)
+    with ProgressBar():
+        L.to_netcdf(fsave_L, mode="w")              
     #
     # calculate error from Lumley and Panofsky for given sample time
     # use x_u and x_cov calculated earlier
@@ -754,7 +789,12 @@ def main3():
     # Loop through variances to calculate LP error
     for i, v in enumerate(param_RFM3):
         err_LP[v] = np.sqrt((2. * L[v] * var4[param_var[i]].isel(z=isbl))/\
-                            (x_cov * stat[param_mean3[i]].isel(z=isbl)**2.)) 
+                            (x_cov * stat[param_mean3[i]].isel(z=isbl)**2.))
+    # Save err_LP as netcdf
+    fsave_errLP = f"{fdir}err_LP.nc"
+    print_both(f"Saving file: {fsave_errLP}", fprint)
+    with ProgressBar():
+        err_LP.to_netcdf(fsave_errLP, mode="w")   
             
     #
     # Plot error profiles for each parameter from both methods to compare
@@ -766,7 +806,7 @@ def main3():
         ax.set_xlabel("$\\epsilon$ [%]")
         ax.set_ylabel("$z/h$")
         ax.set_title(f"Relative random error for: {err[v].name}")
-        ax.legend() 
+        ax.legend()
         # save and close
         fig.savefig(f"{figdir}{config['stability']}_error_{err[v].name}.png")
         plt.close(fig)
@@ -781,6 +821,7 @@ def main3():
 #         plt.close(fig)
     
     return
+
 # --------------------------------
 # Run script
 # --------------------------------
@@ -791,7 +832,7 @@ if __name__ == "__main__":
     fprint = config["fprint"]
     dt0 = datetime.utcnow()
     main()
-    main2(plot_MSE=True)
-    main3()
+    main2(plot_MSE=config["plot_MSE"])
+    main3(recalc_err=config["recalc_err"])
     dt1 = datetime.utcnow()
     print_both(f"Total run time for RFMnc.py: {(dt1-dt0).total_seconds()/60.:5.2f} min", fprint)
