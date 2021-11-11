@@ -503,10 +503,10 @@ def main2(plot_MSE=True):
     #
     C = xr.Dataset(data_vars=None,
                    coords=dict(z=z_sbl),
-                   attrs=config)
+                   attrs={k:str(config[k]) for k in config.keys()})
     p = xr.Dataset(data_vars=None,
                    coords=dict(z=z_sbl),
-                   attrs=config)
+                   attrs={k:str(config[k]) for k in config.keys()})
     # loop through variables - separately for 1st and 2nd order moments (stat vs var4)
     # first order moments and variances
     param_RFM1 = ["u", "u_rot", "v", "v_rot", "theta"]
