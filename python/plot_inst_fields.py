@@ -100,10 +100,6 @@ for sim, stat in zip([A, C, F], [Astat, Cstat, Fstat]):
 #
 # Begin plotting
 #
-# setup meshgrid in x-z coords
-xxA, zzA = np.meshgrid(A.x/Astat.h, A.z/Astat.h, indexing="ij")
-xxC, zzC = np.meshgrid(C.x/Cstat.h, C.z/Cstat.h, indexing="ij")
-xxF, zzF = np.meshgrid(F.x/Fstat.h, F.z/Fstat.h, indexing="ij")
 # grab seaborn color palette
 sbmako = seaborn.color_palette("mako", as_cmap=True)
 sbvlag = seaborn.color_palette("vlag", as_cmap=True)
@@ -112,71 +108,74 @@ cmbal = cmocean.cm.balance
 cmtpo = cmocean.cm.tempo
 cmthm = cmocean.cm.thermal
 # figure 1
-# rows = A, C, F
-# columns = u/ustar, w/ustar, theta
-fig1, ax1 = plt.subplots(nrows=3, ncols=3, sharex=True, sharey=True, figsize=(23.5, 7.5), 
+# rows = A,  F
+# columns = u/ustar, theta
+fig1, ax1 = plt.subplots(nrows=2, ncols=2, sharey=True, figsize=(14.8, 5), 
                          constrained_layout=True)
 # column 1: u/ustar
 cax1 = ax1[0,0].contourf(A.x/Astat.h, A.z/Astat.h, A.u_rot.isel(y=96).T/Astat.ustar.isel(z=0),
+                         levels=np.arange(0, 40.1, 0.5, np.float64),
+                         extend="max", cmap=cmtpo)
+cax2 = ax1[1,0].contourf(F.x/Fstat.h, F.z/Fstat.h, F.u_rot.isel(y=96).T/Fstat.ustar.isel(z=0),
                          levels=np.arange(0, 60.1, 0.5, np.float64),
                          extend="max", cmap=cmtpo)
-ax1[1,0].contourf(C.x/Cstat.h, C.z/Cstat.h, C.u_rot.isel(y=96).T/Cstat.ustar.isel(z=0),
-                  levels=np.arange(0, 60.1, 0.5, np.float64),
-                  extend="max", cmap=cmtpo)
-ax1[2,0].contourf(F.x/Fstat.h, F.z/Fstat.h, F.u_rot.isel(y=96).T/Fstat.ustar.isel(z=0),
-                  levels=np.arange(0, 60.1, 0.5, np.float64),
-                  extend="max", cmap=cmtpo)
-# column 2: w/ustar
-cax2 = ax1[0,1].contourf(A.x/Astat.h, A.z/Astat.h, A.w.isel(y=96).T/Astat.ustar,
-                         levels=np.arange(-5., 5.1, 0.25, np.float64), extend="both",
-                         cmap=cmbal)
-ax1[1,1].contourf(C.x/Cstat.h, C.z/Cstat.h, C.w.isel(y=96).T/Cstat.ustar,
-                  levels=np.arange(-5., 5.1, 0.25, np.float64), extend="both",
-                  cmap=cmbal)
-ax1[2,1].contourf(F.x/Fstat.h, F.z/Fstat.h, F.w.isel(y=96).T/Fstat.ustar,
-                  levels=np.arange(-5., 5.1, 0.25, np.float64), extend="both",
-                  cmap=cmbal)    
-# column 3: theta
-cax3 = ax1[0,2].contourf(A.x/Astat.h, A.z/Astat.h, A.theta.isel(y=96).T,
-                         levels=np.arange(245., 265.1, 0.1, np.float64), extend="both",
+# column 2: theta
+cax3 = ax1[0,1].contourf(A.x/Astat.h, A.z/Astat.h, A.theta.isel(y=96).T,
+                         levels=np.arange(263., 267.1, 0.1, np.float64), extend="both",
                          cmap=cmthm)
-ax1[1,2].contourf(C.x/Cstat.h, C.z/Cstat.h, C.theta.isel(y=96).T,
-                  levels=np.arange(245., 265.1, 0.1, np.float64), extend="both",
-                  cmap=cmthm)
-ax1[2,2].contourf(F.x/Fstat.h, F.z/Fstat.h, F.theta.isel(y=96).T,
-                  levels=np.arange(245., 265.1, 0.1, np.float64), extend="both",
-                  cmap=cmthm)    
+cax4 = ax1[1,1].contourf(F.x/Fstat.h, F.z/Fstat.h, F.theta.isel(y=96).T,
+                         levels=np.arange(244., 266.1, 0.1, np.float64), extend="both",
+                         cmap=cmthm)    
 
 # colorbars
-cb1 = fig1.colorbar(cax1, ax=ax1[:,0], location="bottom", shrink=0.8, ticks=MultipleLocator(10))
-cb1.ax.set_xlabel("$u/u_{*}$")
-cb2 = fig1.colorbar(cax2, ax=ax1[:,1], location="bottom", shrink=0.8, ticks=MultipleLocator(2))
-cb2.ax.set_xlabel("$w/u_{*}$")
-cb3 = fig1.colorbar(cax3, ax=ax1[:,2], location="bottom", shrink=0.8, ticks=MultipleLocator(5))
-cb3.ax.set_xlabel("$\\theta$ [K]")
+cb1 = fig1.colorbar(cax1, ax=ax1[0,0], location="right", 
+                    ticks=MultipleLocator(10), pad=0, aspect=15)
+cb1.ax.set_title("$u/u_{*}$", fontsize=16)
+cb1.ax.tick_params(labelsize=16)
+cb2 = fig1.colorbar(cax2, ax=ax1[1,0], location="right", 
+                    ticks=MultipleLocator(15), pad=0, aspect=15)
+cb2.ax.set_title("$u/u_{*}$", fontsize=16)
+cb2.ax.tick_params(labelsize=16)
+cb3 = fig1.colorbar(cax3, ax=ax1[0,1], location="right", 
+                    ticks=MultipleLocator(1), pad=0, aspect=15)
+cb3.ax.set_title("$\\theta$ [K]", fontsize=16)
+cb3.ax.tick_params(labelsize=16)
+cb4 = fig1.colorbar(cax4, ax=ax1[1,1], location="right", 
+                    ticks=MultipleLocator(5), pad=0, aspect=15)
+cb4.ax.set_title("$\\theta$ [K]", fontsize=16)
+cb4.ax.tick_params(labelsize=16)
 # labels
 ax1[0,0].set_ylim([0, 1.5])
 ax1[0,0].set_xlim([0, 5])
-ax1[0,0].xaxis.set_major_locator(MultipleLocator(0.5))
-ax1[0,0].xaxis.set_minor_locator(MultipleLocator(0.1))
+ax1[0,1].set_xlim([0, 5])
+ax1[1,0].set_xlim([0, 8])
+ax1[1,1].set_xlim([0, 8])
+for iax in ax1.flatten():
+    iax.set_xlabel("$x/h$")
 ax1[0,0].yaxis.set_major_locator(MultipleLocator(0.5))
 ax1[0,0].yaxis.set_minor_locator(MultipleLocator(0.05))
-for iax in ax1[:,0]:
-    iax.set_ylabel("$z/h$")
-for iax in ax1[2,:]:
-    iax.set_xlabel("$x/h$")
+ax1[0,0].set_ylabel("$z/h$")
+ax1[0,0].xaxis.set_major_locator(MultipleLocator(0.5))
+ax1[0,0].xaxis.set_minor_locator(MultipleLocator(0.1))
+ax1[0,1].xaxis.set_major_locator(MultipleLocator(0.5))
+ax1[0,1].xaxis.set_minor_locator(MultipleLocator(0.1))
+ax1[1,0].set_ylabel("$z/h$")
+ax1[1,0].xaxis.set_major_locator(MultipleLocator(1.0))
+ax1[1,0].xaxis.set_minor_locator(MultipleLocator(0.1))
+ax1[1,1].xaxis.set_major_locator(MultipleLocator(1.0))
+ax1[1,1].xaxis.set_minor_locator(MultipleLocator(0.1))
 
 # fig1.tight_layout()
 # save and close
-fsave1 = f"{figdir}u_w_theta.png"
+fsave1 = f"{figdir}u_theta.png"
 print(f"Saving figure: {fsave1}")
 fig1.savefig(fsave1, dpi=300)
 plt.close(fig1)
 
-# figure 1
-# rows = A, C, F
+# figure 2
+# rows = A, F
 # columns = u'/ustar, w'/ustar, theta'
-fig2, ax2 = plt.subplots(nrows=3, ncols=3, sharex=True, sharey=True, figsize=(23.5, 7.5), 
+fig2, ax2 = plt.subplots(nrows=2, ncols=2, sharey=True, figsize=(14.8, 5), 
                          constrained_layout=True)
 # column 1: u'/ustar
 # make the norm:  Note the center is offset so that the land has more
@@ -186,60 +185,62 @@ cax1 = ax2[0,0].contourf(A.x/Astat.h, A.z/Astat.h,
                          (A.u_rot.isel(y=96)-Astat.u_mean_rot).T/Astat.ustar.isel(z=0),
                          levels=np.arange(-4., 6.1, 0.1, np.float64),
                          extend="both", cmap=cmbal, norm=norm)
-ax2[1,0].contourf(C.x/Cstat.h, C.z/Cstat.h, 
-                  (C.u_rot.isel(y=96)-Cstat.u_mean_rot).T/Cstat.ustar.isel(z=0),
-                  levels=np.arange(-4., 6.1, 0.1, np.float64),
-                  extend="both", cmap=cmbal, norm=norm)
-ax2[2,0].contourf(F.x/Fstat.h, F.z/Fstat.h, 
-                  (F.u_rot.isel(y=96)-Fstat.u_mean_rot).T/Fstat.ustar.isel(z=0),
-                  levels=np.arange(-4., 6.1, 0.1, np.float64),
-                  extend="both", cmap=cmbal, norm=norm)
-# column 2: w'/ustar = w/ustar
-cax2 = ax2[0,1].contourf(A.x/Astat.h, A.z/Astat.h, A.w.isel(y=96).T/Astat.ustar,
-                         levels=np.arange(-5., 5.1, 0.25, np.float64), extend="both",
-                         cmap=cmbal)
-ax2[1,1].contourf(C.x/Cstat.h, C.z/Cstat.h, C.w.isel(y=96).T/Cstat.ustar,
-                  levels=np.arange(-5., 5.1, 0.25, np.float64), extend="both",
-                  cmap=cmbal)
-ax2[2,1].contourf(F.x/Fstat.h, F.z/Fstat.h, F.w.isel(y=96).T/Fstat.ustar,
-                  levels=np.arange(-5., 5.1, 0.25, np.float64), extend="both",
-                  cmap=cmbal)    
-# column 3: theta'
+cax2 = ax2[1,0].contourf(F.x/Fstat.h, F.z/Fstat.h, 
+                         (F.u_rot.isel(y=96)-Fstat.u_mean_rot).T/Fstat.ustar.isel(z=0),
+                         levels=np.arange(-4., 4.1, 0.1, np.float64),
+                         extend="both", cmap=cmbal)
+# column 2: theta'
 norm=MidPointNormalize(midpoint=0.0)
-cax3 = ax2[0,2].contourf(A.x/Astat.h, A.z/Astat.h, 
+cax3 = ax2[0,1].contourf(A.x/Astat.h, A.z/Astat.h, 
                          (A.theta.isel(y=96)-Astat.theta_mean).T,
-                         levels=np.arange(-1.2, 0.21, 0.01, np.float64), 
+                         levels=np.arange(-.5, 0.21, 0.01, np.float64), 
                          extend="both", cmap=cmbal, norm=norm)
-ax2[1,2].contourf(C.x/Cstat.h, C.z/Cstat.h, 
-                  (C.theta.isel(y=96)-Cstat.theta_mean).T,
-                  levels=np.arange(-1.2, 0.21, 0.01, np.float64), 
-                  extend="both", cmap=cmbal, norm=norm)
-ax2[2,2].contourf(F.x/Fstat.h, F.z/Fstat.h, 
-                  (F.theta.isel(y=96)-Fstat.theta_mean).T,
-                  levels=np.arange(-1.2, 0.21, 0.01, np.float64), 
-                  extend="both", cmap=cmbal, norm=norm)    
+norm=MidPointNormalize(midpoint=0.0)
+cax4 = ax2[1,1].contourf(F.x/Fstat.h, F.z/Fstat.h, 
+                         (F.theta.isel(y=96)-Fstat.theta_mean).T,
+                         levels=np.arange(-1.5, 0.11, 0.01, np.float64), 
+                         extend="both", cmap=cmbal, norm=norm)    
 
 # colorbars
-cb1 = fig2.colorbar(cax1, ax=ax2[:,0], location="bottom", shrink=0.8, ticks=MultipleLocator(2))
-cb1.ax.set_xlabel("$u'/u_{*}$")
-cb2 = fig2.colorbar(cax2, ax=ax2[:,1], location="bottom", shrink=0.8, ticks=MultipleLocator(2))
-cb2.ax.set_xlabel("$w'/u_{*}$")
-cb3 = fig2.colorbar(cax3, ax=ax2[:,2], location="bottom", shrink=0.8, ticks=MultipleLocator(0.2))
-cb3.ax.set_xlabel("$\\theta'$ [K]")
+cb1 = fig2.colorbar(cax1, ax=ax2[0,0], location="right", 
+                    ticks=MultipleLocator(2), pad=0, aspect=15)
+cb1.ax.set_title("$u'/u_{*}$", fontsize=16)
+cb1.ax.tick_params(labelsize=16)
+cb2 = fig2.colorbar(cax2, ax=ax2[1,0], location="right", 
+                    ticks=MultipleLocator(2), pad=0, aspect=15)
+cb2.ax.set_title("$u'/u_{*}$", fontsize=16)
+cb2.ax.tick_params(labelsize=16)
+cb3 = fig2.colorbar(cax3, ax=ax2[0,1], location="right", 
+                    ticks=MultipleLocator(0.2), pad=0, aspect=15)
+cb3.ax.set_title("$\\theta'$ [K]", fontsize=16)
+cb3.ax.tick_params(labelsize=16)
+cb4 = fig2.colorbar(cax4, ax=ax2[1,1], location="right", 
+                    ticks=MultipleLocator(0.5), pad=0, aspect=15)
+cb4.ax.set_title("$\\theta'$ [K]", fontsize=16)
+cb4.ax.tick_params(labelsize=16)
 # labels
 ax2[0,0].set_ylim([0, 1.5])
 ax2[0,0].set_xlim([0, 5])
-ax2[0,0].xaxis.set_major_locator(MultipleLocator(0.5))
-ax2[0,0].xaxis.set_minor_locator(MultipleLocator(0.1))
+ax2[0,1].set_xlim([0, 5])
+ax2[1,0].set_xlim([0, 8])
+ax2[1,1].set_xlim([0, 8])
+for iax in ax2.flatten():
+    iax.set_xlabel("$x/h$")
 ax2[0,0].yaxis.set_major_locator(MultipleLocator(0.5))
 ax2[0,0].yaxis.set_minor_locator(MultipleLocator(0.05))
-for iax in ax2[:,0]:
-    iax.set_ylabel("$z/h$")
-for iax in ax2[2,:]:
-    iax.set_xlabel("$x/h$")
+ax2[0,0].set_ylabel("$z/h$")
+ax2[0,0].xaxis.set_major_locator(MultipleLocator(0.5))
+ax2[0,0].xaxis.set_minor_locator(MultipleLocator(0.1))
+ax2[0,1].xaxis.set_major_locator(MultipleLocator(0.5))
+ax2[0,1].xaxis.set_minor_locator(MultipleLocator(0.1))
+ax2[1,0].set_ylabel("$z/h$")
+ax2[1,0].xaxis.set_major_locator(MultipleLocator(1.0))
+ax2[1,0].xaxis.set_minor_locator(MultipleLocator(0.1))
+ax2[1,1].xaxis.set_major_locator(MultipleLocator(1.0))
+ax2[1,1].xaxis.set_minor_locator(MultipleLocator(0.1))
 
 # save and close
-fsave2 = f"{figdir}u_w_theta_fluc.png"
+fsave2 = f"{figdir}u_theta_fluc.png"
 print(f"Saving figure: {fsave2}")
 fig2.savefig(fsave2, dpi=300)
 plt.close(fig2)
