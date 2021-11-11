@@ -1,13 +1,11 @@
 # --------------------------------
-# Name: RFMnc.py
+# Name: plot_RFMnc.py
 # Author: Brian R. Greene
 # University of Oklahoma
-# Created: 27 October 2021
-# Purpose: Read volumetric output from LES to calculate autocorrelations,
-# integral length scales, and random error profiles by using the 
-# relaxed filtering method from Dias et al. 2018
-# Combines code from random_errors_filter.py and integral_lengthscales.py
-# Remastered from RFM.py to load netcdf files and streamline
+# Created: 8 November 2021
+# Purpose: Read netcdf output from RFMnc.py to plot profiles of
+# relative random errors and integral lengthscales for each
+# simulation A-F
 # --------------------------------
 import os
 import sys
@@ -61,7 +59,7 @@ def plot_err_prof():
     # Figure 1: 3-panel 1st order moments
     # wind speed, wind direction, potential temperature
     #
-    fig1, ax1 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(14.8, 5))
+    fig1, ax1 = plt.subplots(nrows=1, ncols=3, figsize=(14.8, 5))
     # loop through simulations
     for i, e in enumerate(err):
         # uh
