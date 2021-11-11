@@ -28,8 +28,8 @@ rc('text',usetex='True')
 # colors = [(225./255, 156./255, 131./255),
 #           (134./255, 149./255, 68./255), (38./255, 131./255, 63./255),
 #           (0., 85./255, 80./255), (20./255, 33./255, 61./255), (252./255, 193./255, 219./255)]
-# colors = seaborn.color_palette("crest")
-colors = seaborn.color_palette("colorblind")
+colors = seaborn.color_palette("crest")
+# colors = seaborn.color_palette("colorblind")
 fdir_save = "/home/bgreene/SBL_LES/figures/mean_profiles/"
 if not os.path.exists(fdir_save):
     os.mkdir(fdir_save)
@@ -80,18 +80,18 @@ for s in s_all:
 # --------------------------------
 stabs = ["A", "B", "C", "D", "E", "F"]
 s_all = []
-# for s in stabs:
-#     fread = f"/home/bgreene/simulations/{s}_192_interp/output/netcdf/average_statistics.nc"
-#     print(f"Reading file: {fread}")
-#     s_all.append(xr.load_dataset(fread))
-f_all = ["/home/bgreene/simulations/F_192_interp/output/netcdf/average_statistics.nc",
-         "/home/bgreene/simulations/F_192_interp/output/netcdf/average_statistics_1.5h.nc",
-         "/home/bgreene/simulations/F_192_interp/output/netcdf/average_statistics_2h.nc"]
-for f in f_all:
-    print(f"Reading file: {f}")
-    s_all.append(xr.load_dataset(f))
-means = ["1h", "1.5h", "2h"]
-# --------------------------------
+for s in stabs:
+    fread = f"/home/bgreene/simulations/{s}_192_interp/output/netcdf/average_statistics.nc"
+    print(f"Reading file: {fread}")
+    s_all.append(xr.load_dataset(fread))
+# f_all = ["/home/bgreene/simulations/F_192_interp/output/netcdf/average_statistics.nc",
+#          "/home/bgreene/simulations/F_192_interp/output/netcdf/average_statistics_1.5h.nc",
+#          "/home/bgreene/simulations/F_192_interp/output/netcdf/average_statistics_2h.nc"]
+# for f in f_all:
+#     print(f"Reading file: {f}")
+#     s_all.append(xr.load_dataset(f))
+# means = ["1h", "1.5h", "2h"]
+# # --------------------------------
 # Begin plotting
 # --------------------------------
 #
@@ -118,7 +118,7 @@ for i, s in enumerate(s_all):
     s["wdir"] = np.arctan2(-s.u_mean, -s.v_mean) * 180./np.pi
     s["wdir"] = s.wdir.where(s.wdir < 0.) + 360.
     ax1[0,1].plot(s.wdir, s.z/s.h, ls="-", c=colors[i], lw=2, 
-                  label=f"{s.stability}{means[i]}")
+                  label=f"{s.stability}")
     # (c) <\Theta>
     ax1[0,2].plot(s.theta_mean, s.z/s.h, ls="-", c=colors[i], lw=2)
     # row 2
@@ -128,10 +128,10 @@ for i, s in enumerate(s_all):
     # (e) <\theta'w'>
     ax1[1,1].plot(s.tw_cov_tot, s.z/s.h, ls="-", c=colors[i], lw=2)
     # (f) <u'^2> ROTATED
-    ax1[1,2].plot(s.u_var, s.z/s.h, ls="-", c=colors[i], lw=2)
+    ax1[1,2].plot(s.u_var_rot, s.z/s.h, ls="-", c=colors[i], lw=2)
     # row 3
     # (g) <v'^2> ROTATED
-    ax1[2,0].plot(s.v_var, s.z/s.h, ls="-", c=colors[i], lw=2)
+    ax1[2,0].plot(s.v_var_rot, s.z/s.h, ls="-", c=colors[i], lw=2)
     # (h) <w'^2>
     ax1[2,1].plot(s.w_var, s.z/s.h, ls="-", c=colors[i], lw=2)
     # (i) <\theta'^2>
@@ -227,7 +227,7 @@ fig2, ax2 = plt.subplots(nrows=1, ncols=2, sharey=True, figsize=(8, 6))
 for i, s in enumerate(s_all):
     TKE = (s.u_var_rot**2.) + (s.v_var_rot**2.) + (s.w_var**2.)
     ax2[0].plot(TKE, s.z/s.h, ls="-", c=colors[i], lw=2, 
-                label=f"{s.stability}{means[i]}")
+                label=f"{s.stability}")
     ax2[1].plot(s.ustar, s.z/s.h, ls="-", c=colors[i], lw=2)
 # clean up
 ax2[0].set_xlabel("TKE [m2/s2]")

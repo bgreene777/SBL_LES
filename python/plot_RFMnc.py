@@ -59,7 +59,7 @@ def plot_err_prof():
     # Figure 1: 3-panel 1st order moments
     # wind speed, wind direction, potential temperature
     #
-    fig1, ax1 = plt.subplots(nrows=1, ncols=3, figsize=(14.8, 5))
+    fig1, ax1 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(14.8, 5))
     # loop through simulations
     for i, e in enumerate(err):
         # uh
@@ -75,9 +75,9 @@ def plot_err_prof():
     ax1[0].set_ylim([0, 1])
     ax1[0].legend()
     ax1[1].set_xlabel("$\\epsilon_{\\alpha}$ [\%]")
-    ax1[1].set_xlim([0, 60])
+    ax1[1].set_xlim([0, 10])
     ax1[2].set_xlabel("$\\epsilon_{\\theta}$ [\%]")
-    ax1[2].set_xlim([0, 0.1])
+    ax1[2].set_xlim([0, 0.15])
     fig1.tight_layout()
     # save and close
     fsave1 = f"{figdir}errors/uh_alpha_theta.pdf"

@@ -7,12 +7,12 @@
 # relaxed filtering method (RFM) from Dias et al. 2018
 # --------------------------------
 
-stability: "E"
-fdir: "/home/bgreene/simulations/E_192_interp/output/netcdf/"
+stability: "D"
+fdir: "/home/bgreene/simulations/D_192_interp/output/netcdf/"
 fstat: "average_statistics.nc"
-fsave: "/home/bgreene/SBL_LES/output/No_LH/RFM_E192.nc"
+fsave: "/home/bgreene/SBL_LES/output/No_LH/RFM_D192.nc"
 # text file to save print statements
-fprint: "/home/bgreene/SBL_LES/output/Print/RFMnc_E192.txt"
+fprint: "/home/bgreene/SBL_LES/output/Print/RFMnc_D192.txt"
 # figure save directory
 figdir: "/home/bgreene/SBL_LES/figures/RFMnc/"
 # start and end timesteps to read: last 1 hour

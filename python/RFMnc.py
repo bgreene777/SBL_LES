@@ -630,7 +630,8 @@ def main3(recalc_err):
     stat["ustar2"] = stat.ustar ** 2.
     # SBL height
     stat["h"] = stat.z.where(stat.ustar2 <= 0.05*stat.ustar2[0], drop=True)[0]/0.95
-    # correct wind angle alpha for negative values
+    # calculate wind angle alpha (NOTE: THE ALPHA STORED IN STAT IS *NOT* WDIR)
+    stat["alpha"] = np.arctan2(-stat.u_mean, -stat.v_mean)
     ineg = np.where(stat.alpha < 0)
     stat["alpha"][ineg] += 2.*np.pi  # alpha in radians already
     # z indices within sbl
