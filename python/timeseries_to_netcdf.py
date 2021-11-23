@@ -37,14 +37,15 @@ time = np.linspace(0., 3600.-dt, nt, dtype=np.float64)  # seconds
 # Begin big loop over stabilities and timesteps
 # --------------------------------
 
+# for stab in list("ABCDEF"):
 for stab in list("ABCDEF"):
     print_both(f"Begin loading simulation {stab}", fprint)
     fout = f"{fsim}{stab}_192_interp/output/"
-    # define empty arrays to use with DataArrays 
-    empty = np.zeros((nt, nz), dtype=np.float64)  # shape(nt,nz)
     # now define DataArrays for u, v, w, theta, txz, tyz, q3
+    # shape(nt,nz)
     u_ts, v_ts, w_ts, theta_ts, txz_ts, tyz_ts, q3_ts =\
-    (xr.DataArray(empty, dims=("t", "z"), coords=dict(t=time, z=z)) for _ in range(7))
+    (xr.DataArray(np.zeros((nt, nz), dtype=np.float64),
+                  dims=("t", "z"), coords=dict(t=time, z=z)) for _ in range(7))
     # now loop through each file (one for each jz)
     for jz in range(nz):
         print_both(f"Loading timeseries data, jz={jz}", fprint)
