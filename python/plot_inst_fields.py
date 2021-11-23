@@ -121,10 +121,10 @@ cax2 = ax1[1,0].contourf(F.x/Fstat.h, F.z/Fstat.h, F.u_rot.isel(y=96).T/Fstat.us
                          extend="max", cmap=cmtpo)
 # column 2: theta
 cax3 = ax1[0,1].contourf(A.x/Astat.h, A.z/Astat.h, A.theta.isel(y=96).T,
-                         levels=np.arange(263., 267.1, 0.1, np.float64), extend="both",
+                         levels=np.arange(263., 265.1, 0.1, np.float64), extend="both",
                          cmap=cmthm)
 cax4 = ax1[1,1].contourf(F.x/Fstat.h, F.z/Fstat.h, F.theta.isel(y=96).T,
-                         levels=np.arange(244., 266.1, 0.1, np.float64), extend="both",
+                         levels=np.arange(244., 262.1, 0.1, np.float64), extend="both",
                          cmap=cmthm)    
 
 # colorbars
@@ -145,11 +145,11 @@ cb4 = fig1.colorbar(cax4, ax=ax1[1,1], location="right",
 cb4.ax.set_title("$\\theta$ [K]", fontsize=16)
 cb4.ax.tick_params(labelsize=16)
 # labels
-ax1[0,0].set_ylim([0, 1.5])
+ax1[0,0].set_ylim([0, 1])
 ax1[0,0].set_xlim([0, 5])
 ax1[0,1].set_xlim([0, 5])
-ax1[1,0].set_xlim([0, 8])
-ax1[1,1].set_xlim([0, 8])
+ax1[1,0].set_xlim([0, 5])
+ax1[1,1].set_xlim([0, 5])
 for iax in ax1.flatten():
     iax.set_xlabel("$x/h$")
 ax1[0,0].yaxis.set_major_locator(MultipleLocator(0.5))
@@ -160,9 +160,9 @@ ax1[0,0].xaxis.set_minor_locator(MultipleLocator(0.1))
 ax1[0,1].xaxis.set_major_locator(MultipleLocator(0.5))
 ax1[0,1].xaxis.set_minor_locator(MultipleLocator(0.1))
 ax1[1,0].set_ylabel("$z/h$")
-ax1[1,0].xaxis.set_major_locator(MultipleLocator(1.0))
+ax1[1,0].xaxis.set_major_locator(MultipleLocator(0.5))
 ax1[1,0].xaxis.set_minor_locator(MultipleLocator(0.1))
-ax1[1,1].xaxis.set_major_locator(MultipleLocator(1.0))
+ax1[1,1].xaxis.set_major_locator(MultipleLocator(0.5))
 ax1[1,1].xaxis.set_minor_locator(MultipleLocator(0.1))
 
 # fig1.tight_layout()
@@ -219,11 +219,11 @@ cb4 = fig2.colorbar(cax4, ax=ax2[1,1], location="right",
 cb4.ax.set_title("$\\theta'$ [K]", fontsize=16)
 cb4.ax.tick_params(labelsize=16)
 # labels
-ax2[0,0].set_ylim([0, 1.5])
+ax2[0,0].set_ylim([0, 1])
 ax2[0,0].set_xlim([0, 5])
 ax2[0,1].set_xlim([0, 5])
-ax2[1,0].set_xlim([0, 8])
-ax2[1,1].set_xlim([0, 8])
+ax2[1,0].set_xlim([0, 5])
+ax2[1,1].set_xlim([0, 5])
 for iax in ax2.flatten():
     iax.set_xlabel("$x/h$")
 ax2[0,0].yaxis.set_major_locator(MultipleLocator(0.5))
@@ -234,9 +234,9 @@ ax2[0,0].xaxis.set_minor_locator(MultipleLocator(0.1))
 ax2[0,1].xaxis.set_major_locator(MultipleLocator(0.5))
 ax2[0,1].xaxis.set_minor_locator(MultipleLocator(0.1))
 ax2[1,0].set_ylabel("$z/h$")
-ax2[1,0].xaxis.set_major_locator(MultipleLocator(1.0))
+ax2[1,0].xaxis.set_major_locator(MultipleLocator(0.5))
 ax2[1,0].xaxis.set_minor_locator(MultipleLocator(0.1))
-ax2[1,1].xaxis.set_major_locator(MultipleLocator(1.0))
+ax2[1,1].xaxis.set_major_locator(MultipleLocator(0.5))
 ax2[1,1].xaxis.set_minor_locator(MultipleLocator(0.1))
 
 # save and close
