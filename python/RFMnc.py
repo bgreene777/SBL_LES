@@ -142,8 +142,6 @@ def power_law(delta_x, C, p):
 # --------------------------------
 def main():
     # config loaded in global scope
-    # simulation output directory
-    fdir = config["fdir"]
     # check to see if files have been created and can skip main()
     if os.path.exists(f"{fdir}RFM.nc"):
         print_both("Files already created...moving on to curve fitting and error calculations!",
@@ -317,8 +315,6 @@ def main():
 # --------------------------------
 def main2(plot_MSE=True):
     # config loaded in global scope
-    # simulation output directory
-    fdir = config["fdir"]
     # load average statistics netcdf file
     fstat = config["fstat"]
     stat = xr.load_dataset(fdir+fstat)
@@ -619,7 +615,6 @@ def main3(recalc_err):
         print_both("Errors already calculated! Finished with main3()", fprint)
         return
         
-    fdir = config["fdir"]
     figdir = config["figdir"]
     # load average statistics netcdf file
     fstat = config["fstat"]
@@ -727,7 +722,17 @@ def main3(recalc_err):
                          ((stat.u_mean.isel(z=isbl)**2. +\
                            stat.v_mean.isel(z=isbl)**2.)**2.) ) /\
              (stat.alpha.isel(z=isbl))  # normalize w/ rad
-    err["alpha"] = err_alpha    
+    err["alpha"] = err_alpha
+    
+    # calculate errors in ustar^2 for coordinate-agnostic horiz Reynolds stress
+    # ustar2 = ((u'w')^2 + (v'w')^2) ^ 1/2
+    sig_uw = np.sqrt(MSE["uw_cov_tot"])
+    sig_vw = np.sqrt(MSE["vw_cov_tot"])
+    err_ustar2 = np.sqrt( (sig_uw**2. * stat.uw_cov_tot.isel(z=isbl)**2. +\
+                           sig_vw**2. * stat.vw_cov_tot.isel(z=isbl)**2.)/\
+                           (stat.ustar2.isel(z=isbl)**2.)) /\
+                           stat.ustar2.isel(z=isbl)
+    err["ustar2"] = err_ustar2
 
     # Save err as netcdf
     fsave_err = f"{fdir}err.nc"
@@ -830,7 +835,10 @@ if __name__ == "__main__":
     # load yaml file in global scope
     with open("/home/bgreene/SBL_LES/python/RFMnc.yaml") as f:
         config = yaml.safe_load(f)
-    fprint = config["fprint"]
+    stability = config["stability"]
+    fdir = f"/home/bgreene/simulations/{stability}_192_interp/output/netcdf/"
+    # text file to save print statements
+    fprint = f"/home/bgreene/SBL_LES/output/Print/RFMnc_{stability}192.txt"
     dt0 = datetime.utcnow()
     main()
     main2(plot_MSE=config["plot_MSE"])

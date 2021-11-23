@@ -148,6 +148,36 @@ def plot_err_prof():
     print(f"Saving figure: {fsave3}")
     fig3.savefig(fsave3)
     plt.close(fig3)
+    
+    #
+    # Figure 4: 3-panel u'w', v'w', ustar2
+    #
+    fig4, ax4 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(14.8, 5))
+    # loop through simulations
+    for i, e in enumerate(err):
+        # u'w'
+        ax4[0].plot(100.*e.uw_cov_tot, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
+        # v'w'
+        ax4[1].plot(100.*e.vw_cov_tot, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
+        # ustar2
+        ax4[2].plot(100.*e.ustar2, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
+    # labels
+    ax4[0].set_xlabel("$\\epsilon_{u'w'}$ [\%]")
+    ax4[0].set_ylabel("$z/h$")
+    ax4[0].set_xlim([0, 100])
+    ax4[0].set_ylim([0, 1])
+    ax4[0].legend()
+    ax4[1].set_xlabel("$\\epsilon_{v'w'}$ [\%]")
+    ax4[1].set_xlim([0, 100])
+    ax4[2].set_xlabel("$\\epsilon_{u_{*}^2}$ [\%]")
+    ax4[2].set_xlim([0, 100])
+    fig4.tight_layout()
+    # save and close
+    fsave4 = f"{figdir}errors/ustar2.pdf"
+    print(f"Saving figure: {fsave4}")
+    fig4.savefig(fsave4)
+    plt.close(fig4)
+    
     return
 
 # --------------------------------

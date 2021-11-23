@@ -7,12 +7,8 @@
 # relaxed filtering method (RFM) from Dias et al. 2018
 # --------------------------------
 
-stability: "D"
-fdir: "/home/bgreene/simulations/D_192_interp/output/netcdf/"
+stability: "F"
 fstat: "average_statistics.nc"
-fsave: "/home/bgreene/SBL_LES/output/No_LH/RFM_D192.nc"
-# text file to save print statements
-fprint: "/home/bgreene/SBL_LES/output/Print/RFMnc_D192.txt"
 # figure save directory
 figdir: "/home/bgreene/SBL_LES/figures/RFMnc/"
 # start and end timesteps to read: last 1 hour
@@ -40,6 +36,6 @@ T_sample_cov: 1800.0
 # dmin_var: 30.0
 # dmax_var: 70.0
 # plot MSE figures in main2()
-plot_MSE: True
+plot_MSE: False
 # toggle recalculate errors from new sample time and save file
 recalc_err: True
