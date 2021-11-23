@@ -198,6 +198,7 @@ fstatA = f"{fsim}A_192_interp/output/netcdf/average_statistics.nc"
 Astat = xr.load_dataset(fstatA)
 fstatF = f"{fsim}F_192_interp/output/netcdf/average_statistics.nc"
 Fstat = xr.load_dataset(fstatF)
+stat_all = [Astat, Fstat]
 # calculate ustar and h for each
 for s in [Astat, Fstat]:
     # ustar
@@ -219,14 +220,15 @@ for s in [Astat, Fstat]:
 # load timeseries files
 ftsA = f"{fsim}A_192_interp/output/netcdf/timeseries_all.nc"
 Ats = xr.load_dataset(ftsA)
-# ftsF = f"{fsim}F_192_interp/output/netcdf/timeseries_all.nc"
-# Fts = xr.load_dataset(ftsF)
+ftsF = f"{fsim}F_192_interp/output/netcdf/timeseries_all.nc"
+Fts = xr.load_dataset(ftsF)
 
 # load error profile files
 ferrA = f"{fsim}A_192_interp/output/netcdf/err.nc"
 Aerr = xr.load_dataset(ferrA)
 ferrF = f"{fsim}F_192_interp/output/netcdf/err.nc"
 Ferr = xr.load_dataset(ferrF)
+err_all = [Aerr, Ferr]
 
 # --------------------------------
 # Perform calculations
@@ -234,14 +236,16 @@ Ferr = xr.load_dataset(ferrF)
 
 # run profile for each sim
 Auas = profile(Ats, Aerr, quicklook=True)
-# Fuas = profile(Fts, Ferr)
+Fuas = profile(Fts, Ferr, quicklook=True)
+uas_all = [Auas, Fuas]
 
 # run ec for each sim
 Aec = ec(Ats, Astat.h)
-# Fec = ec(Fts, Fstat.h)
+Fec = ec(Fts, Fstat.h)
+ec_all = [Aec, Fec]
 
 # calculate 1 sigma bounds 
-for s in [Auas]:
+for s in uas_all:
     # first order
     s["err_uh_hi"] = (1. + s.uh_err) * s.uh
     s["err_uh_lo"] = (1. - s.uh_err) * s.uh
@@ -249,7 +253,7 @@ for s in [Auas]:
     s["err_alpha_lo"] = (1. - s.alpha_err) * s.alpha
     s["err_theta_hi"] = (1. + s.theta_err) * s.theta
     s["err_theta_lo"] = (1. - s.theta_err) * s.theta
-for s, err in zip([Aec], [Aerr]):
+for s, err in zip(ec_all, err_all):
     # covariances
     s["err_uw_hi"] = (1. + err.uw_cov_tot) * s.uw_cov_tot
     s["err_uw_lo"] = (1. - err.uw_cov_tot) * s.uw_cov_tot
@@ -278,7 +282,7 @@ for s, err in zip([Aec], [Aerr]):
 #
 # Figure 1: uh, alpha, theta profiles from both UAS and LES mean
 #
-for s, stat in zip([Auas], [Astat]):
+for s, stat in zip(uas_all, stat_all):
     fig1, ax1 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(14.8, 5))
     # uh
     ax1[0].plot(stat.uh.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h, 
@@ -309,17 +313,17 @@ for s, stat in zip([Auas], [Astat]):
     ax1[0].set_ylim([0, 1])
     ax1[0].yaxis.set_major_locator(MultipleLocator(0.2))
     ax1[0].yaxis.set_minor_locator(MultipleLocator(0.05))
-    ax1[0].set_xlim([0, 10])
-    ax1[0].xaxis.set_major_locator(MultipleLocator(2))
-    ax1[0].xaxis.set_minor_locator(MultipleLocator(0.5))
+#     ax1[0].set_xlim([0, 10])
+#     ax1[0].xaxis.set_major_locator(MultipleLocator(2))
+#     ax1[0].xaxis.set_minor_locator(MultipleLocator(0.5))
     ax1[1].set_xlabel("$\\alpha$ [$^\circ$]")
-    ax1[1].set_xlim([210, 270])
-    ax1[1].xaxis.set_major_locator(MultipleLocator(15))
-    ax1[1].xaxis.set_minor_locator(MultipleLocator(5))
+#     ax1[1].set_xlim([210, 270])
+#     ax1[1].xaxis.set_major_locator(MultipleLocator(15))
+#     ax1[1].xaxis.set_minor_locator(MultipleLocator(5))
     ax1[2].set_xlabel("$\\theta$ [K]")
-    ax1[2].set_xlim([263, 265])
-    ax1[2].xaxis.set_major_locator(MultipleLocator(0.5))
-    ax1[2].xaxis.set_minor_locator(MultipleLocator(0.1))
+#     ax1[2].set_xlim([263, 265])
+#     ax1[2].xaxis.set_major_locator(MultipleLocator(0.5))
+#     ax1[2].xaxis.set_minor_locator(MultipleLocator(0.1))
     fig1.tight_layout()
     # save and close
     fsave1 = f"{fdir_save}{stat.stability}_uh_alpha_theta.pdf"
@@ -330,7 +334,7 @@ for s, stat in zip([Auas], [Astat]):
 #
 # Figure 2: covariances
 #
-for s, stat in zip([Aec], [Astat]):
+for s, stat in zip(ec_all, stat_all):
     fig2, ax2 = plt.subplots(nrows=1, ncols=4, sharey=True, figsize=(14.8, 5))
     # u'w'
     ax2[0].plot(stat.uw_cov_tot.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h, 
@@ -391,7 +395,7 @@ for s, stat in zip([Aec], [Astat]):
 #
 # Figure 3: variances
 #
-for s, stat in zip([Aec], [Astat]):
+for s, stat in zip(ec_all, stat_all):
     fig3, ax3 = plt.subplots(nrows=2, ncols=3, sharey=True, figsize=(14.8, 10))
     # u'u' UNROTATED
     ax3[0,0].plot(stat.u_var.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h, 
