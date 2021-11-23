@@ -106,6 +106,9 @@ for i, s in enumerate(s_all):
     s["ustar"] = ((s.uw_cov_tot**2.) + (s.vw_cov_tot**2.)) ** 0.25
     s["ustar2"] = s.ustar ** 2.
     s["h"] = s.z.where(s.ustar2 <= 0.05*s.ustar2[0], drop=True)[0] / 0.95
+#     print(f"{s.stability}: {s.h.values} m")
+    # calculate zi as in Sullivan et al 2016: max d<theta>/dz
+#     dtheta_dz = s.theta_mean.differentiate("z", 2)
 #     s["h"] = 400./1.5  # to quickly look again at just z
     # now plot
     # row 1
@@ -241,6 +244,32 @@ ax2[1].grid()
 fig2.tight_layout()
 fig2.savefig(f"{fdir_save}mean_tke_ustar.pdf", format="pdf")
 plt.close(fig2)
+
+# Figure 3: <u>, <v>, <u'w'>, <v'w'>, ustar2 versus z
+fig3, ax3 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(14.8, 5))
+for i, s in enumerate(s_all):
+    # u, v
+    ax3[0].plot(s.u_mean, s.z, ls="-", c=colors[i], lw=2)
+    ax3[0].plot(s.v_mean, s.z, ls=":", c=colors[i], lw=2)
+    # <u'w'>, <v'w'>
+    ax3[1].plot(s.uw_cov_tot, s.z, ls="-", c=colors[i], lw=2)
+    ax3[1].plot(s.vw_cov_tot, s.z, ls=":", c=colors[i], lw=2)
+    # ustar2
+    ax3[2].plot(s.ustar, s.z, ls="-", c=colors[i], lw=2, label=s.stability)
+    # add horizontal lines for h based on ustar2
+    for iax in ax3.flatten():
+        iax.axhline(s.h, c=colors[i], ls="--")
+# clean up
+ax3[0].set_xlabel("$u$, $v$")
+ax3[0].set_ylabel("$z$")
+ax3[0].set_ylim([0, 400])
+ax3[1].set_xlabel("$\\langle u'w' \\rangle$, $\\langle v'w' \\rangle$")
+ax3[2].set_xlabel("$u_{*}^2$")
+ax3[2].legend()
+# save and close
+fig3.tight_layout()
+fig3.savefig(f"{fdir_save}h_test.png", dpi=300)
+plt.close(fig3)
 """
 #
 # Figure 1: unrotated u, v, wspd; wdir; theta
