@@ -244,17 +244,26 @@ Aec = ec(Ats, Astat.h)
 Fec = ec(Fts, Fstat.h)
 ec_all = [Aec, Fec]
 
-# calculate 1 sigma bounds 
+# calculate error bounds 
 for s in uas_all:
     # first order
+    # 1 sigma
     s["err_uh_hi"] = (1. + s.uh_err) * s.uh
     s["err_uh_lo"] = (1. - s.uh_err) * s.uh
     s["err_alpha_hi"] = (1. + s.alpha_err) * s.alpha
     s["err_alpha_lo"] = (1. - s.alpha_err) * s.alpha
     s["err_theta_hi"] = (1. + s.theta_err) * s.theta
     s["err_theta_lo"] = (1. - s.theta_err) * s.theta
+    # 3 sigma
+    s["err_uh_hi3"] = (1. + 3*s.uh_err) * s.uh
+    s["err_uh_lo3"] = (1. - 3*s.uh_err) * s.uh
+    s["err_alpha_hi3"] = (1. + 3*s.alpha_err) * s.alpha
+    s["err_alpha_lo3"] = (1. - 3*s.alpha_err) * s.alpha
+    s["err_theta_hi3"] = (1. + 3*s.theta_err) * s.theta
+    s["err_theta_lo3"] = (1. - 3*s.theta_err) * s.theta
 for s, err in zip(ec_all, err_all):
     # covariances
+    # 1 sigma
     s["err_uw_hi"] = (1. + err.uw_cov_tot) * s.uw_cov_tot
     s["err_uw_lo"] = (1. - err.uw_cov_tot) * s.uw_cov_tot
     s["err_vw_hi"] = (1. + err.vw_cov_tot) * s.vw_cov_tot
@@ -263,7 +272,17 @@ for s, err in zip(ec_all, err_all):
     s["err_tw_lo"] = (1. - err.tw_cov_tot) * s.tw_cov_tot
     s["err_ustar2_hi"] = (1. + err.ustar2) * s.ustar2
     s["err_ustar2_lo"] = (1. - err.ustar2) * s.ustar2
+    # 3 sigma
+    s["err_uw_hi3"] = (1. + 3*err.uw_cov_tot) * s.uw_cov_tot
+    s["err_uw_lo3"] = (1. - 3*err.uw_cov_tot) * s.uw_cov_tot
+    s["err_vw_hi3"] = (1. + 3*err.vw_cov_tot) * s.vw_cov_tot
+    s["err_vw_lo3"] = (1. - 3*err.vw_cov_tot) * s.vw_cov_tot
+    s["err_tw_hi3"] = (1. + 3*err.tw_cov_tot) * s.tw_cov_tot
+    s["err_tw_lo3"] = (1. - 3*err.tw_cov_tot) * s.tw_cov_tot
+    s["err_ustar2_hi3"] = (1. + 3*err.ustar2) * s.ustar2
+    s["err_ustar2_lo3"] = (1. - 3*err.ustar2) * s.ustar2
     # variances
+    # 1 sigma
     s["err_uu_hi"] = (1. + err.uu_var) * s.u_var
     s["err_uu_lo"] = (1. - err.uu_var) * s.u_var
     s["err_uu_rot_hi"] = (1. + err.uu_var_rot) * s.u_var_rot
@@ -276,6 +295,19 @@ for s, err in zip(ec_all, err_all):
     s["err_ww_lo"] = (1. - err.ww_var) * s.w_var
     s["err_tt_hi"] = (1. + err.tt_var) * s.theta_var
     s["err_tt_lo"] = (1. - err.tt_var) * s.theta_var
+    # 3 sigma
+    s["err_uu_hi3"] = (1. + 3*err.uu_var) * s.u_var
+    s["err_uu_lo3"] = (1. - 3*err.uu_var) * s.u_var
+    s["err_uu_rot_hi3"] = (1. + 3*err.uu_var_rot) * s.u_var_rot
+    s["err_uu_rot_lo3"] = (1. - 3*err.uu_var_rot) * s.u_var_rot
+    s["err_vv_hi3"] = (1. + 3*err.vv_var) * s.v_var
+    s["err_vv_lo3"] = (1. - 3*err.vv_var) * s.v_var
+    s["err_vv_rot_hi3"] = (1. + 3*err.vv_var_rot) * s.v_var_rot
+    s["err_vv_rot_lo3"] = (1. - 3*err.vv_var_rot) * s.v_var_rot
+    s["err_ww_hi3"] = (1. + 3*err.ww_var) * s.w_var
+    s["err_ww_lo3"] = (1. - 3*err.ww_var) * s.w_var
+    s["err_tt_hi3"] = (1. + 3*err.tt_var) * s.theta_var
+    s["err_tt_lo3"] = (1. - 3*err.tt_var) * s.theta_var
 # --------------------------------
 # Plot
 # --------------------------------
@@ -291,6 +323,8 @@ for s, stat in zip(uas_all, stat_all):
     # shade errors
     ax1[0].fill_betweenx(s.z/stat.h, s.err_uh_lo, s.err_uh_hi, alpha=0.3,
                          color="r", label="$\\epsilon_{u_h}$")
+    ax1[0].fill_betweenx(s.z/stat.h, s.err_uh_lo3, s.err_uh_hi3, alpha=0.1,
+                         color="r")
     # alpha
     ax1[1].plot(stat.wd.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h,
                 c="k", ls="-", lw=2, label="$\\langle \\alpha \\rangle$")
@@ -298,6 +332,8 @@ for s, stat in zip(uas_all, stat_all):
     # shade errors
     ax1[1].fill_betweenx(s.z/stat.h, s.err_alpha_lo, s.err_alpha_hi, alpha=0.3,
                          color="r", label="$\\epsilon_{\\alpha}$")
+    ax1[1].fill_betweenx(s.z/stat.h, s.err_alpha_lo3, s.err_alpha_hi3, alpha=0.1,
+                         color="r")
     # theta
     ax1[2].plot(stat.theta_mean.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h,
                 c="k", ls="-", lw=2, label="$\\langle \\theta \\rangle$")
@@ -305,6 +341,8 @@ for s, stat in zip(uas_all, stat_all):
     # shade errors
     ax1[2].fill_betweenx(s.z/stat.h, s.err_theta_lo, s.err_theta_hi, alpha=0.3,
                          color="r", label="$\\epsilon_{\\theta}$")
+    ax1[2].fill_betweenx(s.z/stat.h, s.err_theta_lo3, s.err_theta_hi3, alpha=0.1,
+                         color="r")
     # clean up
     for iax in ax1:
         iax.legend(loc="upper left")
@@ -343,6 +381,8 @@ for s, stat in zip(ec_all, stat_all):
     # shade errors
     ax2[0].fill_betweenx(s.z/stat.h, s.err_uw_lo, s.err_uw_hi, alpha=0.3,
                          color="r", label="$\\epsilon_{u'w'}$")
+    ax2[0].fill_betweenx(s.z/stat.h, s.err_uw_lo3, s.err_uw_hi3, alpha=0.1,
+                         color="r")
     # v'w'
     ax2[1].plot(stat.vw_cov_tot.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h, 
                 c="k", ls="-", lw=2, label="$\\langle v'w' \\rangle$")
@@ -350,6 +390,8 @@ for s, stat in zip(ec_all, stat_all):
     # shade errors
     ax2[1].fill_betweenx(s.z/stat.h, s.err_vw_lo, s.err_vw_hi, alpha=0.3,
                          color="r", label="$\\epsilon_{v'w'}$")
+    ax2[1].fill_betweenx(s.z/stat.h, s.err_vw_lo3, s.err_vw_hi3, alpha=0.1,
+                         color="r")
     # ustar^2
     ax2[2].plot(stat.ustar2.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h, 
                 c="k", ls="-", lw=2, label="$u_{*}^2$")
@@ -357,6 +399,8 @@ for s, stat in zip(ec_all, stat_all):
     # shade errors
     ax2[2].fill_betweenx(s.z/stat.h, s.err_ustar2_lo, s.err_ustar2_hi, alpha=0.3,
                          color="r", label="$\\epsilon_{u_{*}^2}$")
+    ax2[2].fill_betweenx(s.z/stat.h, s.err_ustar2_lo3, s.err_ustar2_hi3, alpha=0.1,
+                         color="r")
     # theta'w'
     ax2[3].plot(stat.tw_cov_tot.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h, 
                 c="k", ls="-", lw=2, label="$\\langle \\theta'w' \\rangle$")
@@ -364,6 +408,8 @@ for s, stat in zip(ec_all, stat_all):
     # shade errors
     ax2[3].fill_betweenx(s.z/stat.h, s.err_tw_lo, s.err_tw_hi, alpha=0.3,
                          color="r", label="$\\epsilon_{\\theta'w'}$")
+    ax2[3].fill_betweenx(s.z/stat.h, s.err_tw_lo3, s.err_tw_hi3, alpha=0.1,
+                         color="r")
     # clean up
     for iax in ax2[[0,1,3]]:
         iax.legend(loc="upper left")
@@ -404,6 +450,8 @@ for s, stat in zip(ec_all, stat_all):
     # shade errors
     ax3[0,0].fill_betweenx(s.z/stat.h, s.err_uu_lo, s.err_uu_hi, alpha=0.3,
                          color="r", label="$\\epsilon_{u'u'}$")
+    ax3[0,0].fill_betweenx(s.z/stat.h, s.err_uu_lo3, s.err_uu_hi3, alpha=0.1,
+                         color="r")
     # v'v' UNROTATED
     ax3[0,1].plot(stat.v_var.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h, 
                 c="k", ls="-", lw=2, label="$\\langle v'v' \\rangle$")
@@ -411,6 +459,8 @@ for s, stat in zip(ec_all, stat_all):
     # shade errors
     ax3[0,1].fill_betweenx(s.z/stat.h, s.err_vv_lo, s.err_vv_hi, alpha=0.3,
                          color="r", label="$\\epsilon_{v'v'}$")
+    ax3[0,1].fill_betweenx(s.z/stat.h, s.err_vv_lo3, s.err_vv_hi3, alpha=0.1,
+                         color="r")
     # w'w'
     ax3[0,2].plot(stat.w_var.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h, 
                 c="k", ls="-", lw=2, label="$\\langle w'w' \\rangle$")
@@ -418,6 +468,8 @@ for s, stat in zip(ec_all, stat_all):
     # shade errors
     ax3[0,2].fill_betweenx(s.z/stat.h, s.err_ww_lo, s.err_ww_hi, alpha=0.3,
                          color="r", label="$\\epsilon_{w'w'}$")
+    ax3[0,2].fill_betweenx(s.z/stat.h, s.err_ww_lo3, s.err_ww_hi3, alpha=0.1,
+                         color="r")
     # u'u' ROTATED
     ax3[1,0].plot(stat.u_var_rot.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h, 
                 c="k", ls="-", lw=2, label="$\\langle u'u' \\rangle_{rot}$")
@@ -425,6 +477,8 @@ for s, stat in zip(ec_all, stat_all):
     # shade errors
     ax3[1,0].fill_betweenx(s.z/stat.h, s.err_uu_rot_lo, s.err_uu_rot_hi, alpha=0.3,
                          color="r", label="$\\epsilon_{u'u'_{rot}}$")
+    ax3[1,0].fill_betweenx(s.z/stat.h, s.err_uu_rot_lo3, s.err_uu_rot_hi3, alpha=0.1,
+                         color="r")
     # v'v' ROTATED
     ax3[1,1].plot(stat.v_var_rot.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h, 
                 c="k", ls="-", lw=2, label="$\\langle v'v' \\rangle_{rot}$")
@@ -432,6 +486,8 @@ for s, stat in zip(ec_all, stat_all):
     # shade errors
     ax3[1,1].fill_betweenx(s.z/stat.h, s.err_vv_rot_lo, s.err_vv_rot_hi, alpha=0.3,
                          color="r", label="$\\epsilon_{v'v'_{rot}}$")
+    ax3[1,1].fill_betweenx(s.z/stat.h, s.err_vv_rot_lo3, s.err_vv_rot_hi3, alpha=0.1,
+                         color="r")
     # theta'theta'
     ax3[1,2].plot(stat.theta_var.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h, 
                 c="k", ls="-", lw=2, label="$\\langle \\theta'\\theta' \\rangle$")
@@ -439,6 +495,8 @@ for s, stat in zip(ec_all, stat_all):
     # shade errors
     ax3[1,2].fill_betweenx(s.z/stat.h, s.err_tt_lo, s.err_tt_hi, alpha=0.3,
                          color="r", label="$\\epsilon_{\\theta'\\theta'}$")
+    ax3[1,2].fill_betweenx(s.z/stat.h, s.err_tt_lo3, s.err_tt_hi3, alpha=0.1,
+                         color="r")
     # clean up
     for iax in ax3.flatten():
         iax.legend(loc="upper right")
@@ -461,7 +519,7 @@ for s, stat in zip(ec_all, stat_all):
     ax3[1,0].set_ylabel("$z/h$")
     ax3[1,0].set_xlabel("$u'u'_{rot}$ [m$^2$ s$^{-2}$]")
     ax3[1,1].set_xlabel("$v'v'_{rot}$ [m$^2$ s$^{-2}$]")
-    ax3[1,2].set_xlabel("$\\theta'\\theta'_{rot}$ [K$^2$]")
+    ax3[1,2].set_xlabel("$\\theta'\\theta'}$ [K$^2$]")
     fig3.tight_layout()
     # save and close
     fsave3 = f"{fdir_save}{stat.stability}_vars.pdf"
