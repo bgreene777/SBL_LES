@@ -13,6 +13,7 @@ import yaml
 import numpy as np
 import xarray as xr
 import seaborn
+from cmocean import cm
 from datetime import datetime, timedelta
 from matplotlib import pyplot as plt
 from matplotlib import rc
@@ -304,7 +305,121 @@ def plot_L_prof():
     plt.close(fig3)
     
     return
-
+    
+# --------------------------------
+# plot_2d_err: contours of relative random errors versus sample time for A & F
+# --------------------------------
+def plot_2d_err():
+    # import recalc_err from RFMnc.py
+    from RFMnc import recalc_err
+    # construct Tnew from config file
+    Tnew0 = config["recalc_lo"]
+    Tnew1 = config["recalc_hi"]
+    Tnewdt = config["recalc_dt"]
+    Tnew = np.arange(Tnew0, Tnew1, Tnewdt, dtype=np.float64)
+    #
+    # Loop over stabilities, recalc error, and plot uh, alpha, theta
+    #
+    for stab in list("AF"):
+        err = recalc_err(stab, Tnew)
+        # plot
+        # figure 1: uh
+        fig1, ax1 = plt.subplots(1, figsize=(12, 8))
+        # shade errors
+        cfax1 = ax1.contourf(err.Tsample, err.z/err.h, 100*err.uh,
+                             cmap=cm.matter, extend="max",
+                             levels=np.linspace(0, 100, 21))
+        # contour 10% level
+        cax1 = ax1.contour(err.Tsample, err.z/err.h, 100.*err.uh,
+                           "-k", levels=[10.], linewidths=4.)
+        # colorbar
+        cbar1 = fig1.colorbar(cfax1, ax=ax1, ticks=np.linspace(0, 100, 11))
+        cbar1.ax.set_ylabel("$\\epsilon_{u_h}$ [$\%$]")
+        # plot blue line outside of window to use in legend
+        ax1.axhline(-10, ls="-", lw=4, c="k", label="$\\epsilon_{u_h}=10\%$")
+        # plot vertical dashed line at T = 3 s
+        ax1.axvline(3., ls="--", lw=4, c="k", label="$T = 3$ s")
+        ax1.set_xlabel("Averaging Time [s]")
+        ax1.set_ylabel("$z/h$")
+        ax1.set_xlim([0, Tnew1])
+        ax1.set_ylim([0.01, 1.0])
+        ax1.set_yscale("log")
+        ax1.xaxis.set_major_locator(MultipleLocator(1))
+        ax1.xaxis.set_minor_locator(MultipleLocator(0.5)) 
+#         ax1.yaxis.set_major_locator(MultipleLocator(0.1))
+#         ax1.yaxis.set_minor_locator(MultipleLocator(0.05))
+        ax1.legend(loc="upper right")
+        # save and close
+        fsave1 = f"{figdir}errors2d/{stab}_uh.pdf"
+        print(f"Saving figure: {fsave1}")
+        fig1.savefig(fsave1, format="pdf", bbox_inches="tight")
+        plt.close(fig1)
+        
+        # figure 2: alpha
+        fig2, ax2 = plt.subplots(1, figsize=(12, 8))
+        # shade errors
+        cfax2 = ax2.contourf(err.Tsample, err.z/err.h, 100*err.alpha,
+                             cmap=cm.matter, extend="max",
+                             levels=np.linspace(0, 25, 26))
+        # contour 2% level
+        cax2 = ax2.contour(err.Tsample, err.z/err.h, 100.*err.alpha,
+                           "-k", levels=[2.], linewidths=4.)
+        # colorbar
+        cbar2 = fig2.colorbar(cfax2, ax=ax2, ticks=np.linspace(0, 25, 6))
+        cbar2.ax.set_ylabel("$\\epsilon_{\\alpha}$ [$\%$]")
+        # plot blue line outside of window to use in legend
+        ax2.axhline(-10, ls="-", lw=4, c="k", label="$\\epsilon_{\\alpha}=2\%$")
+        # plot vertical dashed line at T = 3 s
+        ax2.axvline(3., ls="--", lw=4, c="k", label="$T = 3$ s")
+        ax2.set_xlabel("Averaging Time [s]")
+        ax2.set_ylabel("$z/h$")
+        ax2.set_xlim([0, Tnew1])
+        ax2.set_ylim([0.01, 1.0])
+        ax2.set_yscale("log")
+        ax2.xaxis.set_major_locator(MultipleLocator(1))
+        ax2.xaxis.set_minor_locator(MultipleLocator(0.5)) 
+#         ax1.yaxis.set_major_locator(MultipleLocator(0.1))
+#         ax1.yaxis.set_minor_locator(MultipleLocator(0.05))
+        ax2.legend(loc="upper right")
+        # save and close
+        fsave2 = f"{figdir}errors2d/{stab}_alpha.pdf"
+        print(f"Saving figure: {fsave2}")
+        fig2.savefig(fsave2, format="pdf", bbox_inches="tight")
+        plt.close(fig2)
+        
+        # figure 3: theta
+        fig3, ax3 = plt.subplots(1, figsize=(12, 8))
+        # shade errors
+        cfax3 = ax3.contourf(err.Tsample, err.z/err.h, 100*err.theta,
+                             cmap=cm.matter, extend="max",
+                             levels=np.linspace(0, 0.5, 26))
+        # contour 2% level
+       #  cax2 = ax2.contour(err.Tsample, err.z/err.h, 100.*err.alpha,
+#                            "-k", levels=[2.], linewidths=4.)
+        # colorbar
+        cbar3 = fig3.colorbar(cfax3, ax=ax3, ticks=np.linspace(0, 0.5, 11))
+        cbar3.ax.set_ylabel("$\\epsilon_{\\theta}$ [$\%$]")
+        # plot blue line outside of window to use in legend
+#         ax2.axhline(-10, ls="-", lw=4, c="k", label="$\\epsilon_{\\alpha}=2\%$")
+        # plot vertical dashed line at T = 3 s
+        ax3.axvline(3., ls="--", lw=4, c="k", label="$T = 3$ s")
+        ax3.set_xlabel("Averaging Time [s]")
+        ax3.set_ylabel("$z/h$")
+        ax3.set_xlim([0, Tnew1])
+        ax3.set_ylim([0.01, 1.0])
+        ax3.set_yscale("log")
+        ax3.xaxis.set_major_locator(MultipleLocator(1))
+        ax3.xaxis.set_minor_locator(MultipleLocator(0.5)) 
+#         ax1.yaxis.set_major_locator(MultipleLocator(0.1))
+#         ax1.yaxis.set_minor_locator(MultipleLocator(0.05))
+        ax3.legend(loc="upper right")
+        # save and close
+        fsave3 = f"{figdir}errors2d/{stab}_theta.pdf"
+        print(f"Saving figure: {fsave3}")
+        fig3.savefig(fsave3, format="pdf", bbox_inches="tight")
+        plt.close(fig3)
+        
+    return
 # --------------------------------
 # Run script
 # --------------------------------
@@ -314,6 +429,7 @@ if __name__ == "__main__":
         config = yaml.safe_load(f)
     # only thing we care about is where to save figures
     figdir = config["figdir"]
-    plot_err_prof()
-    plot_L_prof()
+#     plot_err_prof()
+#     plot_L_prof()
+    plot_2d_err()
     

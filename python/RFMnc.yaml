@@ -38,4 +38,8 @@ T_sample_cov: 1800.0
 # plot MSE figures in main2()
 plot_MSE: False
 # toggle recalculate errors from new sample time and save file
-recalc_err: True
+reprocess: False
+# parameters for recalculating error with np.arange()
+recalc_lo: 0.1
+recalc_hi: 15.1
+recalc_dt: 0.1

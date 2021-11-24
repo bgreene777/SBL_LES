@@ -604,14 +604,14 @@ def main2(plot_MSE=True):
 # --------------------------------
 # Main3: read results from main1(), main2() to calculate errors based on LP and RFM methods
 # --------------------------------
-def main3(recalc_err):
+def main3(reprocess):
     #
     # Calculate RFM relative random errors: epsilon = RMSE(x_delta) / <x>
     # RMSE = C**0.5 * delta**(-p/2)
     # use T from config and convert to x/L_H via Taylor
     # separate for u,v,theta / uw,vw,tw
     #
-    if not recalc_err:
+    if not reprocess:
         print_both("Errors already calculated! Finished with main3()", fprint)
         return
         
@@ -827,7 +827,98 @@ def main3(recalc_err):
 #         plt.close(fig)
     
     return
-
+    
+# --------------------------------
+# recalc_err: recalculate random errors with coefficients for given sample time
+# --------------------------------
+def recalc_err(stability, Tnew):
+    # input stability (string) and new sampling time (float)
+    # if Tnew is array, then loop through each
+    # return xr.Dataset with new errors for *only* uh, alpha, theta
+    # new Dataset will have dimension of Tnew
+    # define directories based on stability
+    fdir = f"/home/bgreene/simulations/{stability}_192_interp/output/netcdf/"
+    # load stat file to convert Tnew to Xnew and to renormalize new errors
+    stat = xr.load_dataset(f"{fdir}average_statistics.nc")
+    # calculate important parameters
+    # ustar
+    stat["ustar"] = ((stat.uw_cov_tot ** 2.) + (stat.vw_cov_tot ** 2.)) ** 0.25
+    stat["ustar2"] = stat.ustar ** 2.
+    # SBL height
+    stat["h"] = stat.z.where(stat.ustar2 <= 0.05*stat.ustar2[0], drop=True)[0]/0.95
+    # calculate wind angle alpha (NOTE: THE ALPHA STORED IN STAT IS *NOT* WDIR)
+    stat["alpha"] = np.arctan2(-stat.u_mean, -stat.v_mean)
+    ineg = np.where(stat.alpha < 0)
+    stat["alpha"][ineg] += 2.*np.pi  # alpha in radians already
+    # z indices within sbl
+    isbl = np.where(stat.z <= stat.h)[0]
+    # load C and p fit coefficients
+    C = xr.load_dataset(f"{fdir}fit_C.nc")
+    p = xr.load_dataset(f"{fdir}fit_p.nc")
+    # check if Tnew is an array or single value and convert to iterable
+    if np.shape(Tnew) == ():
+        Tnew = np.array([Tnew])
+    # create xarray Datasets for MSE and err
+    MSE = xr.Dataset(data_vars=None,
+                     coords=dict(z=C.z, Tsample=Tnew),
+                     attrs=C.attrs)
+    err = xr.Dataset(data_vars=None,
+                     coords=dict(z=C.z, Tsample=Tnew),
+                     attrs=C.attrs)
+    #
+    # now can recalc errors
+    #
+    # keys for looping through C, p
+    param_RFM1 = ["u", "v", "theta"] 
+    # keys for looping through stat to normalize MSE
+    param_var2 = ["u_var", "v_var", "theta_var"] 
+    # keys for looping through stat to normalize relative errors
+    param_mean1 = ["u_mean", "v_mean", "theta_mean"] 
+    # Loop through first-order moments to calculate MSE and error
+    for i, v in enumerate(param_RFM1):
+        # define empty DataArray for v in MSE
+        MSE[v] =  xr.DataArray(data=np.zeros((len(isbl),len(Tnew)), dtype=np.float64), 
+                               coords=dict(MSE.coords))
+        # Loop through Tnew to calculate MSE(z,Tsample)
+        for jt, iT in enumerate(Tnew):
+            # calculate Xnew from Tnew and mean wind
+            Xnew = stat.u_mean_rot.isel(z=isbl) * iT
+            # use values of C and p to extrapolate calculation of MSE/var{x}
+            # renormalize with variances in param_var2
+            MSE[v][:,jt] = stat[param_var2[i]].isel(z=isbl) * (C[v] * (Xnew**-p[v]))
+        # take sqrt to get RMSE
+        RMSE = np.sqrt(MSE[v])
+        # divide by <x> to get epsilon
+        err[v] = RMSE / abs(stat[param_mean1[i]].isel(z=isbl))  
+        
+    # propagate uh and alpha errors from u and v
+    # wind speed = uh, wind direction = alpha
+    sig_u = np.sqrt(MSE["u"])
+    sig_v = np.sqrt(MSE["v"])
+    # calculate ws error and assign to RFM
+    err_uh = np.sqrt( (sig_u**2. * stat.u_mean.isel(z=isbl)**2. +\
+                       sig_v**2. * stat.v_mean.isel(z=isbl)**2.)/\
+                      (stat.u_mean.isel(z=isbl)**2. +\
+                       stat.v_mean.isel(z=isbl)**2.) ) / stat.u_mean_rot.isel(z=isbl)
+    err["uh"] = err_uh
+    # calculate wd error and assign to RFM
+    err_alpha = np.sqrt( (sig_u**2. * stat.v_mean.isel(z=isbl)**2. +\
+                          sig_v**2. * stat.u_mean.isel(z=isbl)**2.)/\
+                         ((stat.u_mean.isel(z=isbl)**2. +\
+                           stat.v_mean.isel(z=isbl)**2.)**2.) ) /\
+             (stat.alpha.isel(z=isbl))  # normalize w/ rad
+    err["alpha"] = err_alpha
+    
+    # assign units to err
+    err["uh"].attrs["units"] = "%"
+    err["alpha"].attrs["units"] = "%"
+    err["theta"].attrs["units"] = "%"
+    err["Tsample"].attrs["units"] = "s"
+    # store h in err
+    err["h"] = stat.h
+            
+    return err
+    
 # --------------------------------
 # Run script
 # --------------------------------
@@ -842,6 +933,6 @@ if __name__ == "__main__":
     dt0 = datetime.utcnow()
     main()
     main2(plot_MSE=config["plot_MSE"])
-    main3(recalc_err=config["recalc_err"])
+    main3(reprocess=config["reprocess"])
     dt1 = datetime.utcnow()
     print_both(f"Total run time for RFMnc.py: {(dt1-dt0).total_seconds()/60.:5.2f} min", fprint)
