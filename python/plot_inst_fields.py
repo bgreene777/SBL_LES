@@ -47,10 +47,9 @@ figdir = "/home/bgreene/SBL_LES/figures/inst_fields/"
 #
 rc('font',weight='normal',size=20,family='serif',serif='Times New Roman')
 rc('text',usetex='True')
-props=dict(boxstyle='square',facecolor='white',alpha=0.5)
+props=dict(boxstyle='square',facecolor='white',alpha=0.85)
 colors = seaborn.color_palette("crest")
 plt.close("all")
-
 
 # --------------------------------
 # 9-panel of u/ustar, w/ustar, theta for A, C, F
@@ -110,7 +109,7 @@ cmthm = cmocean.cm.thermal
 # figure 1
 # rows = A,  F
 # columns = u/ustar, theta
-fig1, ax1 = plt.subplots(nrows=2, ncols=2, sharey=True, figsize=(14.8, 5), 
+fig1, ax1 = plt.subplots(nrows=2, ncols=2, sharey=True, sharex=True, figsize=(14.8, 5), 
                          constrained_layout=True)
 # column 1: u/ustar
 cax1 = ax1[0,0].contourf(A.x/Astat.h, A.z/Astat.h, A.u_rot.isel(y=96).T/Astat.ustar.isel(z=0),
@@ -150,8 +149,12 @@ ax1[0,0].set_xlim([0, 5])
 ax1[0,1].set_xlim([0, 5])
 ax1[1,0].set_xlim([0, 5])
 ax1[1,1].set_xlim([0, 5])
-for iax in ax1.flatten():
+for iax in ax1[1,:]:
     iax.set_xlabel("$x/h$")
+for iax in ax1.flatten():
+    iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
+    iax.tick_params(which="major", length=6, width=0.5)
+    iax.tick_params(which="minor", length=3, width=0.5)
 ax1[0,0].yaxis.set_major_locator(MultipleLocator(0.5))
 ax1[0,0].yaxis.set_minor_locator(MultipleLocator(0.05))
 ax1[0,0].set_ylabel("$z/h$")
@@ -164,12 +167,16 @@ ax1[1,0].xaxis.set_major_locator(MultipleLocator(0.5))
 ax1[1,0].xaxis.set_minor_locator(MultipleLocator(0.1))
 ax1[1,1].xaxis.set_major_locator(MultipleLocator(0.5))
 ax1[1,1].xaxis.set_minor_locator(MultipleLocator(0.1))
+# label subpanels
+for iax, s in zip(ax1.flatten(), list("abcd")):
+    iax.text(0.02,0.84,f"$\\textbf{{({s})}}$",fontsize=16,bbox=props,
+              transform=iax.transAxes)
 
 # fig1.tight_layout()
 # save and close
 fsave1 = f"{figdir}u_theta.png"
 print(f"Saving figure: {fsave1}")
-fig1.savefig(fsave1, dpi=300)
+fig1.savefig(fsave1, dpi=600)
 plt.close(fig1)
 
 # figure 2
