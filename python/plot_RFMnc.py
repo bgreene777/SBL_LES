@@ -24,7 +24,7 @@ from dask.diagnostics import ProgressBar
 #
 rc('font',weight='normal',size=20,family='serif',serif='Times New Roman')
 rc('text',usetex='True')
-props=dict(boxstyle='square',facecolor='white',alpha=0.5)
+props=dict(boxstyle="square",facecolor="white",edgecolor="white",alpha=0.0)
 colors = seaborn.color_palette("crest")
 plt.close("all")
 
@@ -73,12 +73,25 @@ def plot_err_prof():
     ax1[0].set_xlabel("$\\epsilon_{u_h}$ [\%]")
     ax1[0].set_ylabel("$z/h$")
     ax1[0].set_xlim([0, 40])
+    ax1[0].xaxis.set_major_locator(MultipleLocator(10))
+    ax1[0].xaxis.set_minor_locator(MultipleLocator(2))
     ax1[0].set_ylim([0, 1])
-    ax1[0].legend()
+    ax1[0].yaxis.set_major_locator(MultipleLocator(0.2))
+    ax1[0].yaxis.set_minor_locator(MultipleLocator(0.05))
+    ax1[0].legend(loc="right", labelspacing=0.10, handletextpad=0.4, shadow=True)
     ax1[1].set_xlabel("$\\epsilon_{\\alpha}$ [\%]")
     ax1[1].set_xlim([0, 10])
+    ax1[1].xaxis.set_major_locator(MultipleLocator(2))
+    ax1[1].xaxis.set_minor_locator(MultipleLocator(0.5))
     ax1[2].set_xlabel("$\\epsilon_{\\theta}$ [\%]")
-    ax1[2].set_xlim([0, 0.15])
+    ax1[2].set_xlim([0, 0.2])
+    ax1[2].xaxis.set_major_locator(MultipleLocator(0.05))
+    ax1[2].xaxis.set_minor_locator(MultipleLocator(0.01))
+    # edit ticks and add subplot labels
+    for iax, s in zip(ax1, list("abc")):
+        iax.tick_params(which="both", direction="in", top=True, right=True)
+        iax.text(0.88,0.90,f"$\\textbf{{({s})}}$",fontsize=20,
+                 transform=iax.transAxes)
     fig1.tight_layout()
     # save and close
     fsave1 = f"{figdir}errors/uh_alpha_theta.pdf"
@@ -103,12 +116,25 @@ def plot_err_prof():
     ax2[0].set_xlabel("$\\epsilon_{u'w'}$ [\%]")
     ax2[0].set_ylabel("$z/h$")
     ax2[0].set_xlim([0, 100])
+    ax2[0].xaxis.set_major_locator(MultipleLocator(25))
+    ax2[0].xaxis.set_minor_locator(MultipleLocator(5))
     ax2[0].set_ylim([0, 1])
-    ax2[0].legend()
+    ax2[0].yaxis.set_major_locator(MultipleLocator(0.2))
+    ax2[0].yaxis.set_minor_locator(MultipleLocator(0.05))
+    ax2[0].legend(loc="right", labelspacing=0.10, handletextpad=0.4, shadow=True)
     ax2[1].set_xlabel("$\\epsilon_{v'w'}$ [\%]")
     ax2[1].set_xlim([0, 100])
+    ax2[1].xaxis.set_major_locator(MultipleLocator(25))
+    ax2[1].xaxis.set_minor_locator(MultipleLocator(5))
     ax2[2].set_xlabel("$\\epsilon_{\\theta'w'}$ [\%]")
-    ax2[2].set_xlim([0, 100])
+    ax2[2].set_xlim([0, 50])
+    ax2[2].xaxis.set_major_locator(MultipleLocator(10))
+    ax2[2].xaxis.set_minor_locator(MultipleLocator(2))
+    # edit ticks and add subplot labels
+    for iax, s in zip(ax2, list("abc")):
+        iax.tick_params(which="both", direction="in", top=True, right=True)
+        iax.text(0.88,0.05,f"$\\textbf{{({s})}}$",fontsize=20,
+                 transform=iax.transAxes)
     fig2.tight_layout()
     # save and close
     fsave2 = f"{figdir}errors/covars.pdf"
@@ -134,15 +160,30 @@ def plot_err_prof():
     # labels
     ax3[0].set_xlabel("$\\epsilon_{u'u'}$ [\%]")
     ax3[0].set_ylabel("$z/h$")
-    ax3[0].set_xlim([0, 25])
+    ax3[0].set_xlim([0, 20])
+    ax3[0].xaxis.set_major_locator(MultipleLocator(5))
+    ax3[0].xaxis.set_minor_locator(MultipleLocator(1))
     ax3[0].set_ylim([0, 1])
-    ax3[0].legend()
+    ax3[0].yaxis.set_major_locator(MultipleLocator(0.2))
+    ax3[0].yaxis.set_minor_locator(MultipleLocator(0.05))
+    ax3[1].legend(loc="right", labelspacing=0.10, handletextpad=0.4, shadow=True)
     ax3[1].set_xlabel("$\\epsilon_{v'v'}$ [\%]")
-    ax3[1].set_xlim([0, 25])
+    ax3[1].set_xlim([0, 20])
+    ax3[1].xaxis.set_major_locator(MultipleLocator(5))
+    ax3[1].xaxis.set_minor_locator(MultipleLocator(1))
     ax3[2].set_xlabel("$\\epsilon_{w'w'}$ [\%]")
-    ax3[2].set_xlim([0, 25])
+    ax3[2].set_xlim([0, 10])
+    ax3[2].xaxis.set_major_locator(MultipleLocator(2))
+    ax3[2].xaxis.set_minor_locator(MultipleLocator(0.5))
     ax3[3].set_xlabel("$\\epsilon_{\\theta'\\theta'}$ [\%]")
-    ax3[3].set_xlim([0, 25])
+    ax3[3].set_xlim([0, 20])
+    ax3[3].xaxis.set_major_locator(MultipleLocator(5))
+    ax3[3].xaxis.set_minor_locator(MultipleLocator(1))
+    # edit ticks and add subplot labels
+    for iax, s in zip(ax3, list("abcd")):
+        iax.tick_params(which="both", direction="in", top=True, right=True)
+        iax.text(0.85,0.05,f"$\\textbf{{({s})}}$",fontsize=20,
+                 transform=iax.transAxes)
     fig3.tight_layout()
     # save and close
     fsave3 = f"{figdir}errors/vars.pdf"
@@ -166,12 +207,25 @@ def plot_err_prof():
     ax4[0].set_xlabel("$\\epsilon_{u'w'}$ [\%]")
     ax4[0].set_ylabel("$z/h$")
     ax4[0].set_xlim([0, 100])
+    ax4[0].xaxis.set_major_locator(MultipleLocator(25))
+    ax4[0].xaxis.set_minor_locator(MultipleLocator(5))
     ax4[0].set_ylim([0, 1])
-    ax4[0].legend()
+    ax4[0].yaxis.set_major_locator(MultipleLocator(0.2))
+    ax4[0].yaxis.set_minor_locator(MultipleLocator(0.05))
+    ax4[0].legend(loc="right", labelspacing=0.10, handletextpad=0.4, shadow=True)
     ax4[1].set_xlabel("$\\epsilon_{v'w'}$ [\%]")
     ax4[1].set_xlim([0, 100])
+    ax4[1].xaxis.set_major_locator(MultipleLocator(25))
+    ax4[1].xaxis.set_minor_locator(MultipleLocator(5))
     ax4[2].set_xlabel("$\\epsilon_{u_{*}^2}$ [\%]")
     ax4[2].set_xlim([0, 100])
+    ax4[2].xaxis.set_major_locator(MultipleLocator(25))
+    ax4[2].xaxis.set_minor_locator(MultipleLocator(5))
+    # edit ticks and add subplot labels
+    for iax, s in zip(ax4, list("abc")):
+        iax.tick_params(which="both", direction="in", top=True, right=True)
+        iax.text(0.88,0.05,f"$\\textbf{{({s})}}$",fontsize=20,
+                 transform=iax.transAxes)
     fig4.tight_layout()
     # save and close
     fsave4 = f"{figdir}errors/ustar2.pdf"
@@ -429,7 +483,7 @@ if __name__ == "__main__":
         config = yaml.safe_load(f)
     # only thing we care about is where to save figures
     figdir = config["figdir"]
-#     plot_err_prof()
+    plot_err_prof()
 #     plot_L_prof()
-    plot_2d_err()
+#     plot_2d_err()
     
