@@ -8,6 +8,7 @@
 # For now only look at A and F
 # --------------------------------
 import os
+import yaml
 import numpy as np
 import xarray as xr
 from numba import njit
@@ -190,6 +191,10 @@ plt.close("all")
 # simulation base directory
 fsim = "/home/bgreene/simulations/"
 
+# load yaml file with plotting parameters
+with open("/home/bgreene/SBL_LES/python/UASnc.yaml") as f:
+    config = yaml.safe_load(f)
+
 # --------------------------------
 # Load average stats and timeseries files
 # --------------------------------
@@ -235,8 +240,8 @@ err_all = [Aerr, Ferr]
 # --------------------------------
 
 # run profile for each sim
-Auas = profile(Ats, Aerr, quicklook=True)
-Fuas = profile(Fts, Ferr, quicklook=True)
+Auas = profile(Ats, Aerr, quicklook=False)
+Fuas = profile(Fts, Ferr, quicklook=False)
 uas_all = [Auas, Fuas]
 
 # run ec for each sim
@@ -345,23 +350,29 @@ for s, stat in zip(uas_all, stat_all):
                          color="r")
     # clean up
     for iax in ax1:
-        iax.legend(loc="upper left")
+        iax.legend(loc="upper left", labelspacing=0.10, 
+                   handletextpad=0.4, shadow=True)
     ax1[0].set_xlabel("$u_h$ [m s$^{-1}$]")
     ax1[0].set_ylabel("$z/h$")
     ax1[0].set_ylim([0, 1])
     ax1[0].yaxis.set_major_locator(MultipleLocator(0.2))
     ax1[0].yaxis.set_minor_locator(MultipleLocator(0.05))
-#     ax1[0].set_xlim([0, 10])
-#     ax1[0].xaxis.set_major_locator(MultipleLocator(2))
-#     ax1[0].xaxis.set_minor_locator(MultipleLocator(0.5))
+    ax1[0].set_xlim(config[stat.stability]["xlim"]["ax1_0"])
+    ax1[0].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax1_0"]))
+    ax1[0].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax1_0"]))
     ax1[1].set_xlabel("$\\alpha$ [$^\circ$]")
-#     ax1[1].set_xlim([210, 270])
-#     ax1[1].xaxis.set_major_locator(MultipleLocator(15))
-#     ax1[1].xaxis.set_minor_locator(MultipleLocator(5))
+    ax1[1].set_xlim(config[stat.stability]["xlim"]["ax1_1"])
+    ax1[1].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax1_1"]))
+    ax1[1].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax1_1"]))
     ax1[2].set_xlabel("$\\theta$ [K]")
-#     ax1[2].set_xlim([263, 265])
-#     ax1[2].xaxis.set_major_locator(MultipleLocator(0.5))
-#     ax1[2].xaxis.set_minor_locator(MultipleLocator(0.1))
+    ax1[2].set_xlim(config[stat.stability]["xlim"]["ax1_2"])
+    ax1[2].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax1_2"]))
+    ax1[2].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax1_2"]))
+    # edit ticks and add subplot labels
+    for iax, s in zip(ax1, list("abc")):
+        iax.tick_params(which="both", direction="in", top=True, right=True)
+        iax.text(0.88,0.05,f"$\\textbf{{({s})}}$",fontsize=20,
+                 transform=iax.transAxes)
     fig1.tight_layout()
     # save and close
     fsave1 = f"{fdir_save}{stat.stability}_uh_alpha_theta.pdf"
@@ -412,32 +423,45 @@ for s, stat in zip(ec_all, stat_all):
                          color="r")
     # clean up
     for iax in ax2[[0,1,3]]:
-        iax.legend(loc="upper left")
-    ax2[2].legend(loc="upper right")
+        iax.legend(loc="upper left", labelspacing=0.10, 
+                   handletextpad=0.4, shadow=True)
+    ax2[2].legend(loc="upper right", labelspacing=0.10, 
+                   handletextpad=0.4, shadow=True)
     ax2[0].set_xlabel("$u'w'$ [m$^2$ s$^{-2}$]")
     ax2[0].set_ylabel("$z/h$")
     ax2[0].set_ylim([0, 1])
-#     ax2[0].yaxis.set_major_locator(MultipleLocator(0.2))
-#     ax2[0].yaxis.set_minor_locator(MultipleLocator(0.05))
-#     ax2[0].set_xlim([0, 10])
-#     ax2[0].xaxis.set_major_locator(MultipleLocator(2))
-#     ax2[0].xaxis.set_minor_locator(MultipleLocator(0.5))
+    ax2[0].yaxis.set_major_locator(MultipleLocator(0.2))
+    ax2[0].yaxis.set_minor_locator(MultipleLocator(0.05))
+    ax2[0].set_xlim(config[stat.stability]["xlim"]["ax2_0"])
+    ax2[0].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax2_0"]))
+    ax2[0].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax2_0"]))
     ax2[1].set_xlabel("$v'w'$ [m$^2$ s$^{-2}$]")
-#     ax2[1].set_xlim([210, 270])
-#     ax2[1].xaxis.set_major_locator(MultipleLocator(15))
-#     ax2[1].xaxis.set_minor_locator(MultipleLocator(5))
+    ax2[1].set_xlim(config[stat.stability]["xlim"]["ax2_1"])
+    ax2[1].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax2_1"]))
+    ax2[1].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax2_1"]))
     ax2[2].set_xlabel("$u_{*}^2$ [m$^2$ s$^{-2}$]")
+    ax2[2].set_xlim(config[stat.stability]["xlim"]["ax2_2"])
+    ax2[2].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax2_2"]))
+    ax2[2].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax2_2"]))
     ax2[3].set_xlabel("$\\theta'w'$ [K m s$^{-1}$]")
-#     ax2[2].set_xlim([263, 265])
-#     ax2[2].xaxis.set_major_locator(MultipleLocator(0.5))
-#     ax2[2].xaxis.set_minor_locator(MultipleLocator(0.1))
+    ax2[3].set_xlim(config[stat.stability]["xlim"]["ax2_3"])
+    ax2[3].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax2_3"]))
+    ax2[3].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax2_3"]))
+    # edit ticks and add subplot labels
+    for iax, s in zip(ax2[[0,1,3]], list("abd")):
+        iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
+        iax.text(0.80,0.05,f"$\\textbf{{({s})}}$",fontsize=20,
+                 transform=iax.transAxes)
+    ax2[2].tick_params(which="both", direction="in", top=True, right=True, pad=8)
+    ax2[2].text(0.06,0.05,"$\\textbf{(c)}$",fontsize=20,
+                transform=ax2[2].transAxes)
     fig2.tight_layout()
     # save and close
     fsave2 = f"{fdir_save}{stat.stability}_covars.pdf"
     print(f"Saving figure: {fsave2}")
     fig2.savefig(fsave2)
     plt.close(fig2)
-    
+
 #
 # Figure 3: variances
 #

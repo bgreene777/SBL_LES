@@ -1,0 +1,72 @@
+# --------------------------------
+# Name: UASnc.yaml
+# Author: Brian R. Greene
+# University of Oklahoma
+# Created: 1 December 2021
+# Purpose: parameters for plotting emulated UAS profiles
+# in UASnc.py
+# --------------------------------
+
+A:
+  xlim:
+    # figure 1: uh, alpha, theta
+    ax1_0: [0, 10]
+    ax1_1: [180, 300]
+    ax1_2: [263, 265]
+    # figure 2: covariances
+    ax2_0: [-0.07, 0]
+    ax2_1: [-0.06, 0.01]
+    ax2_2: [-0, 0.08]
+    ax2_3: [-0.012, 0]
+  xmaj:
+    # figure 1
+    ax1_0: 2
+    ax1_1: 30
+    ax1_2: 1
+    # figure 2
+    ax2_0: 0.03
+    ax2_1: 0.03
+    ax2_2: 0.04
+    ax2_3: 0.006
+  xmin:
+    # figure 1
+    ax1_0: 0.5
+    ax1_1: 5
+    ax1_2: 0.1
+    # figure 2
+    ax2_0: 0.005
+    ax2_1: 0.005
+    ax2_2: 0.005
+    ax2_3: 0.002
+
+F:
+  xlim:
+    # figure 1: uh, alpha, theta
+    ax1_0: [0, 12]
+    ax1_1: [190, 280]
+    ax1_2: [244, 261]
+    # figure 2: covariances
+    ax2_0: [-0.03, 0]
+    ax2_1: [-0.04, 0.01]
+    ax2_2: [0, 0.04]
+    ax2_3: [-0.06, 0]
+  xmaj:
+    # figure 1
+    ax1_0: 2
+    ax1_1: 30
+    ax1_2: 4
+    # figure 2
+    ax2_0: 0.01
+    ax2_1: 0.02
+    ax2_2: 0.01
+    ax2_3: 0.03
+  xmin:
+    # figure 1
+    ax1_0: 0.5
+    ax1_1: 5
+    ax1_2: 1
+    # figure 2
+    ax2_0: 0.002
+    ax2_1: 0.002
+    ax2_2: 0.002
+    ax2_3: 0.005
