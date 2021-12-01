@@ -95,7 +95,7 @@ for s in stabs:
 # Begin plotting
 # --------------------------------
 #
-props=dict(boxstyle='square',facecolor='white',alpha=0.5)
+props=dict(boxstyle="square",facecolor="white",edgecolor="white",alpha=0.0)
 # Figure 1: 9-panel everything
 # (a) <u>, <v>; (b) wdir; (c) <\Theta>;
 # (d) <u'w'>, <v'w'>; (e) <\theta'w'>; (f) <u'^2>;
@@ -106,6 +106,9 @@ for i, s in enumerate(s_all):
     s["ustar"] = ((s.uw_cov_tot**2.) + (s.vw_cov_tot**2.)) ** 0.25
     s["ustar2"] = s.ustar ** 2.
     s["h"] = s.z.where(s.ustar2 <= 0.05*s.ustar2[0], drop=True)[0] / 0.95
+    # grab ustar0 and calc tstar0 for normalizing in plotting
+    s["ustar0"] = s.ustar.isel(z=0)
+    s["tstar0"] = -s.tw_cov_tot.isel(z=0)/s.ustar0
 #     print(f"{s.stability}: {s.h.values} m")
     # calculate zi as in Sullivan et al 2016: max d<theta>/dz
 #     dtheta_dz = s.theta_mean.differentiate("z", 2)
@@ -126,19 +129,19 @@ for i, s in enumerate(s_all):
     ax1[0,2].plot(s.theta_mean, s.z/s.h, ls="-", c=colors[i], lw=2)
     # row 2
     # (d) <u'w'>, <v'w'>
-    ax1[1,0].plot(s.uw_cov_tot, s.z/s.h, ls="-", c=colors[i], lw=2)
-    ax1[1,0].plot(s.vw_cov_tot, s.z/s.h, ls=":", c=colors[i], lw=2)
+    ax1[1,0].plot(s.uw_cov_tot/s.ustar0/s.ustar0, s.z/s.h, ls="-", c=colors[i], lw=2)
+    ax1[1,0].plot(s.vw_cov_tot/s.ustar0/s.ustar0, s.z/s.h, ls=":", c=colors[i], lw=2)
     # (e) <\theta'w'>
-    ax1[1,1].plot(s.tw_cov_tot, s.z/s.h, ls="-", c=colors[i], lw=2)
+    ax1[1,1].plot(s.tw_cov_tot/s.ustar0/s.tstar0, s.z/s.h, ls="-", c=colors[i], lw=2)
     # (f) <u'^2> ROTATED
-    ax1[1,2].plot(s.u_var_rot, s.z/s.h, ls="-", c=colors[i], lw=2)
+    ax1[1,2].plot(s.u_var_rot/s.ustar0/s.ustar0, s.z/s.h, ls="-", c=colors[i], lw=2)
     # row 3
     # (g) <v'^2> ROTATED
-    ax1[2,0].plot(s.v_var_rot, s.z/s.h, ls="-", c=colors[i], lw=2)
+    ax1[2,0].plot(s.v_var_rot/s.ustar0/s.ustar0, s.z/s.h, ls="-", c=colors[i], lw=2)
     # (h) <w'^2>
-    ax1[2,1].plot(s.w_var, s.z/s.h, ls="-", c=colors[i], lw=2)
+    ax1[2,1].plot(s.w_var/s.ustar0/s.ustar0, s.z/s.h, ls="-", c=colors[i], lw=2)
     # (i) <\theta'^2>
-    ax1[2,2].plot(s.theta_var, s.z/s.h, ls="-", c=colors[i], lw=2)
+    ax1[2,2].plot(s.theta_var/s.tstar0/s.tstar0, s.z/s.h, ls="-", c=colors[i], lw=2)
 # clean up
 # (a)
 ax1[0,0].set_xlabel("$\\langle u \\rangle$, $\\langle v \\rangle$ [m s$^{-1}$]")
@@ -146,9 +149,11 @@ ax1[0,0].set_ylabel("$z/h$")
 ax1[0,0].set_xlim([-2., 12.])
 ax1[0,0].xaxis.set_major_locator(MultipleLocator(2))
 ax1[0,0].xaxis.set_minor_locator(MultipleLocator(1))
-ax1[0,0].set_ylim([0, 1.5])
+ax1[0,0].set_ylim([0, 1.2])
+ax1[0,0].yaxis.set_major_locator(MultipleLocator(0.2))
+ax1[0,0].yaxis.set_minor_locator(MultipleLocator(0.05))
 ax1[0,0].axvline(0., c="k", alpha=0.5)
-ax1[0,0].text(0.05,0.90,r'\textbf{(a)}',fontsize=20,bbox=props, 
+ax1[0,0].text(0.87,0.05,r'\textbf{(a)}',fontsize=20,bbox=props, 
               transform=ax1[0,0].transAxes)
 # (b)
 ax1[0,1].set_xlabel("$\\langle \\alpha \\rangle$ [deg]")
@@ -156,69 +161,72 @@ ax1[0,1].set_xlim([220, 280.])
 ax1[0,1].xaxis.set_major_locator(MultipleLocator(10))
 ax1[0,1].xaxis.set_minor_locator(MultipleLocator(5))
 ax1[0,1].axvline(270., c="k", alpha=0.5)
-ax1[0,1].text(0.05,0.90,r'\textbf{(b)}',fontsize=20,bbox=props, 
+ax1[0,1].text(0.87,0.05,r'\textbf{(b)}',fontsize=20,bbox=props, 
               transform=ax1[0,1].transAxes)
-ax1[0,1].legend(loc=(0.02, 0.30), labelspacing=0.25, 
+ax1[0,1].legend(loc="upper left", labelspacing=0.10, 
                 handletextpad=0.4, shadow=True)
 # (c)
 ax1[0,2].set_xlabel("$\\langle \\Theta \\rangle$ [K]")
 ax1[0,2].set_xlim([240, 270.])
 ax1[0,2].xaxis.set_major_locator(MultipleLocator(5))
 ax1[0,2].xaxis.set_minor_locator(MultipleLocator(1))
-ax1[0,2].text(0.05,0.90,r'\textbf{(c)}',fontsize=20,bbox=props, 
+ax1[0,2].text(0.87,0.05,r'\textbf{(c)}',fontsize=20,bbox=props, 
               transform=ax1[0,2].transAxes)
 # (d)
-ax1[1,0].set_xlabel("$\\langle u'w' \\rangle$, $\\langle v'w' \\rangle$ [m$^2$ s$^{-2}$]")
+ax1[1,0].set_xlabel("$\\langle u'w' \\rangle / u_*^2$, $\\langle v'w' \\rangle / u_*^2$")
 ax1[1,0].set_ylabel("$z/h$")
-ax1[1,0].set_ylim([0, 1.5])
-ax1[1,0].set_xlim([-0.05, 0.01])
-ax1[1,0].xaxis.set_major_locator(MultipleLocator(0.02))
-ax1[1,0].xaxis.set_minor_locator(MultipleLocator(0.005))
+ax1[1,0].set_xlim([-1.0, 0.2])
+ax1[1,0].xaxis.set_major_locator(MultipleLocator(0.2))
+ax1[1,0].xaxis.set_minor_locator(MultipleLocator(0.05))
 ax1[1,0].axvline(0., c="k", alpha=0.5)
-ax1[1,0].text(0.05,0.90,r'\textbf{(d)}',fontsize=20,bbox=props, 
+ax1[1,0].text(0.87,0.05,r'\textbf{(d)}',fontsize=20,bbox=props, 
               transform=ax1[1,0].transAxes)
 # (e)
-ax1[1,1].set_xlabel("$\\langle \\theta'w' \\rangle$ [K m s$^{-1}$]")
-ax1[1,1].set_xlim([-0.05, 0.005])
-ax1[1,1].xaxis.set_major_locator(MultipleLocator(0.02))
-ax1[1,1].xaxis.set_minor_locator(MultipleLocator(0.005))
-ax1[1,1].axvline(0., c="k", alpha=0.5)
-ax1[1,1].text(0.05,0.90,r'\textbf{(e)}',fontsize=20,bbox=props, 
+ax1[1,1].set_xlabel("$\\langle \\theta'w' \\rangle / u_* \\theta_*$")
+ax1[1,1].set_xlim([-1.2, 0])
+ax1[1,1].xaxis.set_major_locator(MultipleLocator(0.2))
+ax1[1,1].xaxis.set_minor_locator(MultipleLocator(0.05))
+# ax1[1,1].axvline(0., c="k", alpha=0.5)
+ax1[1,1].text(0.87,0.05,r'\textbf{(e)}',fontsize=20,bbox=props, 
               transform=ax1[1,1].transAxes)
 # (f)
-ax1[1,2].set_xlabel("$\\langle u'^2 \\rangle$ [m$^2$ s$^{-2}$]")
-ax1[1,2].set_xlim([-0.01, 0.3])
-ax1[1,2].xaxis.set_major_locator(MultipleLocator(0.1))
-ax1[1,2].xaxis.set_minor_locator(MultipleLocator(0.05))
-ax1[1,2].axvline(0., c="k", alpha=0.5)
-ax1[1,2].text(0.05,0.90,r'\textbf{(f)}',fontsize=20,bbox=props, 
+ax1[1,2].set_xlabel("$\\langle u'^2 \\rangle / u_*^2$")
+ax1[1,2].set_xlim([0, 5])
+ax1[1,2].xaxis.set_major_locator(MultipleLocator(1))
+ax1[1,2].xaxis.set_minor_locator(MultipleLocator(0.25))
+# ax1[1,2].axvline(0., c="k", alpha=0.5)
+ax1[1,2].text(0.03,0.05,r'\textbf{(f)}',fontsize=20,bbox=props, 
               transform=ax1[1,2].transAxes)
 # (g)
-ax1[2,0].set_xlabel("$\\langle v'^2 \\rangle$ [m$^2$ s$^{-2}$]")
+ax1[2,0].set_xlabel("$\\langle v'^2 \\rangle / u_*^2$")
 ax1[2,0].set_ylabel("$z/h$")
-ax1[2,0].set_ylim([0, 1.5])
-ax1[2,0].set_xlim([-0.001, 0.13])
-ax1[2,0].xaxis.set_major_locator(MultipleLocator(0.02))
-ax1[2,0].xaxis.set_minor_locator(MultipleLocator(0.01))
-ax1[2,0].axvline(0., c="k", alpha=0.5)
-ax1[2,0].text(0.05,0.90,r'\textbf{(g)}',fontsize=20,bbox=props, 
+ax1[2,0].set_xlim([0, 3])
+ax1[2,0].xaxis.set_major_locator(MultipleLocator(1))
+ax1[2,0].xaxis.set_minor_locator(MultipleLocator(0.25))
+# ax1[2,0].axvline(0., c="k", alpha=0.5)
+ax1[2,0].text(0.03,0.05,r'\textbf{(g)}',fontsize=20,bbox=props, 
               transform=ax1[2,0].transAxes)
 # (h)
-ax1[2,1].set_xlabel("$\\langle w'^2 \\rangle$ [m$^2$ s$^{-2}$]")
-ax1[2,1].set_xlim([-0.001, 0.1])
-ax1[2,1].xaxis.set_major_locator(MultipleLocator(0.02))
-ax1[2,1].xaxis.set_minor_locator(MultipleLocator(0.01))
-ax1[2,1].axvline(0., c="k", alpha=0.5)
-ax1[2,1].text(0.05,0.90,r'\textbf{(h)}',fontsize=20,bbox=props, 
+ax1[2,1].set_xlabel("$\\langle w'^2 \\rangle / u_*^2$")
+ax1[2,1].set_xlim([0, 1.8])
+ax1[2,1].xaxis.set_major_locator(MultipleLocator(0.5))
+ax1[2,1].xaxis.set_minor_locator(MultipleLocator(0.1))
+# ax1[2,1].axvline(0., c="k", alpha=0.5)
+ax1[2,1].text(0.87,0.05,r'\textbf{(h)}',fontsize=20,bbox=props, 
               transform=ax1[2,1].transAxes)
 # (i)
-ax1[2,2].set_xlabel("$\\langle \\theta'^2 \\rangle$ [K$^2$]")
-ax1[2,2].set_xlim([-0.01, 0.7])
-ax1[2,2].xaxis.set_major_locator(MultipleLocator(0.2))
-ax1[2,2].xaxis.set_minor_locator(MultipleLocator(0.05))
-ax1[2,2].axvline(0., c="k", alpha=0.5)
-ax1[2,2].text(0.05,0.90,r'\textbf{(i)}',fontsize=20,bbox=props, 
+ax1[2,2].set_xlabel("$\\langle \\theta'^2 \\rangle / \\theta_*^2$")
+ax1[2,2].set_xlim([0, 12])
+ax1[2,2].xaxis.set_major_locator(MultipleLocator(3))
+ax1[2,2].xaxis.set_minor_locator(MultipleLocator(0.5))
+# ax1[2,2].axvline(0., c="k", alpha=0.5)
+ax1[2,2].text(0.03,0.05,r'\textbf{(i)}',fontsize=20,bbox=props, 
               transform=ax1[2,2].transAxes)
+# add horizontal line at z/h = 1 for all
+# tick lines inside plot
+for iax in ax1.flatten():
+    iax.axhline(1.0, c="k", alpha=0.5, ls="--")
+    iax.tick_params(which="both", direction="in", top=True, right=True)
 # save and close
 fig1.tight_layout()
 fig1.savefig(f"{fdir_save}mean_prof_3x3.pdf", format="pdf")
@@ -235,7 +243,7 @@ for i, s in enumerate(s_all):
 # clean up
 ax2[0].set_xlabel("TKE [m2/s2]")
 ax2[0].set_ylabel("$z/h$")
-ax2[0].set_ylim([0, 1.2])
+ax2[0].set_ylim([0, 1.5])
 ax2[0].grid()
 ax2[0].legend()
 ax2[1].set_xlabel("$u_{*}$ [m/s]")
