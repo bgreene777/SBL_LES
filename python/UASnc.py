@@ -171,6 +171,8 @@ def ec(df, h, time_average=1800.0, time_start=0.0, quicklook=False):
     v_rot =-df.u.isel(t=iuse)*np.sin(angle) + df.v.isel(t=iuse)*np.cos(angle)
     ec["u_var_rot"] = u_rot.var("t")
     ec["v_var_rot"] = v_rot.var("t")
+    # calculate TKE
+    ec["e"] = 0.5 * (ec.u_var + ec.v_var + ec.w_var)
     
     # only return ec where z <= h
     return ec.where(ec.z <= h, drop=True)
@@ -221,6 +223,8 @@ for s in [Astat, Fstat]:
     wdir = np.arctan2(-s.u_mean, -s.v_mean) * 180./np.pi
     wdir[wdir < 0.] += 360.
     s["wd"] = wdir
+    # calculate TKE
+    s["e"] = 0.5 * (s.u_var + s.v_var + s.w_var)
 
 # load timeseries files
 ftsA = f"{fsim}A_192_interp/output/netcdf/timeseries_all.nc"
@@ -313,6 +317,12 @@ for s, err in zip(ec_all, err_all):
     s["err_ww_lo3"] = (1. - 3*err.ww_var) * s.w_var
     s["err_tt_hi3"] = (1. + 3*err.tt_var) * s.theta_var
     s["err_tt_lo3"] = (1. - 3*err.tt_var) * s.theta_var
+    # calculate TKE error from propagation as well as bounds
+    err["e"] = np.sqrt(0.25 * (err.uu_var + err.vv_var + err.ww_var))
+    s["err_e_hi"] = (1. + err.e) * s.e
+    s["err_e_lo"] = (1. - err.e) * s.e
+    s["err_e_hi3"] = (1. + 3*err.e) * s.e
+    s["err_e_lo3"] = (1. - 3*err.e) * s.e
 # --------------------------------
 # Plot
 # --------------------------------
@@ -369,9 +379,9 @@ for s, stat in zip(uas_all, stat_all):
     ax1[2].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax1_2"]))
     ax1[2].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax1_2"]))
     # edit ticks and add subplot labels
-    for iax, s in zip(ax1, list("abc")):
+    for iax, p in zip(ax1, list("abc")):
         iax.tick_params(which="both", direction="in", top=True, right=True)
-        iax.text(0.88,0.05,f"$\\textbf{{({s})}}$",fontsize=20,
+        iax.text(0.88,0.05,f"$\\textbf{{({p})}}$",fontsize=20,
                  transform=iax.transAxes)
     fig1.tight_layout()
     # save and close
@@ -448,9 +458,9 @@ for s, stat in zip(ec_all, stat_all):
     ax2[3].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax2_3"]))
     ax2[3].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax2_3"]))
     # edit ticks and add subplot labels
-    for iax, s in zip(ax2[[0,1,3]], list("abd")):
+    for iax, p in zip(ax2[[0,1,3]], list("abd")):
         iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
-        iax.text(0.80,0.05,f"$\\textbf{{({s})}}$",fontsize=20,
+        iax.text(0.80,0.05,f"$\\textbf{{({p})}}$",fontsize=20,
                  transform=iax.transAxes)
     ax2[2].tick_params(which="both", direction="in", top=True, right=True, pad=8)
     ax2[2].text(0.06,0.05,"$\\textbf{(c)}$",fontsize=20,
@@ -512,38 +522,57 @@ for s, stat in zip(ec_all, stat_all):
                          color="r", label="$\\epsilon_{v'v'_{rot}}$")
     ax3[1,1].fill_betweenx(s.z/stat.h, s.err_vv_rot_lo3, s.err_vv_rot_hi3, alpha=0.1,
                          color="r")
-    # theta'theta'
-    ax3[1,2].plot(stat.theta_var.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h, 
-                c="k", ls="-", lw=2, label="$\\langle \\theta'\\theta' \\rangle$")
-    ax3[1,2].plot(s.theta_var, s.z/stat.h, c="r", ls="-", lw=2, label="UAS")
+    # TKE
+    ax3[1,2].plot(stat.e.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h, 
+                c="k", ls="-", lw=2, label="$\\langle e \\rangle$")
+    ax3[1,2].plot(s.e, s.z/stat.h, c="r", ls="-", lw=2, label="UAS")
     # shade errors
-    ax3[1,2].fill_betweenx(s.z/stat.h, s.err_tt_lo, s.err_tt_hi, alpha=0.3,
-                         color="r", label="$\\epsilon_{\\theta'\\theta'}$")
-    ax3[1,2].fill_betweenx(s.z/stat.h, s.err_tt_lo3, s.err_tt_hi3, alpha=0.1,
+    ax3[1,2].fill_betweenx(s.z/stat.h, s.err_e_lo, s.err_e_hi, alpha=0.3,
+                         color="r", label="$\\epsilon_{e}$")
+    ax3[1,2].fill_betweenx(s.z/stat.h, s.err_e_lo3, s.err_e_hi3, alpha=0.1,
                          color="r")
     # clean up
-    for iax in ax3.flatten():
-        iax.legend(loc="upper right")
+    for iax, p in zip(ax3.flatten(), list("abcdef")):
+        iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
+        iax.text(0.03,0.05,f"$\\textbf{{({p})}}$",fontsize=20,
+                 transform=iax.transAxes)
+        # move legend in panels b, e for simulation F
+        if ((stat.stability == "F") & (p in "be")):
+            iax.legend(loc="right", labelspacing=0.10, 
+                       handletextpad=0.4, shadow=True)
+        else:
+            iax.legend(loc="upper right", labelspacing=0.10, 
+                       handletextpad=0.4, shadow=True)
     ax3[0,0].set_xlabel("$u'u'$ [m$^2$ s$^{-2}$]")
     ax3[0,0].set_ylabel("$z/h$")
     ax3[0,0].set_ylim([0, 1])
-#     ax3[0].yaxis.set_major_locator(MultipleLocator(0.2))
-#     ax3[0].yaxis.set_minor_locator(MultipleLocator(0.05))
-#     ax3[0].set_xlim([0, 10])
-#     ax3[0].xaxis.set_major_locator(MultipleLocator(2))
-#     ax3[0].xaxis.set_minor_locator(MultipleLocator(0.5))
+    ax3[0,0].yaxis.set_major_locator(MultipleLocator(0.2))
+    ax3[0,0].yaxis.set_minor_locator(MultipleLocator(0.05))
+    ax3[0,0].set_xlim(config[stat.stability]["xlim"]["ax3_00"])
+    ax3[0,0].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax3_00"]))
+    ax3[0,0].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax3_00"]))
     ax3[0,1].set_xlabel("$v'v'$ [m$^2$ s$^{-2}$]")
-#     ax3[1].set_xlim([210, 270])
-#     ax3[1].xaxis.set_major_locator(MultipleLocator(15))
-#     ax3[1].xaxis.set_minor_locator(MultipleLocator(5))
+    ax3[0,1].set_xlim(config[stat.stability]["xlim"]["ax3_01"])
+    ax3[0,1].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax3_01"]))
+    ax3[0,1].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax3_01"]))
     ax3[0,2].set_xlabel("$w'w'$ [m$^2$ s$^{-2}$]")
-#     ax3[2].set_xlim([263, 265])
-#     ax3[2].xaxis.set_major_locator(MultipleLocator(0.5))
-#     ax3[2].xaxis.set_minor_locator(MultipleLocator(0.1))
+    ax3[0,2].set_xlim(config[stat.stability]["xlim"]["ax3_02"])
+    ax3[0,2].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax3_02"]))
+    ax3[0,2].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax3_02"]))
     ax3[1,0].set_ylabel("$z/h$")
     ax3[1,0].set_xlabel("$u'u'_{rot}$ [m$^2$ s$^{-2}$]")
+    ax3[1,0].set_xlim(config[stat.stability]["xlim"]["ax3_10"])
+    ax3[1,0].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax3_10"]))
+    ax3[1,0].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax3_10"]))
     ax3[1,1].set_xlabel("$v'v'_{rot}$ [m$^2$ s$^{-2}$]")
-    ax3[1,2].set_xlabel("$\\theta'\\theta'}$ [K$^2$]")
+    ax3[1,1].set_xlim(config[stat.stability]["xlim"]["ax3_11"])
+    ax3[1,1].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax3_11"]))
+    ax3[1,1].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax3_11"]))
+    ax3[1,2].set_xlabel("$e$ [m$^2$ s$^{-2}$]")
+    ax3[1,2].set_xlim(config[stat.stability]["xlim"]["ax3_12"])
+    ax3[1,2].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax3_12"]))
+    ax3[1,2].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax3_12"]))
+
     fig3.tight_layout()
     # save and close
     fsave3 = f"{fdir_save}{stat.stability}_vars.pdf"
