@@ -9,12 +9,14 @@
 # --------------------------------
 import os
 import yaml
+import seaborn
 import numpy as np
 import xarray as xr
 from numba import njit
 from matplotlib import pyplot as plt
 from matplotlib import rc
 from matplotlib.ticker import MultipleLocator
+from RFMnc import recalc_err
 # --------------------------------
 # Define Functions
 # --------------------------------
@@ -579,3 +581,133 @@ for s, stat in zip(ec_all, stat_all):
     print(f"Saving figure: {fsave3}")
     fig3.savefig(fsave3)
     plt.close(fig3)
+
+# --------------------------------
+# Calculate optimal ascent rates and plot
+# --------------------------------
+# construct range of recalculated errors
+Tnew0 = config["recalc_lo"]
+Tnew1 = config["recalc_hi"]
+Tnewdt = config["recalc_dt"]
+Tnew = np.arange(Tnew0, Tnew1, Tnewdt, dtype=np.float64)
+# recalc errors within this range for cases A and F
+Aasc = recalc_err("A", Tnew)
+Fasc = recalc_err("F", Tnew)
+# grab error ranges for comparison
+err_range = config["err_range"]
+ne = len(err_range)
+# delta z for averaging
+delta_z = config["delta_z"]
+# determine averaging time to be at/below err for each z
+# loop over A and F sims
+for asc in [Aasc, Fasc]:
+    # create empty dataarrays within the datasets for storing
+    asc["t_uh"] = xr.DataArray(np.zeros((asc.z.size, ne), dtype=np.float64),
+                               coords=dict(z=asc.z, err=err_range))
+    asc["t_alpha"] = xr.DataArray(np.zeros((asc.z.size, ne), dtype=np.float64),
+                                  coords=dict(z=asc.z, err=err_range))
+    asc["t_theta"] = xr.DataArray(np.zeros((asc.z.size, ne), dtype=np.float64),
+                                  coords=dict(z=asc.z, err=err_range))
+    # loop over error level
+    for je, e in enumerate(err_range):
+        # loop over height
+        for jz in range(asc.z.size):
+            # uh
+            iuh = np.where(asc.uh.isel(z=jz) <= e)[0]
+            # check for empty array
+            if np.size(iuh) > 0:
+                asc["t_uh"][jz,je] = Tnew[iuh[0]]
+            else:
+                asc["t_uh"][jz,je] = np.nan
+            # alpha
+            ialpha = np.where(asc.alpha.isel(z=jz) <= e)[0]
+            # check for empty array
+            if np.size(ialpha) > 0:
+                asc["t_alpha"][jz,je] = Tnew[ialpha[0]]
+            else:
+                asc["t_alpha"][jz,je] = np.nan
+            # theta
+            itheta = np.where(asc.theta.isel(z=jz) <= e)[0]
+            # check for empty array
+            if np.size(itheta) > 0:
+                asc["t_theta"][jz,je] = Tnew[itheta[0]]
+            else:
+                asc["t_theta"][jz,je] = np.nan
+    
+    # now can calculate ascent rate based on fixed delta_z
+    asc["vz_uh"] = delta_z / asc.t_uh
+    asc["vz_alpha"] = delta_z / asc.t_alpha
+    asc["vz_theta"] = delta_z / asc.t_theta
+
+#
+# plot optimal ascent rates
+#
+# define colors and linestyles to loop over
+colors = seaborn.color_palette("mako", 2)
+lines = ["-", "--", ":", "-."]
+
+fig4, ax4 = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True, 
+                        figsize=(7.4,5))
+# loop over error levels
+for je, e in enumerate(err_range):
+    # A
+    # uh
+    l1 = ax4[0].plot(Aasc.vz_uh.isel(err=je), Aasc.z/Aasc.h,
+                     ls=lines[je], c=colors[0], lw=2, label="$u_h$")
+    # alpha
+    l2 = ax4[0].plot(Aasc.vz_alpha.isel(err=je), Aasc.z/Aasc.h,
+                     ls=lines[je], c=colors[1], lw=2, label="$\\alpha$")
+    # theta
+    # l3 = ax4[0].plot(Aasc.vz_theta.isel(err=je), Aasc.z/Aasc.h,
+    #                  ls=lines[je], c=colors[2], lw=2, label="$\\theta$")
+    # collect legend line handles
+    if je == 0:
+        ltot = l1+l2#+l3
+    # F
+    # uh
+    ax4[1].plot(Fasc.vz_uh.isel(err=je), Fasc.z/Fasc.h,
+                ls=lines[je], c=colors[0], lw=2, label="$u_h$")
+    # alpha
+    ax4[1].plot(Fasc.vz_alpha.isel(err=je), Fasc.z/Fasc.h,
+                ls=lines[je], c=colors[1], lw=2, label="$\\alpha$")
+    # theta
+    # ax4[1].plot(Fasc.vz_theta.isel(err=je), Fasc.z/Fasc.h,
+    #             ls=lines[je], c=colors[2], lw=2, label="$\\theta$")
+# create line handles to explain linestyle for error ranges
+l4=ax4[0].plot([], [], ls=lines[0], c="k", 
+               label=f"$\\epsilon={err_range[0]*100.:3.0f}\%$")
+l5=ax4[0].plot([], [], ls=lines[1], c="k", 
+               label=f"$\\epsilon={err_range[1]*100.:3.0f}\%$")
+l6=ax4[0].plot([], [], ls=lines[2], c="k", 
+               label=f"$\\epsilon={err_range[2]*100.:3.0f}\%$")
+# l7=ax4[0].plot([], [], ls=lines[3], c="k", 
+#                label=f"${err_range[3]*100.:3.0f}\%$")
+# combine
+ltot += l4 + l5 + l6# + l7
+# add legend
+fig4.legend(handles=ltot, loc="upper center", ncol=5, 
+              borderaxespad=0.15,
+              columnspacing=1, bbox_to_anchor=(0.55, 1),
+              handletextpad=0.4, fontsize=14, frameon=False)
+# clean up
+for iax, p in zip(ax4, list("ab")):
+    iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
+    iax.set_xlabel("Ascent Rate [m s$^{-1}$]")
+    iax.text(0.03,0.90,f"$\\textbf{{({p})}}$",fontsize=20,
+             transform=iax.transAxes)
+    # vertical solid gray line for vz = 1 m/s
+    iax.axvline(1, c="k", ls="-", alpha=0.5)
+ax4[0].set_xlim([0.01, 20])
+# ax4[0].xaxis.set_major_locator(MultipleLocator(5))
+# ax4[0].xaxis.set_minor_locator(MultipleLocator(0.5))
+ax4[0].set_xscale("log")
+ax4[0].set_ylabel("$z/h$")
+ax4[0].set_ylim([0, 1])
+ax4[0].yaxis.set_major_locator(MultipleLocator(0.2))
+ax4[0].yaxis.set_minor_locator(MultipleLocator(0.05))
+fig4.tight_layout()
+# save and close
+fsave4 = f"{fdir_save}AF_vz_optimal.pdf"
+print(f"Saving figure: {fsave4}")
+fig4.savefig(fsave4)
+plt.close(fig4)

@@ -111,3 +111,9 @@ F:
     ax3_10: 0.01
     ax3_11: 0.01
     ax3_12: 0.025
+# parameters for calculating optimal ascent rate
+recalc_lo: 0.1   # seconds
+recalc_hi: 180.1 # seconds
+recalc_dt: 0.01   # seconds
+delta_z: 3.      # meters
+err_range: [0.10, 0.02, 0.01] # x100 = percent
