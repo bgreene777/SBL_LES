@@ -382,11 +382,6 @@ def plot_2d_err():
     # figure 1: rows=A, F; columns=uh, alpha, theta
     fig, ax = plt.subplots(nrows=2, ncols=3, sharex=True, sharey="row", 
                            constrained_layout=True, figsize=(14.8, 10))
-    # sharey across rows
-    # ax[0,1].sharey(ax[0,0])
-    # ax[0,2].sharey(ax[0,0])
-    # ax[1,1].sharey(ax[1,0])
-    # ax[1,2].sharey(ax[1,0])
     # uh
     # A
     cfax00 = ax[0,0].contourf(Aerr.Tsample, Aerr.z/Aerr.h, 100*Aerr.uh,
@@ -443,9 +438,6 @@ def plot_2d_err():
                  transform=iax.transAxes)
         iax.legend(loc="upper right", labelspacing=0.10, 
                    handletextpad=0.4, shadow=True)
-        # for panels bcef, remove y-axis tick labels
-        # if p in "bcef":
-        #     iax.tick_params(axis="y", labelleft=False)
     # labels
     # ax00
     ax[0,0].set_ylabel("$z/h$")
