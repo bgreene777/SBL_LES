@@ -113,6 +113,8 @@ for i, s in enumerate(s_all):
     # calculate zi as in Sullivan et al 2016: max d<theta>/dz
 #     dtheta_dz = s.theta_mean.differentiate("z", 2)
 #     s["h"] = 400./1.5  # to quickly look again at just z
+    # calculate TKE
+    s["e"] = 0.5 * (s.u_var + s.v_var + s.w_var)
     # now plot
     # row 1
     # (a) <u>, <v>
@@ -140,8 +142,8 @@ for i, s in enumerate(s_all):
     ax1[2,0].plot(s.v_var_rot/s.ustar0/s.ustar0, s.z/s.h, ls="-", c=colors[i], lw=2)
     # (h) <w'^2>
     ax1[2,1].plot(s.w_var/s.ustar0/s.ustar0, s.z/s.h, ls="-", c=colors[i], lw=2)
-    # (i) <\theta'^2>
-    ax1[2,2].plot(s.theta_var/s.tstar0/s.tstar0, s.z/s.h, ls="-", c=colors[i], lw=2)
+    # (i) TKE
+    ax1[2,2].plot(s.e/s.ustar0/s.ustar0, s.z/s.h, ls="-", c=colors[i], lw=2)
 # clean up
 # (a)
 ax1[0,0].set_xlabel("$\\langle u \\rangle$, $\\langle v \\rangle$ [m s$^{-1}$]")
@@ -215,10 +217,10 @@ ax1[2,1].xaxis.set_minor_locator(MultipleLocator(0.1))
 ax1[2,1].text(0.87,0.05,r'\textbf{(h)}',fontsize=20,bbox=props, 
               transform=ax1[2,1].transAxes)
 # (i)
-ax1[2,2].set_xlabel("$\\langle \\theta'^2 \\rangle / \\theta_*^2$")
-ax1[2,2].set_xlim([0, 12])
-ax1[2,2].xaxis.set_major_locator(MultipleLocator(3))
-ax1[2,2].xaxis.set_minor_locator(MultipleLocator(0.5))
+ax1[2,2].set_xlabel("$\\langle e \\rangle / u_*^2$")
+ax1[2,2].set_xlim([0, 4])
+ax1[2,2].xaxis.set_major_locator(MultipleLocator(1))
+ax1[2,2].xaxis.set_minor_locator(MultipleLocator(0.25))
 # ax1[2,2].axvline(0., c="k", alpha=0.5)
 ax1[2,2].text(0.03,0.05,r'\textbf{(i)}',fontsize=20,bbox=props, 
               transform=ax1[2,2].transAxes)
