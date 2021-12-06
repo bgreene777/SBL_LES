@@ -47,7 +47,7 @@ def plot_err_prof():
             # also only load stat file if there is corresponding error file
             stat.append(xr.load_dataset(fstat))
     # loop through stat files and calculate important parameters
-    for s in stat:
+    for s, e in zip(stat, err):
         # ustar
         s["ustar"] = ((s.uw_cov_tot ** 2.) + (s.vw_cov_tot ** 2.)) ** 0.25
         s["ustar2"] = s.ustar ** 2.
@@ -57,6 +57,12 @@ def plot_err_prof():
         s["isbl"] = np.where(s.z <= s.h)[0]
         s["nz_sbl"] = len(s.isbl)
         s["z_sbl"] = s.z.isel(z=s.isbl)
+        # calculate TKE
+        s["e"] = 0.5 * (s.u_var + s.v_var + s.w_var)
+        # calculate TKE error from propagation
+        e["e"] = np.sqrt(0.25 * ((e.uu_var*s.u_var)**2. +\
+                                 (e.vv_var*s.v_var)**2. +\
+                                 (e.ww_var*s.w_var)**2.) ) / s.e
     #
     # Figure 1: 3-panel 1st order moments
     # wind speed, wind direction, potential temperature
@@ -101,51 +107,45 @@ def plot_err_prof():
     plt.close(fig1)
     
     #
-    # Figure 2: 3-panel covariances
-    # u'w', v'w', theta'w'
+    # Figure 2: 2-panel covariances
+    # ustar2, theta'w'
     #
-    fig2, ax2 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(14.8, 5))
+    fig2, ax2 = plt.subplots(nrows=1, ncols=2, sharey=True, figsize=(9.87, 5))
     # loop through simulations
     for i, e in enumerate(err):
         # u'w'
-        ax2[0].plot(100.*e.uw_cov_tot, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
-        # v'w'
-        ax2[1].plot(100.*e.vw_cov_tot, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
+        ax2[0].plot(100.*e.ustar2, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
         # theta'w'
-        ax2[2].plot(100.*e.tw_cov_tot, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
+        ax2[1].plot(100.*e.tw_cov_tot, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
     # labels
-    ax2[0].set_xlabel("$\\epsilon_{u'w'}$ [\%]")
     ax2[0].set_ylabel("$z/h$")
-    ax2[0].set_xlim([0, 100])
-    ax2[0].xaxis.set_major_locator(MultipleLocator(25))
-    ax2[0].xaxis.set_minor_locator(MultipleLocator(5))
     ax2[0].set_ylim([0, 1])
     ax2[0].yaxis.set_major_locator(MultipleLocator(0.2))
     ax2[0].yaxis.set_minor_locator(MultipleLocator(0.05))
+    ax2[0].set_xlabel("$\\epsilon_{u_{*}^2}$ [\%]")
+    ax2[0].set_xlim([0, 100])
+    ax2[0].xaxis.set_major_locator(MultipleLocator(25))
+    ax2[0].xaxis.set_minor_locator(MultipleLocator(5))
     ax2[0].legend(loc="right", labelspacing=0.10, handletextpad=0.4, shadow=True)
-    ax2[1].set_xlabel("$\\epsilon_{v'w'}$ [\%]")
-    ax2[1].set_xlim([0, 100])
-    ax2[1].xaxis.set_major_locator(MultipleLocator(25))
-    ax2[1].xaxis.set_minor_locator(MultipleLocator(5))
-    ax2[2].set_xlabel("$\\epsilon_{\\theta'w'}$ [\%]")
-    ax2[2].set_xlim([0, 50])
-    ax2[2].xaxis.set_major_locator(MultipleLocator(10))
-    ax2[2].xaxis.set_minor_locator(MultipleLocator(2))
+    ax2[1].set_xlabel("$\\epsilon_{\\theta'w'}$ [\%]")
+    ax2[1].set_xlim([0, 50])
+    ax2[1].xaxis.set_major_locator(MultipleLocator(10))
+    ax2[1].xaxis.set_minor_locator(MultipleLocator(2))
     # edit ticks and add subplot labels
-    for iax, s in zip(ax2, list("abc")):
+    for iax, s in zip(ax2, list("ab")):
         iax.tick_params(which="both", direction="in", top=True, right=True)
         iax.text(0.88,0.05,f"$\\textbf{{({s})}}$",fontsize=20,
                  transform=iax.transAxes)
     fig2.tight_layout()
     # save and close
-    fsave2 = f"{figdir}errors/covars.pdf"
+    fsave2 = f"{figdir}errors/ustar2_twcov.pdf"
     print(f"Saving figure: {fsave2}")
     fig2.savefig(fsave2)
     plt.close(fig2)
     
     #
     # Figure 3: 4-panel variances
-    # u'u' rotated, v'v' rotated, w'w', theta'theta'
+    # u'u' rotated, v'v' rotated, w'w', TKE
     #
     fig3, ax3 = plt.subplots(nrows=1, ncols=4, sharey=True, figsize=(14.8, 5))
     # loop through simulations
@@ -156,8 +156,8 @@ def plot_err_prof():
         ax3[1].plot(100.*e.vv_var_rot, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
         # w'w'
         ax3[2].plot(100.*e.ww_var, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
-        # theta'theta'
-        ax3[3].plot(100.*e.tt_var, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
+        # TKE
+        ax3[3].plot(100.*e.e, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
     # labels
     ax3[0].set_xlabel("$\\epsilon_{u'u'}$ [\%]")
     ax3[0].set_ylabel("$z/h$")
@@ -176,8 +176,8 @@ def plot_err_prof():
     ax3[2].set_xlim([0, 10])
     ax3[2].xaxis.set_major_locator(MultipleLocator(2))
     ax3[2].xaxis.set_minor_locator(MultipleLocator(0.5))
-    ax3[3].set_xlabel("$\\epsilon_{\\theta'\\theta'}$ [\%]")
-    ax3[3].set_xlim([0, 20])
+    ax3[3].set_xlabel("$\\epsilon_{e}$ [\%]")
+    ax3[3].set_xlim([0, 15])
     ax3[3].xaxis.set_major_locator(MultipleLocator(5))
     ax3[3].xaxis.set_minor_locator(MultipleLocator(1))
     # edit ticks and add subplot labels
@@ -187,52 +187,10 @@ def plot_err_prof():
                  transform=iax.transAxes)
     fig3.tight_layout()
     # save and close
-    fsave3 = f"{figdir}errors/vars.pdf"
+    fsave3 = f"{figdir}errors/uvw_e_vars.pdf"
     print(f"Saving figure: {fsave3}")
     fig3.savefig(fsave3)
     plt.close(fig3)
-    
-    #
-    # Figure 4: 3-panel u'w', v'w', ustar2
-    #
-    fig4, ax4 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(14.8, 5))
-    # loop through simulations
-    for i, e in enumerate(err):
-        # u'w'
-        ax4[0].plot(100.*e.uw_cov_tot, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
-        # v'w'
-        ax4[1].plot(100.*e.vw_cov_tot, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
-        # ustar2
-        ax4[2].plot(100.*e.ustar2, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
-    # labels
-    ax4[0].set_xlabel("$\\epsilon_{u'w'}$ [\%]")
-    ax4[0].set_ylabel("$z/h$")
-    ax4[0].set_xlim([0, 100])
-    ax4[0].xaxis.set_major_locator(MultipleLocator(25))
-    ax4[0].xaxis.set_minor_locator(MultipleLocator(5))
-    ax4[0].set_ylim([0, 1])
-    ax4[0].yaxis.set_major_locator(MultipleLocator(0.2))
-    ax4[0].yaxis.set_minor_locator(MultipleLocator(0.05))
-    ax4[0].legend(loc="right", labelspacing=0.10, handletextpad=0.4, shadow=True)
-    ax4[1].set_xlabel("$\\epsilon_{v'w'}$ [\%]")
-    ax4[1].set_xlim([0, 100])
-    ax4[1].xaxis.set_major_locator(MultipleLocator(25))
-    ax4[1].xaxis.set_minor_locator(MultipleLocator(5))
-    ax4[2].set_xlabel("$\\epsilon_{u_{*}^2}$ [\%]")
-    ax4[2].set_xlim([0, 100])
-    ax4[2].xaxis.set_major_locator(MultipleLocator(25))
-    ax4[2].xaxis.set_minor_locator(MultipleLocator(5))
-    # edit ticks and add subplot labels
-    for iax, s in zip(ax4, list("abc")):
-        iax.tick_params(which="both", direction="in", top=True, right=True)
-        iax.text(0.88,0.05,f"$\\textbf{{({s})}}$",fontsize=20,
-                 transform=iax.transAxes)
-    fig4.tight_layout()
-    # save and close
-    fsave4 = f"{figdir}errors/ustar2.pdf"
-    print(f"Saving figure: {fsave4}")
-    fig4.savefig(fsave4)
-    plt.close(fig4)
     
     return
 
@@ -486,7 +444,7 @@ if __name__ == "__main__":
         config = yaml.safe_load(f)
     # only thing we care about is where to save figures
     figdir = config["figdir"]
-    # plot_err_prof()
-#     plot_L_prof()
-    plot_2d_err()
+    plot_err_prof()
+    # plot_L_prof()
+    # plot_2d_err()
     
