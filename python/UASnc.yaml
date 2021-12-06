@@ -13,52 +13,40 @@ A:
     ax1_0: [0, 10]
     ax1_1: [180, 300]
     ax1_2: [263, 265]
-    # figure 2: covariances
-    ax2_0: [-0.07, 0]
-    ax2_1: [-0.06, 0.01]
-    ax2_2: [-0, 0.08]
-    ax2_3: [-0.012, 0]
-    # figure 3: variances
-    ax3_00: [0, 0.3]
-    ax3_01: [0, 0.2]
-    ax3_02: [0, 0.1]
-    ax3_10: [0, 0.3]
-    ax3_11: [0, 0.2]
-    ax3_12: [0, 0.4]
+    # figure 2: covariances - ustar2 and theta'w'
+    ax2_0: [0, 1.5]
+    ax2_1: [-1.5, 0]
+    # figure 3: variances - u_rot, v_rot, w, TKE
+    ax3_0: [0, 5]
+    ax3_1: [0, 3]
+    ax3_2: [0, 2]
+    ax3_3: [0, 5]
   xmaj:
     # figure 1
     ax1_0: 2
     ax1_1: 30
     ax1_2: 1
     # figure 2
-    ax2_0: 0.03
-    ax2_1: 0.03
-    ax2_2: 0.04
-    ax2_3: 0.006
+    ax2_0: 0.5
+    ax2_1: 0.5
     # figure 3
-    ax3_00: 0.1
-    ax3_01: 0.1
-    ax3_02: 0.05
-    ax3_10: 0.1
-    ax3_11: 0.1
-    ax3_12: 0.1
+    ax3_0: 1
+    ax3_1: 1
+    ax3_2: 1
+    ax3_3: 1
   xmin:
     # figure 1
     ax1_0: 0.5
     ax1_1: 5
     ax1_2: 0.1
     # figure 2
-    ax2_0: 0.005
-    ax2_1: 0.005
-    ax2_2: 0.005
-    ax2_3: 0.002
+    ax2_0: 0.1
+    ax2_1: 0.1
     # figure 3
-    ax3_00: 0.025
-    ax3_01: 0.025
-    ax3_02: 0.01
-    ax3_10: 0.025
-    ax3_11: 0.025
-    ax3_12: 0.025
+    ax3_0: 0.25
+    ax3_1: 0.25
+    ax3_2: 0.25
+    ax3_3: 0.25
 F:
   xlim:
     # figure 1: uh, alpha, theta
@@ -66,51 +54,39 @@ F:
     ax1_1: [190, 280]
     ax1_2: [244, 261]
     # figure 2: covariances
-    ax2_0: [-0.03, 0]
-    ax2_1: [-0.04, 0.01]
-    ax2_2: [0, 0.04]
-    ax2_3: [-0.06, 0]
+    ax2_0: [0, 1.5]
+    ax2_1: [-1.5, 0]
     # figure 3: variances
-    ax3_00: [0, 0.1]
-    ax3_01: [0, 0.1]
-    ax3_02: [0, 0.05]
-    ax3_10: [0, 0.15]
-    ax3_11: [0, 0.1]
-    ax3_12: [0, 0.2]
+    ax3_0: [0, 4]
+    ax3_1: [0, 4]
+    ax3_2: [0, 2]
+    ax3_3: [0, 4]
   xmaj:
     # figure 1
     ax1_0: 2
     ax1_1: 30
     ax1_2: 4
     # figure 2
-    ax2_0: 0.01
-    ax2_1: 0.02
-    ax2_2: 0.01
-    ax2_3: 0.03
+    ax2_0: 0.5
+    ax2_1: 0.5
     # figure 3: variances
-    ax3_00: 0.05
-    ax3_01: 0.05
-    ax3_02: 0.02
-    ax3_10: 0.06
-    ax3_11: 0.05
-    ax3_12: 0.05
+    ax3_0: 1
+    ax3_1: 1
+    ax3_2: 1
+    ax3_3: 1
   xmin:
     # figure 1
     ax1_0: 0.5
     ax1_1: 5
     ax1_2: 1
     # figure 2
-    ax2_0: 0.002
-    ax2_1: 0.002
-    ax2_2: 0.002
-    ax2_3: 0.005
+    ax2_0: 0.1
+    ax2_1: 0.1
     # figure 3: variances
-    ax3_00: 0.01
-    ax3_01: 0.01
-    ax3_02: 0.005
-    ax3_10: 0.01
-    ax3_11: 0.01
-    ax3_12: 0.025
+    ax3_0: 0.25
+    ax3_1: 0.25
+    ax3_2: 0.25
+    ax3_3: 0.25
 # parameters for calculating optimal ascent rate
 recalc_lo: 0.1   # seconds
 recalc_hi: 180.1 # seconds
