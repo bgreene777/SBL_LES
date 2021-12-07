@@ -831,10 +831,12 @@ def main3(reprocess):
 # --------------------------------
 # recalc_err: recalculate random errors with coefficients for given sample time
 # --------------------------------
-def recalc_err(stability, Tnew):
-    # input stability (string) and new sampling time (float)
+def recalc_err(stability, Tnew, Tnew_ec=None):
+    # input stability (string) new sampling time (float), and level (integer)
     # if Tnew is array, then loop through each
-    # return xr.Dataset with new errors for *only* uh, alpha, theta
+    # if Tnew_ec is none, skip recalculating 2nd order moments
+    # else, use Tnew_ec to recalc
+    # return xr.Dataset with new errors
     # new Dataset will have dimension of Tnew
     # define directories based on stability
     fdir = f"/home/bgreene/simulations/{stability}_192_interp/output/netcdf/"
@@ -850,8 +852,12 @@ def recalc_err(stability, Tnew):
     stat["alpha"] = np.arctan2(-stat.u_mean, -stat.v_mean)
     ineg = np.where(stat.alpha < 0)
     stat["alpha"][ineg] += 2.*np.pi  # alpha in radians already
+    # calculate TKE
+    stat["e"] = 0.5 * (stat.u_var + stat.v_var + stat.w_var)
     # z indices within sbl
     isbl = np.where(stat.z <= stat.h)[0]
+    # load 4th order variances
+    var4 = xr.load_dataset(f"{fdir}variances_4_order.nc")
     # load C and p fit coefficients
     C = xr.load_dataset(f"{fdir}fit_C.nc")
     p = xr.load_dataset(f"{fdir}fit_p.nc")
@@ -865,6 +871,8 @@ def recalc_err(stability, Tnew):
     err = xr.Dataset(data_vars=None,
                      coords=dict(z=C.z, Tsample=Tnew),
                      attrs=C.attrs)
+    # store h in err
+    err["h"] = stat.h
     #
     # now can recalc errors
     #
@@ -878,7 +886,7 @@ def recalc_err(stability, Tnew):
     for i, v in enumerate(param_RFM1):
         # define empty DataArray for v in MSE
         MSE[v] =  xr.DataArray(data=np.zeros((len(isbl),len(Tnew)), dtype=np.float64), 
-                               coords=dict(MSE.coords))
+                                coords=dict(MSE.coords))
         # Loop through Tnew to calculate MSE(z,Tsample)
         for jt, iT in enumerate(Tnew):
             # calculate Xnew from Tnew and mean wind
@@ -897,16 +905,16 @@ def recalc_err(stability, Tnew):
     sig_v = np.sqrt(MSE["v"])
     # calculate ws error and assign to RFM
     err_uh = np.sqrt( (sig_u**2. * stat.u_mean.isel(z=isbl)**2. +\
-                       sig_v**2. * stat.v_mean.isel(z=isbl)**2.)/\
-                      (stat.u_mean.isel(z=isbl)**2. +\
-                       stat.v_mean.isel(z=isbl)**2.) ) / stat.u_mean_rot.isel(z=isbl)
+                    sig_v**2. * stat.v_mean.isel(z=isbl)**2.)/\
+                    (stat.u_mean.isel(z=isbl)**2. +\
+                    stat.v_mean.isel(z=isbl)**2.) ) / stat.u_mean_rot.isel(z=isbl)
     err["uh"] = err_uh
     # calculate wd error and assign to RFM
     err_alpha = np.sqrt( (sig_u**2. * stat.v_mean.isel(z=isbl)**2. +\
-                          sig_v**2. * stat.u_mean.isel(z=isbl)**2.)/\
-                         ((stat.u_mean.isel(z=isbl)**2. +\
-                           stat.v_mean.isel(z=isbl)**2.)**2.) ) /\
-             (stat.alpha.isel(z=isbl))  # normalize w/ rad
+                        sig_v**2. * stat.u_mean.isel(z=isbl)**2.)/\
+                        ((stat.u_mean.isel(z=isbl)**2. +\
+                        stat.v_mean.isel(z=isbl)**2.)**2.) ) /\
+            (stat.alpha.isel(z=isbl))  # normalize w/ rad
     err["alpha"] = err_alpha
     
     # assign units to err
@@ -914,9 +922,69 @@ def recalc_err(stability, Tnew):
     err["alpha"].attrs["units"] = "%"
     err["theta"].attrs["units"] = "%"
     err["Tsample"].attrs["units"] = "s"
-    # store h in err
-    err["h"] = stat.h
-            
+    if Tnew_ec is None:
+        return err
+    else:
+        # check if Tnew is an array or single value and convert to iterable
+        if np.shape(Tnew_ec) == ():
+            Tnew_ec = np.array([Tnew_ec])
+        # covariances and their 4th order variances
+        param_RFM2 = ["uw_cov_tot", "vw_cov_tot", "tw_cov_tot"]
+        param_cov = ["uwuw_var", "vwvw_var", "twtw_var"]
+        param_mean2 = param_RFM2
+        # variances and their 4th order variances
+        param_RFM3 = ["uu_var", "uu_var_rot", "vv_var", "vv_var_rot", 
+                    "ww_var", "tt_var"]
+        param_var = ["uuuu_var", "uuuu_var_rot", "vvvv_var", "vvvv_var_rot", 
+                    "wwww_var", "tttt_var"]
+        param_mean3 = ["u_var", "u_var_rot", "v_var", "v_var_rot", "w_var", "theta_var"]
+        # add Tnew_ec coordinate to MSE and err
+        MSE = MSE.assign_coords(dict(Tsample_ec=Tnew_ec))
+        err = err.assign_coords(dict(Tsample_ec=Tnew_ec))
+        # Loop through covariances to calculate MSE and error
+        for i, v in enumerate(param_RFM2):
+            # define empty DataArray for v in MSE
+            MSE[v] =  xr.DataArray(data=np.zeros((len(isbl),len(Tnew_ec)), dtype=np.float64), 
+                                   coords=dict(z=MSE.z, Tsample_ec=MSE.Tsample_ec))
+            for jt, iT in enumerate(Tnew_ec):
+                # calculate Xnew from Tnew and mean wind
+                Xnew = stat.u_mean_rot.isel(z=isbl) * iT
+                # use values of C and p to extrapolate calculation of MSE/var{x}
+                # renormalize with variances in param_var2
+                MSE[v][:,jt] = var4[param_cov[i]].isel(z=isbl) * (C[v] * (Xnew**-p[v]))
+            # take sqrt to get RMSE
+            RMSE = np.sqrt(MSE[v])
+            # divide by <x> to get epsilon
+            err[v] = RMSE / abs(stat[param_mean2[i]].isel(z=isbl))    
+        # Loop through variances to calculate MSE and error
+        for i, v in enumerate(param_RFM3):
+            # define empty DataArray for v in MSE
+            MSE[v] =  xr.DataArray(data=np.zeros((len(isbl),len(Tnew_ec)), dtype=np.float64), 
+                                   coords=dict(z=MSE.z, Tsample_ec=MSE.Tsample_ec))
+            for jt, iT in enumerate(Tnew_ec):
+                # calculate Xnew from Tnew and mean wind
+                Xnew = stat.u_mean_rot.isel(z=isbl) * iT
+                # use values of C and p to extrapolate calculation of MSE/var{x}
+                # renormalize with variances in param_var2
+                MSE[v][:,jt] = var4[param_var[i]].isel(z=isbl) * (C[v] * (Xnew**-p[v]))
+            # take sqrt to get RMSE
+            RMSE = np.sqrt(MSE[v])
+            # divide by <x> to get epsilon
+            err[v] = RMSE / abs(stat[param_mean3[i]].isel(z=isbl))
+
+        # propagate errors for TKE from u_var, v_var, w_var
+        err["e"] = np.sqrt(0.25 * ((err.uu_var*stat.u_var)**2. +\
+                                   (err.vv_var*stat.v_var)**2. +\
+                                   (err.ww_var*stat.w_var)**2.) ) / stat.e
+        # propagate errors for ustar2 from uw_cov_tot, vw_cov_tot
+        sig_uw = np.sqrt(MSE["uw_cov_tot"])
+        sig_vw = np.sqrt(MSE["vw_cov_tot"])
+        err_ustar2 = np.sqrt( (sig_uw**2. * stat.uw_cov_tot.isel(z=isbl)**2. +\
+                            sig_vw**2. * stat.vw_cov_tot.isel(z=isbl)**2.)/\
+                            (stat.ustar2.isel(z=isbl)**2.)) /\
+                            stat.ustar2.isel(z=isbl)
+        err["ustar2"] = err_ustar2
+
     return err
     
 # --------------------------------
