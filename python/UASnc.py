@@ -239,10 +239,14 @@ ftsF = f"{fsim}F_192_interp/output/netcdf/timeseries_all.nc"
 Fts = xr.load_dataset(ftsF)
 
 # load error profile files
-ferrA = f"{fsim}A_192_interp/output/netcdf/err.nc"
-Aerr = xr.load_dataset(ferrA)
-ferrF = f"{fsim}F_192_interp/output/netcdf/err.nc"
-Ferr = xr.load_dataset(ferrF)
+# ferrA = f"{fsim}A_192_interp/output/netcdf/err.nc"
+# Aerr = xr.load_dataset(ferrA)
+# ferrF = f"{fsim}F_192_interp/output/netcdf/err.nc"
+# Ferr = xr.load_dataset(ferrF)
+
+# calc error based on config file
+Aerr = recalc_err("A", config["Tavg_uv"], config["Tavg_ec"])
+Ferr = recalc_err("F", config["Tavg_uv"], config["Tavg_ec"])
 err_all = [Aerr, Ferr]
 
 # --------------------------------
@@ -252,11 +256,13 @@ err_all = [Aerr, Ferr]
 # run profile for each sim
 Auas = profile(Ats, Aerr, quicklook=False)
 Fuas = profile(Fts, Ferr, quicklook=False)
-uas_all = [Auas, Fuas]
+uas_all = [Auas.isel(Tsample=0), Fuas.isel(Tsample=0)]
 
 # run ec for each sim
-Aec = ec(Ats, Astat.h)
-Fec = ec(Fts, Fstat.h)
+Aec = ec(Ats, Astat.h, time_average=config["Tavg_ec"], 
+         time_start=config["T0_ec"], quicklook=True)
+Fec = ec(Fts, Fstat.h, time_average=config["Tavg_ec"], 
+         time_start=config["T0_ec"], quicklook=True)
 ec_all = [Aec, Fec]
 
 # calculate error bounds 
@@ -280,54 +286,54 @@ for s in uas_all:
 for s, err, stat in zip(ec_all, err_all, stat_all):
     # covariances
     # 1 sigma
-    s["err_uw_hi"] = (1. + err.uw_cov_tot) * (s.uw_cov_tot/stat.ustar0/stat.ustar0)
-    s["err_uw_lo"] = (1. - err.uw_cov_tot) * (s.uw_cov_tot/stat.ustar0/stat.ustar0)
-    s["err_vw_hi"] = (1. + err.vw_cov_tot) * (s.vw_cov_tot/stat.ustar0/stat.ustar0)
-    s["err_vw_lo"] = (1. - err.vw_cov_tot) * (s.vw_cov_tot/stat.ustar0/stat.ustar0)
-    s["err_tw_hi"] = (1. + err.tw_cov_tot) * (s.tw_cov_tot/stat.tstar0/stat.ustar0)
-    s["err_tw_lo"] = (1. - err.tw_cov_tot) * (s.tw_cov_tot/stat.tstar0/stat.ustar0)
-    s["err_ustar2_hi"] = (1. + err.ustar2) * (s.ustar2/stat.ustar0/stat.ustar0)
-    s["err_ustar2_lo"] = (1. - err.ustar2) * (s.ustar2/stat.ustar0/stat.ustar0)
+    s["err_uw_hi"] = (1. + err.uw_cov_tot.isel(Tsample_ec=0)) * (s.uw_cov_tot/stat.ustar0/stat.ustar0)
+    s["err_uw_lo"] = (1. - err.uw_cov_tot.isel(Tsample_ec=0)) * (s.uw_cov_tot/stat.ustar0/stat.ustar0)
+    s["err_vw_hi"] = (1. + err.vw_cov_tot.isel(Tsample_ec=0)) * (s.vw_cov_tot/stat.ustar0/stat.ustar0)
+    s["err_vw_lo"] = (1. - err.vw_cov_tot.isel(Tsample_ec=0)) * (s.vw_cov_tot/stat.ustar0/stat.ustar0)
+    s["err_tw_hi"] = (1. + err.tw_cov_tot.isel(Tsample_ec=0)) * (s.tw_cov_tot/stat.tstar0/stat.ustar0)
+    s["err_tw_lo"] = (1. - err.tw_cov_tot.isel(Tsample_ec=0)) * (s.tw_cov_tot/stat.tstar0/stat.ustar0)
+    s["err_ustar2_hi"] = (1. + err.ustar2.isel(Tsample_ec=0)) * (s.ustar2/stat.ustar0/stat.ustar0)
+    s["err_ustar2_lo"] = (1. - err.ustar2.isel(Tsample_ec=0)) * (s.ustar2/stat.ustar0/stat.ustar0)
     # 3 sigma
-    s["err_uw_hi3"] = (1. + 3*err.uw_cov_tot) * (s.uw_cov_tot/stat.ustar0/stat.ustar0)
-    s["err_uw_lo3"] = (1. - 3*err.uw_cov_tot) * (s.uw_cov_tot/stat.ustar0/stat.ustar0)
-    s["err_vw_hi3"] = (1. + 3*err.vw_cov_tot) * (s.vw_cov_tot/stat.ustar0/stat.ustar0)
-    s["err_vw_lo3"] = (1. - 3*err.vw_cov_tot) * (s.vw_cov_tot/stat.ustar0/stat.ustar0)
-    s["err_tw_hi3"] = (1. + 3*err.tw_cov_tot) * (s.tw_cov_tot/stat.tstar0/stat.ustar0)
-    s["err_tw_lo3"] = (1. - 3*err.tw_cov_tot) * (s.tw_cov_tot/stat.tstar0/stat.ustar0)
-    s["err_ustar2_hi3"] = (1. + 3*err.ustar2) * (s.ustar2/stat.ustar0/stat.ustar0)
-    s["err_ustar2_lo3"] = (1. - 3*err.ustar2) * (s.ustar2/stat.ustar0/stat.ustar0)
+    s["err_uw_hi3"] = (1. + 3*err.uw_cov_tot.isel(Tsample_ec=0)) * (s.uw_cov_tot/stat.ustar0/stat.ustar0)
+    s["err_uw_lo3"] = (1. - 3*err.uw_cov_tot.isel(Tsample_ec=0)) * (s.uw_cov_tot/stat.ustar0/stat.ustar0)
+    s["err_vw_hi3"] = (1. + 3*err.vw_cov_tot.isel(Tsample_ec=0)) * (s.vw_cov_tot/stat.ustar0/stat.ustar0)
+    s["err_vw_lo3"] = (1. - 3*err.vw_cov_tot.isel(Tsample_ec=0)) * (s.vw_cov_tot/stat.ustar0/stat.ustar0)
+    s["err_tw_hi3"] = (1. + 3*err.tw_cov_tot.isel(Tsample_ec=0)) * (s.tw_cov_tot/stat.tstar0/stat.ustar0)
+    s["err_tw_lo3"] = (1. - 3*err.tw_cov_tot.isel(Tsample_ec=0)) * (s.tw_cov_tot/stat.tstar0/stat.ustar0)
+    s["err_ustar2_hi3"] = (1. + 3*err.ustar2.isel(Tsample_ec=0)) * (s.ustar2/stat.ustar0/stat.ustar0)
+    s["err_ustar2_lo3"] = (1. - 3*err.ustar2.isel(Tsample_ec=0)) * (s.ustar2/stat.ustar0/stat.ustar0)
     # variances
     # 1 sigma
-    s["err_uu_hi"] = (1. + err.uu_var) * (s.u_var/stat.ustar0/stat.ustar0)
-    s["err_uu_lo"] = (1. - err.uu_var) * (s.u_var/stat.ustar0/stat.ustar0)
-    s["err_uu_rot_hi"] = (1. + err.uu_var_rot) * (s.u_var_rot/stat.ustar0/stat.ustar0)
-    s["err_uu_rot_lo"] = (1. - err.uu_var_rot) * (s.u_var_rot/stat.ustar0/stat.ustar0)
-    s["err_vv_hi"] = (1. + err.vv_var) * (s.v_var/stat.ustar0/stat.ustar0)
-    s["err_vv_lo"] = (1. - err.vv_var) * (s.v_var/stat.ustar0/stat.ustar0)
-    s["err_vv_rot_hi"] = (1. + err.vv_var_rot) * (s.v_var_rot/stat.ustar0/stat.ustar0)
-    s["err_vv_rot_lo"] = (1. - err.vv_var_rot) * (s.v_var_rot/stat.ustar0/stat.ustar0)
-    s["err_ww_hi"] = (1. + err.ww_var) * (s.w_var/stat.ustar0/stat.ustar0)
-    s["err_ww_lo"] = (1. - err.ww_var) * (s.w_var/stat.ustar0/stat.ustar0)
-    s["err_tt_hi"] = (1. + err.tt_var) * (s.theta_var/stat.tstar0/stat.tstar0)
-    s["err_tt_lo"] = (1. - err.tt_var) * (s.theta_var/stat.tstar0/stat.tstar0)
+    s["err_uu_hi"] = (1. + err.uu_var.isel(Tsample_ec=0)) * (s.u_var/stat.ustar0/stat.ustar0)
+    s["err_uu_lo"] = (1. - err.uu_var.isel(Tsample_ec=0)) * (s.u_var/stat.ustar0/stat.ustar0)
+    s["err_uu_rot_hi"] = (1. + err.uu_var_rot.isel(Tsample_ec=0)) * (s.u_var_rot/stat.ustar0/stat.ustar0)
+    s["err_uu_rot_lo"] = (1. - err.uu_var_rot.isel(Tsample_ec=0)) * (s.u_var_rot/stat.ustar0/stat.ustar0)
+    s["err_vv_hi"] = (1. + err.vv_var.isel(Tsample_ec=0)) * (s.v_var/stat.ustar0/stat.ustar0)
+    s["err_vv_lo"] = (1. - err.vv_var.isel(Tsample_ec=0)) * (s.v_var/stat.ustar0/stat.ustar0)
+    s["err_vv_rot_hi"] = (1. + err.vv_var_rot.isel(Tsample_ec=0)) * (s.v_var_rot/stat.ustar0/stat.ustar0)
+    s["err_vv_rot_lo"] = (1. - err.vv_var_rot.isel(Tsample_ec=0)) * (s.v_var_rot/stat.ustar0/stat.ustar0)
+    s["err_ww_hi"] = (1. + err.ww_var.isel(Tsample_ec=0)) * (s.w_var/stat.ustar0/stat.ustar0)
+    s["err_ww_lo"] = (1. - err.ww_var.isel(Tsample_ec=0)) * (s.w_var/stat.ustar0/stat.ustar0)
+    s["err_tt_hi"] = (1. + err.tt_var.isel(Tsample_ec=0)) * (s.theta_var/stat.tstar0/stat.tstar0)
+    s["err_tt_lo"] = (1. - err.tt_var.isel(Tsample_ec=0)) * (s.theta_var/stat.tstar0/stat.tstar0)
     # 3 sigma
-    s["err_uu_hi3"] = (1. + 3*err.uu_var) * (s.u_var/stat.ustar0/stat.ustar0)
-    s["err_uu_lo3"] = (1. - 3*err.uu_var) * (s.u_var/stat.ustar0/stat.ustar0)
-    s["err_uu_rot_hi3"] = (1. + 3*err.uu_var_rot) * (s.u_var_rot/stat.ustar0/stat.ustar0)
-    s["err_uu_rot_lo3"] = (1. - 3*err.uu_var_rot) * (s.u_var_rot/stat.ustar0/stat.ustar0)
-    s["err_vv_hi3"] = (1. + 3*err.vv_var) * (s.v_var/stat.ustar0/stat.ustar0)
-    s["err_vv_lo3"] = (1. - 3*err.vv_var) * (s.v_var/stat.ustar0/stat.ustar0)
-    s["err_vv_rot_hi3"] = (1. + 3*err.vv_var_rot) * (s.v_var_rot/stat.ustar0/stat.ustar0)
-    s["err_vv_rot_lo3"] = (1. - 3*err.vv_var_rot) * (s.v_var_rot/stat.ustar0/stat.ustar0)
-    s["err_ww_hi3"] = (1. + 3*err.ww_var) * (s.w_var/stat.ustar0/stat.ustar0)
-    s["err_ww_lo3"] = (1. - 3*err.ww_var) * (s.w_var/stat.ustar0/stat.ustar0)
-    s["err_tt_hi3"] = (1. + 3*err.tt_var) * (s.theta_var/stat.tstar0/stat.tstar0)
-    s["err_tt_lo3"] = (1. - 3*err.tt_var) * (s.theta_var/stat.tstar0/stat.tstar0)
+    s["err_uu_hi3"] = (1. + 3*err.uu_var.isel(Tsample_ec=0)) * (s.u_var/stat.ustar0/stat.ustar0)
+    s["err_uu_lo3"] = (1. - 3*err.uu_var.isel(Tsample_ec=0)) * (s.u_var/stat.ustar0/stat.ustar0)
+    s["err_uu_rot_hi3"] = (1. + 3*err.uu_var_rot.isel(Tsample_ec=0)) * (s.u_var_rot/stat.ustar0/stat.ustar0)
+    s["err_uu_rot_lo3"] = (1. - 3*err.uu_var_rot.isel(Tsample_ec=0)) * (s.u_var_rot/stat.ustar0/stat.ustar0)
+    s["err_vv_hi3"] = (1. + 3*err.vv_var.isel(Tsample_ec=0)) * (s.v_var/stat.ustar0/stat.ustar0)
+    s["err_vv_lo3"] = (1. - 3*err.vv_var.isel(Tsample_ec=0)) * (s.v_var/stat.ustar0/stat.ustar0)
+    s["err_vv_rot_hi3"] = (1. + 3*err.vv_var_rot.isel(Tsample_ec=0)) * (s.v_var_rot/stat.ustar0/stat.ustar0)
+    s["err_vv_rot_lo3"] = (1. - 3*err.vv_var_rot.isel(Tsample_ec=0)) * (s.v_var_rot/stat.ustar0/stat.ustar0)
+    s["err_ww_hi3"] = (1. + 3*err.ww_var.isel(Tsample_ec=0)) * (s.w_var/stat.ustar0/stat.ustar0)
+    s["err_ww_lo3"] = (1. - 3*err.ww_var.isel(Tsample_ec=0)) * (s.w_var/stat.ustar0/stat.ustar0)
+    s["err_tt_hi3"] = (1. + 3*err.tt_var.isel(Tsample_ec=0)) * (s.theta_var/stat.tstar0/stat.tstar0)
+    s["err_tt_lo3"] = (1. - 3*err.tt_var.isel(Tsample_ec=0)) * (s.theta_var/stat.tstar0/stat.tstar0)
     # calculate TKE error
-    err["e"] = np.sqrt(0.25 * ((err.uu_var*stat.u_var)**2. +\
-                               (err.vv_var*stat.v_var)**2. +\
-                               (err.ww_var*stat.w_var)**2.) ) / stat.e
+    err["e"] = np.sqrt(0.25 * ((err.uu_var.isel(Tsample_ec=0)*stat.u_var)**2. +\
+                               (err.vv_var.isel(Tsample_ec=0)*stat.v_var)**2. +\
+                               (err.ww_var.isel(Tsample_ec=0)*stat.w_var)**2.) ) / stat.e
     # calculate TKE bounds
     s["err_e_hi"] = (1. + err.e) * (s.e/stat.ustar0/stat.ustar0)
     s["err_e_lo"] = (1. - err.e) * (s.e/stat.ustar0/stat.ustar0)
@@ -395,7 +401,7 @@ for s, stat in zip(uas_all, stat_all):
                  transform=iax.transAxes)
     fig1.tight_layout()
     # save and close
-    fsave1 = f"{fdir_save}{stat.stability}_uh_alpha_theta.pdf"
+    fsave1 = f"{fdir_save}{stat.stability}_uh_alpha_theta_{int(config['Tavg_uv']):02d}s.pdf"
     print(f"Saving figure: {fsave1}")
     fig1.savefig(fsave1)
     plt.close(fig1)
@@ -455,7 +461,7 @@ for s, stat in zip(ec_all, stat_all):
                 transform=ax2[1].transAxes)
     fig2.tight_layout()
     # save and close
-    fsave2 = f"{fdir_save}{stat.stability}_ustar_tw_covars.pdf"
+    fsave2 = f"{fdir_save}{stat.stability}_ustar_tw_covars_{int(config['Tavg_ec']):04d}s.pdf"
     print(f"Saving figure: {fsave2}")
     fig2.savefig(fsave2)
     plt.close(fig2)
@@ -545,7 +551,7 @@ for s, stat in zip(ec_all, stat_all):
 
     fig3.tight_layout()
     # save and close
-    fsave3 = f"{fdir_save}{stat.stability}uvw_tke_vars.pdf"
+    fsave3 = f"{fdir_save}{stat.stability}uvw_tke_vars_{int(config['Tavg_ec']):04d}s.pdf"
     print(f"Saving figure: {fsave3}")
     fig3.savefig(fsave3)
     plt.close(fig3)

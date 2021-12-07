@@ -93,3 +93,8 @@ recalc_hi: 180.1 # seconds
 recalc_dt: 0.01   # seconds
 delta_z: 3.      # meters
 err_range: [0.10, 0.02, 0.01] # x100 = percent
+
+# parameters for ec recalc - emulated profile
+Tavg_uv: 3.  # seconds
+Tavg_ec: 1800. # seconds
+T0_ec: 0.    # seconds
