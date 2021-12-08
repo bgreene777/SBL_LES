@@ -617,71 +617,220 @@ for asc in [Aasc, Fasc]:
 # plot optimal ascent rates
 #
 # define colors and linestyles to loop over
-colors = seaborn.color_palette("mako", 2)
+colors = seaborn.color_palette("crest", 6)
 lines = ["-", "--", ":", "-."]
 
-fig4, ax4 = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True, 
-                        figsize=(7.4,5))
+fig4, ax4 = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, 
+                        figsize=(7.4,7.5), constrained_layout=True)
 # loop over error levels
 for je, e in enumerate(err_range):
     # A
     # uh
-    l1 = ax4[0].plot(Aasc.vz_uh.isel(err=je), Aasc.z/Aasc.h,
-                     ls=lines[je], c=colors[0], lw=2, label="$u_h$")
+    ax4[0,0].plot(Aasc.vz_uh.isel(err=je), Aasc.z/Aasc.h,
+                       ls=lines[je], c=colors[0], lw=2)
     # alpha
-    l2 = ax4[0].plot(Aasc.vz_alpha.isel(err=je), Aasc.z/Aasc.h,
-                     ls=lines[je], c=colors[1], lw=2, label="$\\alpha$")
+    ax4[1,0].plot(Aasc.vz_alpha.isel(err=je), Aasc.z/Aasc.h,
+                       ls=lines[je], c=colors[0], lw=2)
     # theta
     # l3 = ax4[0].plot(Aasc.vz_theta.isel(err=je), Aasc.z/Aasc.h,
     #                  ls=lines[je], c=colors[2], lw=2, label="$\\theta$")
-    # collect legend line handles
-    if je == 0:
-        ltot = l1+l2#+l3
     # F
     # uh
-    ax4[1].plot(Fasc.vz_uh.isel(err=je), Fasc.z/Fasc.h,
-                ls=lines[je], c=colors[0], lw=2, label="$u_h$")
+    ax4[0,1].plot(Fasc.vz_uh.isel(err=je), Fasc.z/Fasc.h,
+                  ls=lines[je], c=colors[5], lw=2)
     # alpha
-    ax4[1].plot(Fasc.vz_alpha.isel(err=je), Fasc.z/Fasc.h,
-                ls=lines[je], c=colors[1], lw=2, label="$\\alpha$")
+    ax4[1,1].plot(Fasc.vz_alpha.isel(err=je), Fasc.z/Fasc.h,
+                  ls=lines[je], c=colors[5], lw=2)
     # theta
     # ax4[1].plot(Fasc.vz_theta.isel(err=je), Fasc.z/Fasc.h,
     #             ls=lines[je], c=colors[2], lw=2, label="$\\theta$")
 # create line handles to explain linestyle for error ranges
-l4=ax4[0].plot([], [], ls=lines[0], c="k", 
+l4=ax4[0,0].plot([], [], ls=lines[0], c="k", 
                label=f"$\\epsilon={err_range[0]*100.:3.0f}\%$")
-l5=ax4[0].plot([], [], ls=lines[1], c="k", 
+l5=ax4[0,0].plot([], [], ls=lines[1], c="k", 
                label=f"$\\epsilon={err_range[1]*100.:3.0f}\%$")
-l6=ax4[0].plot([], [], ls=lines[2], c="k", 
+l6=ax4[0,0].plot([], [], ls=lines[2], c="k", 
                label=f"$\\epsilon={err_range[2]*100.:3.0f}\%$")
-# l7=ax4[0].plot([], [], ls=lines[3], c="k", 
-#                label=f"${err_range[3]*100.:3.0f}\%$")
+l7=ax4[0,0].plot([], [], ls=lines[3], c="k", 
+               label=f"$\\epsilon={err_range[3]*100.:3.0f}\%$")
 # combine
-ltot += l4 + l5 + l6# + l7
+ltot = l4 + l5 + l6 + l7
 # add legend
-fig4.legend(handles=ltot, loc="upper center", ncol=5, 
-              borderaxespad=0.15,
-              columnspacing=1, bbox_to_anchor=(0.55, 1),
-              handletextpad=0.4, fontsize=14, frameon=False)
+# fig4.legend(handles=ltot, loc="upper center", ncol=5, 
+#               borderaxespad=0.15,
+#               columnspacing=1, bbox_to_anchor=(0.55, 1),
+#               handletextpad=0.4, fontsize=14, frameon=False)
+ax4[1,1].legend(handles=ltot, loc="upper right",
+                labelspacing=0.10, handletextpad=0.4, shadow=True)
 # clean up
-for iax, p in zip(ax4, list("ab")):
+for iax, p in zip(ax4.flatten(), list("abcd")):
     iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
-    iax.set_xlabel("Ascent Rate [m s$^{-1}$]")
     iax.text(0.03,0.90,f"$\\textbf{{({p})}}$",fontsize=20,
              transform=iax.transAxes)
     # vertical solid gray line for vz = 1 m/s
     iax.axvline(1, c="k", ls="-", alpha=0.5)
-ax4[0].set_xlim([0.01, 20])
+ax4[0,0].set_xlim([0.01, 20])
 # ax4[0].xaxis.set_major_locator(MultipleLocator(5))
 # ax4[0].xaxis.set_minor_locator(MultipleLocator(0.5))
-ax4[0].set_xscale("log")
-ax4[0].set_ylabel("$z/h$")
-ax4[0].set_ylim([0, 1])
-ax4[0].yaxis.set_major_locator(MultipleLocator(0.2))
-ax4[0].yaxis.set_minor_locator(MultipleLocator(0.05))
-fig4.tight_layout()
+ax4[0,0].set_xscale("log")
+ax4[0,0].set_ylabel("$z/h$")
+ax4[0,0].set_ylim([0, 1])
+ax4[0,0].yaxis.set_major_locator(MultipleLocator(0.2))
+ax4[0,0].yaxis.set_minor_locator(MultipleLocator(0.05))
+ax4[1,0].set_ylabel("$z/h$")
+ax4[1,0].set_xlabel("Ascent Rate [m s$^{-1}$]")
+ax4[1,1].set_xlabel("Ascent Rate [m s$^{-1}$]")
+# fig4.tight_layout()
 # save and close
 fsave4 = f"{fdir_save}AF_vz_optimal.pdf"
 print(f"Saving figure: {fsave4}")
 fig4.savefig(fsave4)
 plt.close(fig4)
+
+# --------------------------------
+# Calculate optimal ec averaging times
+# --------------------------------
+# construct range of recalculated errors
+Tnew0ec = config["recalc_lo_ec"]
+Tnew1ec = config["recalc_hi_ec"]
+Tnewdtec = config["recalc_dt_ec"]
+Tnew_ec = np.arange(Tnew0ec, Tnew1ec, Tnewdtec, dtype=np.float64)
+# recalc errors within this range for cases A and F
+Aecavg = recalc_err("A", config["Tavg_uv"], Tnew_ec)
+Fecavg = recalc_err("F", config["Tavg_uv"], Tnew_ec)
+# grab err_range_ec
+err_range_ec = config["err_range_ec"]
+
+# determine averaging time to be at/below err for each z
+# loop over A and F sims
+for ec in [Aecavg, Fecavg]:
+    # create empty dataarrays within the datasets for storing
+    ec["t_ustar2"] = xr.DataArray(np.zeros((ec.z.size, ne), dtype=np.float64),
+                              coords=dict(z=ec.z, err=err_range_ec))
+    ec["t_tw_cov_tot"] = xr.DataArray(np.zeros((ec.z.size, ne), dtype=np.float64),
+                                 coords=dict(z=ec.z, err=err_range_ec))
+    ec["t_uu_var_rot"] = xr.DataArray(np.zeros((ec.z.size, ne), dtype=np.float64),
+                                      coords=dict(z=ec.z, err=err_range_ec))
+    ec["t_vv_var_rot"] = xr.DataArray(np.zeros((ec.z.size, ne), dtype=np.float64),
+                                      coords=dict(z=ec.z, err=err_range_ec))
+    ec["t_ww_var"] = xr.DataArray(np.zeros((ec.z.size, ne), dtype=np.float64),
+                                  coords=dict(z=ec.z, err=err_range_ec))
+    ec["t_e"] = xr.DataArray(np.zeros((ec.z.size, ne), dtype=np.float64),
+                             coords=dict(z=ec.z, err=err_range_ec))
+    # loop over error level
+    for je, e in enumerate(err_range_ec):
+        # loop over height
+        for jz in range(ec.z.size):
+            # uh
+            iustar2 = np.where(ec.ustar2.isel(z=jz) <= e)[0]
+            # check for empty array
+            if np.size(iustar2) > 0:
+                ec["t_ustar2"][jz,je] = Tnew_ec[iustar2[0]]
+            else:
+                ec["t_ustar2"][jz,je] = np.nan
+            # tw_cov_tot
+            itw = np.where(ec.tw_cov_tot.isel(z=jz) <= e)[0]
+            # check for empty array
+            if np.size(itw) > 0:
+                ec["t_tw_cov_tot"][jz,je] = Tnew_ec[itw[0]]
+            else:
+                ec["t_tw_cov_tot"][jz,je] = np.nan
+            # uu_var_rot
+            iuu = np.where(ec.uu_var_rot.isel(z=jz) <= e)[0]
+            # check for empty array
+            if np.size(iuu) > 0:
+                ec["t_uu_var_rot"][jz,je] = Tnew_ec[iuu[0]]
+            else:
+                ec["t_uu_var_rot"][jz,je] = np.nan
+            # vv_var_rot
+            ivv = np.where(ec.vv_var_rot.isel(z=jz) <= e)[0]
+            # check for empty array
+            if np.size(ivv) > 0:
+                ec["t_vv_var_rot"][jz,je] = Tnew_ec[ivv[0]]
+            else:
+                ec["t_vv_var_rot"][jz,je] = np.nan
+            # ww_var
+            iww = np.where(ec.ww_var.isel(z=jz) <= e)[0]
+            # check for empty array
+            if np.size(iww) > 0:
+                ec["t_ww_var"][jz,je] = Tnew_ec[iww[0]]
+            else:
+                ec["t_ww_var"][jz,je] = np.nan
+            # uh
+            iee = np.where(ec.e.isel(z=jz) <= e)[0]
+            # check for empty array
+            if np.size(iee) > 0:
+                ec["t_e"][jz,je] = Tnew_ec[iee[0]]
+            else:
+                ec["t_e"][jz,je] = np.nan
+
+#
+# plot covariances
+#
+fig5, ax5 = plt.subplots(nrows=2, ncols=3, sharex="col", sharey=True, 
+                        figsize=(10,7.5), constrained_layout=True)
+# loop over error levels
+for je, e in enumerate(err_range_ec):
+    # A
+    # ustar2
+    ax5[0,0].plot(Aecavg.t_ustar2.isel(err=je)/60., Aecavg.z/Aecavg.h,
+                       ls=lines[je], c=colors[0], lw=2)
+    # tw_cov_tot
+    ax5[0,1].plot(Aecavg.t_tw_cov_tot.isel(err=je)/60., Aecavg.z/Aecavg.h,
+                       ls=lines[je], c=colors[0], lw=2)
+    # TKE
+    ax5[0,2].plot(Aecavg.t_e.isel(err=je)/60., Aecavg.z/Aecavg.h,
+                       ls=lines[je], c=colors[0], lw=2)
+    # F
+    # ustar2
+    ax5[1,0].plot(Fecavg.t_ustar2.isel(err=je)/60., Fecavg.z/Fecavg.h,
+                       ls=lines[je], c=colors[5], lw=2)
+    # tw_cov_tot
+    ax5[1,1].plot(Fecavg.t_tw_cov_tot.isel(err=je)/60., Fecavg.z/Fecavg.h,
+                       ls=lines[je], c=colors[5], lw=2)
+    # TKE
+    ax5[1,2].plot(Fecavg.t_e.isel(err=je)/60., Fecavg.z/Fecavg.h,
+                       ls=lines[je], c=colors[5], lw=2)
+
+# create line handles to explain linestyle for error ranges
+l4=ax5[0,0].plot([], [], ls=lines[0], c="k", 
+               label=f"$\\epsilon={err_range_ec[0]*100.:3.0f}\%$")
+l5=ax5[0,0].plot([], [], ls=lines[1], c="k", 
+               label=f"$\\epsilon={err_range_ec[1]*100.:3.0f}\%$")
+l6=ax5[0,0].plot([], [], ls=lines[2], c="k", 
+               label=f"$\\epsilon={err_range_ec[2]*100.:3.0f}\%$")
+l7=ax5[0,0].plot([], [], ls=lines[3], c="k", 
+               label=f"$\\epsilon={err_range_ec[3]*100.:3.0f}\%$")
+# combine
+ltot = l4 + l5 + l6 + l7
+# add legend
+ax5[1,2].legend(handles=ltot, loc="upper right",
+                labelspacing=0.10, handletextpad=0.4, shadow=True)
+# clean up
+for iax, p in zip(ax5.flatten(), list("abcdef")):
+    iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
+    iax.text(0.85,0.03,f"$\\textbf{{({p})}}$",fontsize=20,
+             transform=iax.transAxes)
+ax5[0,0].set_xlim([0, 60])
+ax5[0,0].xaxis.set_major_locator(MultipleLocator(20))
+ax5[0,0].xaxis.set_minor_locator(MultipleLocator(5))
+# ax4[0,0].set_xscale("log")
+ax5[0,0].set_ylabel("$z/h$")
+ax5[0,0].set_ylim([0, 1])
+ax5[0,0].yaxis.set_major_locator(MultipleLocator(0.2))
+ax5[0,0].yaxis.set_minor_locator(MultipleLocator(0.05))
+ax5[1,0].set_ylabel("$z/h$")
+ax5[1,0].set_xlabel("$u_*^2 T_{avg}$ [min]")
+ax5[1,1].set_xlim([0, 60])
+ax5[1,1].xaxis.set_major_locator(MultipleLocator(20))
+ax5[1,1].xaxis.set_minor_locator(MultipleLocator(5))
+ax5[1,1].set_xlabel("$\\theta'w' T_{avg}$ [min]")
+ax5[1,2].set_xlim([0, 10])
+ax5[1,2].xaxis.set_major_locator(MultipleLocator(2))
+ax5[1,2].xaxis.set_minor_locator(MultipleLocator(0.5))
+ax5[1,2].set_xlabel("$e T_{avg}$ [min]")
+# save and close
+fsave5 = f"{fdir_save}AF_tavg_covar_tke.pdf"
+print(f"Saving figure: {fsave5}")
+fig5.savefig(fsave5)
+plt.close(fig5)
