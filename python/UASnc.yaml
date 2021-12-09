@@ -12,7 +12,7 @@ A:
     # figure 1: uh, alpha, theta
     ax1_0: [0, 10]
     ax1_1: [180, 300]
-    ax1_2: [263, 265]
+    ax1_2: [262, 265]
     # figure 2: covariances - ustar2 and theta'w'
     ax2_0: [0, 1.5]
     ax2_1: [-1.5, 0]
@@ -51,8 +51,8 @@ F:
   xlim:
     # figure 1: uh, alpha, theta
     ax1_0: [0, 12]
-    ax1_1: [190, 280]
-    ax1_2: [244, 261]
+    ax1_1: [180, 280]
+    ax1_2: [243, 261]
     # figure 2: covariances
     ax2_0: [0, 1.5]
     ax2_1: [-1.5, 0]
@@ -90,9 +90,10 @@ F:
 # parameters for calculating optimal ascent rate
 recalc_lo: 0.1   # seconds
 recalc_hi: 180.1 # seconds
-recalc_dt: 0.01   # seconds
+recalc_dt: 0.01  # seconds
 delta_z: 3.      # meters
 err_range: [0.10, 0.05, 0.02, 0.01] # x100 = percent
+tstart: 1800.    # seconds
 
 # parameters for ec recalc - emulated profile
 Tavg_uv: 3.  # seconds

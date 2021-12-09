@@ -12,6 +12,7 @@ import yaml
 import seaborn
 import numpy as np
 import xarray as xr
+from cmocean import cm
 from numba import njit
 from matplotlib import pyplot as plt
 from matplotlib import rc
@@ -36,7 +37,8 @@ def interp_uas(dat, z_LES, z_UAS):
         dat_interp[i,:] = np.interp(z_UAS, z_LES, dat[i,:])
     return dat_interp
 # --------------------------------
-def profile(df, err, ascent_rate=1.0, time_average=3.0, time_start=0.0, quicklook=False):
+def profile(df, err, ascent_rate=1.0, time_average=3.0, time_start=0.0, 
+            quicklook=False, timeheight=False):
     """Emulate a vertical profile from rotary-wing UAS sampling through
     simulated SBL, including random errors
     :param xr.Dataset df: dataset with virtual tower data to construct UAS prof
@@ -45,6 +47,8 @@ def profile(df, err, ascent_rate=1.0, time_average=3.0, time_start=0.0, quickloo
     :param float time_average: time range in s to avg UAS profile; default=3.0 s
     :param float time_start: when to initialize ascending profile; default=0.0 s
     :param bool quicklook: flag to make quicklook of raw vs averaged profiles
+    :param bool timeheight: flag to produce time-height figure of u-velocity and
+    uas ascent profile overlaid
     Outputs new xarray Dataset with emulated profile and errors
     """
     # First, calculate array of theoretical altitudes based on the base time
@@ -130,6 +134,42 @@ def profile(df, err, ascent_rate=1.0, time_average=3.0, time_start=0.0, quickloo
         fsave = f"{fdir_save}{err.stability}_u_v_theta_raw_mean.png"
         print(f"Saving figure: {fsave}")
         fig.savefig(fsave, dpi=300)
+        plt.close(fig)
+    # time-height plot
+    if timeheight:
+        fig, ax = plt.subplots(1, figsize=(7.4, 2.5), constrained_layout=True)
+        # contourf u
+        cfax = ax.contourf(df.t/60., df.z/err.h, df.u.T, cmap=cm.tempo,
+                           levels=np.arange(0., 12.1, 0.25))
+        # instantaneous vertical profile
+        ax.axvline(time_start/60., c="k", ls="-", lw=2)
+        # UAS profile
+        t_total = err.h/ascent_rate
+        t_uas = np.array([time_start, time_start+t_total])/60. # minutes
+        z_uas = np.array([0., 1.])
+        ax.plot(t_uas, z_uas, ls="-", c="r", lw=2)
+        # ticks
+        ax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
+        ax.tick_params(which="major", length=6, width=0.5)
+        ax.tick_params(which="minor", length=3, width=0.5)
+        # colorbar
+        cb = fig.colorbar(cfax, ax=ax, location="right", 
+                          ticks=MultipleLocator(4), pad=0, aspect=15)
+        cb.ax.set_ylabel("$u$ [m s$^{-1}$]", fontsize=16)
+        cb.ax.tick_params(labelsize=16)
+        # labels
+        ax.set_xlabel("Time [min]")
+        ax.set_xlim([0, 60])
+        ax.xaxis.set_major_locator(MultipleLocator(10))
+        ax.xaxis.set_minor_locator(MultipleLocator(1))
+        ax.set_ylabel("$z/h$")
+        ax.set_ylim([0, 1])
+        ax.yaxis.set_major_locator(MultipleLocator(0.5))
+        ax.yaxis.set_minor_locator(MultipleLocator(0.1))
+        # save and close
+        fsave = f"{fdir_save}{err.stability}_profile_timeheight.png"
+        print(f"Saving figure: {fsave}")
+        fig.savefig(fsave, dpi=600)
         plt.close(fig)
         
     return uas_mean
@@ -254,8 +294,8 @@ err_all = [Aerr, Ferr]
 # --------------------------------
 
 # run profile for each sim
-Auas = profile(Ats, Aerr, quicklook=False)
-Fuas = profile(Fts, Ferr, quicklook=False)
+Auas = profile(Ats, Aerr, time_start=config["tstart"], timeheight=True)
+Fuas = profile(Fts, Ferr, time_start=config["tstart"], timeheight=True)
 uas_all = [Auas.isel(Tsample=0), Fuas.isel(Tsample=0)]
 
 # run ec for each sim
@@ -559,6 +599,7 @@ for s, stat in zip(ec_all, stat_all):
 # --------------------------------
 # Calculate optimal ascent rates and plot
 # --------------------------------
+print("Begin optimal UAS ascent rate calculations")
 # construct range of recalculated errors
 Tnew0 = config["recalc_lo"]
 Tnew1 = config["recalc_hi"]
@@ -690,6 +731,7 @@ plt.close(fig4)
 # --------------------------------
 # Calculate optimal ec averaging times
 # --------------------------------
+print("Begin calculating optimal eddy-covariance averaging times")
 # construct range of recalculated errors
 Tnew0ec = config["recalc_lo_ec"]
 Tnew1ec = config["recalc_hi_ec"]
