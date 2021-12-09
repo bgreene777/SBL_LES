@@ -109,6 +109,15 @@ for i, s in enumerate(s_all):
     # grab ustar0 and calc tstar0 for normalizing in plotting
     s["ustar0"] = s.ustar.isel(z=0)
     s["tstar0"] = -s.tw_cov_tot.isel(z=0)/s.ustar0
+    # calculate Obukhov length L
+    s["L"] = -(s.ustar0**3) * s.theta_mean.isel(z=0) / (0.4 * 9.81 * s.tw_cov_tot.isel(z=0))
+    # print table statistics
+    print(f"---{s.stability}---")
+    print(f"u*: {s.ustar0.values:4.3f} m/s")
+    print(f"Q*: {1000*s.tw_cov_tot.isel(z=0).values:4.3f} K m/s")
+    print(f"h: {s.h.values:4.3f} m")
+    print(f"L: {s.L.values:4.3f} m")
+    print(f"h/L: {(s.h/s.L).values:4.3f}")
 #     print(f"{s.stability}: {s.h.values} m")
     # calculate zi as in Sullivan et al 2016: max d<theta>/dz
 #     dtheta_dz = s.theta_mean.differentiate("z", 2)
