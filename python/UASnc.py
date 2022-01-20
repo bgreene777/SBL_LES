@@ -488,7 +488,7 @@ for s, stat in zip(ec_all, stat_all):
     ax2[0].set_xlim(config[stat.stability]["xlim"]["ax2_0"])
     ax2[0].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax2_0"]))
     ax2[0].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax2_0"]))
-    ax2[1].set_xlabel("$\\theta'w'/u_{*0} \\theta_{*0}$")
+    ax2[1].set_xlabel("$\\overline{\\theta'w'}/u_{*0} \\theta_{*0}$")
     ax2[1].set_xlim(config[stat.stability]["xlim"]["ax2_1"])
     ax2[1].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax2_1"]))
     ax2[1].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax2_1"]))
@@ -587,7 +587,7 @@ for s, stat in zip(ec_all, stat_all):
             else:
                 iax.legend(loc="upper right", labelspacing=0.10, 
                         handletextpad=0.4, shadow=True)
-    ax3[0].set_xlabel("$u'u'/u_{*0}^2$")
+    ax3[0].set_xlabel("$\\overline{u'u'}/u_{*0}^2$")
     ax3[0].set_ylabel("$z/h$")
     ax3[0].set_ylim([0, 1])
     ax3[0].yaxis.set_major_locator(MultipleLocator(0.2))
@@ -595,11 +595,11 @@ for s, stat in zip(ec_all, stat_all):
     ax3[0].set_xlim(config[stat.stability]["xlim"]["ax3_0"])
     ax3[0].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax3_0"]))
     ax3[0].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax3_0"]))
-    ax3[1].set_xlabel("$v'v'/u_{*0}^2$")
+    ax3[1].set_xlabel("$\\overline{v'v'}/u_{*0}^2$")
     ax3[1].set_xlim(config[stat.stability]["xlim"]["ax3_1"])
     ax3[1].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax3_1"]))
     ax3[1].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax3_1"]))
-    ax3[2].set_xlabel("$w'w'/u_{*0}^2$ [m$^2$ s$^{-2}$]")
+    ax3[2].set_xlabel("$\\overline{w'w'}/u_{*0}^2$")
     ax3[2].set_xlim(config[stat.stability]["xlim"]["ax3_2"])
     ax3[2].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax3_2"]))
     ax3[2].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax3_2"]))
@@ -673,6 +673,10 @@ for asc in [Aasc, Fasc]:
     asc["vz_alpha"] = delta_z / asc.t_alpha
     asc["vz_theta"] = delta_z / asc.t_theta
 
+    # also calculate minimum ascent rate to reach h in 15 minutes
+    # vz_min = h / 15 min
+    asc.attrs["vz_min"] = asc.h / (15. * 60)
+
 #
 # plot optimal ascent rates
 #
@@ -729,7 +733,14 @@ for iax, p in zip(ax4.flatten(), list("abcd")):
              transform=iax.transAxes)
     # vertical solid gray line for vz = 1 m/s
     iax.axvline(1, c="k", ls="-", alpha=0.5)
-ax4[0,0].set_xlim([0.01, 20])
+    # vertical red dashed line for minimum ascent rate to reach h in 15 min
+    if p in "ac":
+        # sim A
+        iax.axvline(Aasc.vz_min, c="#800000", ls="--", alpha=0.8)
+    else:
+        # sim F
+        iax.axvline(Fasc.vz_min, c="#800000", ls="--", alpha=0.8)
+ax4[0,0].set_xlim([0.04, 10])
 # ax4[0].xaxis.set_major_locator(MultipleLocator(5))
 # ax4[0].xaxis.set_minor_locator(MultipleLocator(0.5))
 ax4[0,0].set_xscale("log")
@@ -872,8 +883,8 @@ for iax, p in zip(ax5.flatten(), list("abcdef")):
     iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
     iax.text(0.85,0.03,f"$\\textbf{{({p})}}$",fontsize=20,
              transform=iax.transAxes)
-ax5[0,0].set_xlim([0, 60])
-ax5[0,0].xaxis.set_major_locator(MultipleLocator(20))
+ax5[0,0].set_xlim([0, 120])
+ax5[0,0].xaxis.set_major_locator(MultipleLocator(30))
 ax5[0,0].xaxis.set_minor_locator(MultipleLocator(5))
 # ax4[0,0].set_xscale("log")
 ax5[0,0].set_ylabel("$z/h$")
@@ -882,13 +893,13 @@ ax5[0,0].yaxis.set_major_locator(MultipleLocator(0.2))
 ax5[0,0].yaxis.set_minor_locator(MultipleLocator(0.05))
 ax5[1,0].set_ylabel("$z/h$")
 ax5[1,0].set_xlabel("Averaging Time [min]")
-ax5[1,1].set_xlim([0, 60])
-ax5[1,1].xaxis.set_major_locator(MultipleLocator(20))
+ax5[1,1].set_xlim([0, 120])
+ax5[1,1].xaxis.set_major_locator(MultipleLocator(30))
 ax5[1,1].xaxis.set_minor_locator(MultipleLocator(5))
 ax5[1,1].set_xlabel("Averaging Time [min]")
-ax5[1,2].set_xlim([0, 10])
-ax5[1,2].xaxis.set_major_locator(MultipleLocator(2))
-ax5[1,2].xaxis.set_minor_locator(MultipleLocator(0.5))
+ax5[1,2].set_xlim([0, 60])
+ax5[1,2].xaxis.set_major_locator(MultipleLocator(20))
+ax5[1,2].xaxis.set_minor_locator(MultipleLocator(5))
 ax5[1,2].set_xlabel("Averaging Time [min]")
 # save and close
 fsave5 = f"{fdir_save}AF_tavg_covar_tke.pdf"

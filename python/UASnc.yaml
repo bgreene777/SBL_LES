@@ -102,6 +102,6 @@ T0_ec: 0.    # seconds
 
 # parameters for calculating optimal ec average time
 recalc_lo_ec: 1.   # seconds
-recalc_hi_ec: 3601. # seconds
+recalc_hi_ec: 7201. # seconds
 recalc_dt_ec: 1.   # seconds
-err_range_ec: [0.50, 0.30, 0.20, 0.10]
+err_range_ec: [0.20, 0.15, 0.10, 0.05] # x100 = percent
