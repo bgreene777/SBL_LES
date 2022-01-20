@@ -294,8 +294,8 @@ err_all = [Aerr, Ferr]
 # --------------------------------
 
 # run profile for each sim
-Auas = profile(Ats, Aerr, time_start=config["tstart"], timeheight=True)
-Fuas = profile(Fts, Ferr, time_start=config["tstart"], timeheight=True)
+Auas = profile(Ats, Aerr, time_start=config["tstart"], timeheight=False)
+Fuas = profile(Fts, Ferr, time_start=config["tstart"], timeheight=False)
 uas_all = [Auas.isel(Tsample=0), Fuas.isel(Tsample=0)]
 
 # run ec for each sim
@@ -495,10 +495,16 @@ for s, stat in zip(ec_all, stat_all):
     # edit ticks and add subplot labels
     for iax in ax2:
         iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
-    ax2[0].text(0.03,0.05,"$\\textbf{(a)}$",fontsize=20,
-                transform=ax2[0].transAxes)
-    ax2[1].text(0.85,0.05,"$\\textbf{(b)}$",fontsize=20,
-                transform=ax2[1].transAxes)
+    if config["Tavg_ec"] > 1000.:
+        ax2[0].text(0.03,0.05,"$\\textbf{(a)}$",fontsize=20,
+                    transform=ax2[0].transAxes)
+        ax2[1].text(0.85,0.05,"$\\textbf{(b)}$",fontsize=20,
+                    transform=ax2[1].transAxes)
+    else:
+        ax2[0].text(0.03,0.05,"$\\textbf{(c)}$",fontsize=20,
+                    transform=ax2[0].transAxes)
+        ax2[1].text(0.85,0.05,"$\\textbf{(d)}$",fontsize=20,
+                    transform=ax2[1].transAxes)
     fig2.tight_layout()
     # save and close
     fsave2 = f"{fdir_save}{stat.stability}_ustar_tw_covars_{int(config['Tavg_ec']):04d}s.pdf"
@@ -557,17 +563,30 @@ for s, stat in zip(ec_all, stat_all):
     ax3[3].fill_betweenx(s.z/stat.h, s.err_e_lo3, s.err_e_hi3, alpha=0.1,
                          color="r")
     # clean up
-    for iax, p in zip(ax3, list("abcd")):
-        iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
-        iax.text(0.03,0.05,f"$\\textbf{{({p})}}$",fontsize=20,
-                 transform=iax.transAxes)
-        # move legend in panel b for simulation F
-        if ((stat.stability == "F") & (p == "b")):
-            iax.legend(loc="right", labelspacing=0.10, 
-                       handletextpad=0.4, shadow=True)
-        else:
-            iax.legend(loc="upper right", labelspacing=0.10, 
-                       handletextpad=0.4, shadow=True)
+    if config["Tavg_ec"] > 1000.:
+        for iax, p in zip(ax3, list("abcd")):
+            iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
+            iax.text(0.03,0.05,f"$\\textbf{{({p})}}$",fontsize=20,
+                    transform=iax.transAxes)
+            # move legend in panel b for simulation F
+            if ((stat.stability == "F") & (p == "b")):
+                iax.legend(loc="right", labelspacing=0.10, 
+                        handletextpad=0.4, shadow=True)
+            else:
+                iax.legend(loc="upper right", labelspacing=0.10, 
+                        handletextpad=0.4, shadow=True)
+    else:
+        for iax, p in zip(ax3, list("efgh")):
+            iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
+            iax.text(0.03,0.05,f"$\\textbf{{({p})}}$",fontsize=20,
+                    transform=iax.transAxes)
+            # move legend in panel b for simulation F
+            if ((stat.stability == "F") & (p == "f")):
+                iax.legend(loc="right", labelspacing=0.10, 
+                        handletextpad=0.4, shadow=True)
+            else:
+                iax.legend(loc="upper right", labelspacing=0.10, 
+                        handletextpad=0.4, shadow=True)
     ax3[0].set_xlabel("$u'u'/u_{*0}^2$")
     ax3[0].set_ylabel("$z/h$")
     ax3[0].set_ylim([0, 1])
