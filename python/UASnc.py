@@ -254,6 +254,11 @@ Fstat = xr.load_dataset(fstatF)
 stat_all = [Astat, Fstat]
 # calculate ustar and h for each
 for s in [Astat, Fstat]:
+    # assign plotting color
+    if s.stability == "A":
+        s.attrs["color"] = colorAF[0]
+    else:
+        s.attrs["color"] = colorAF[1]
     # ustar
     s["ustar"] = ((s.uw_cov_tot ** 2.) + (s.vw_cov_tot ** 2.)) ** 0.25
     s["ustar2"] = s.ustar ** 2.
@@ -396,30 +401,30 @@ for s, stat, irow in zip(uas_all, stat_all, [0,1]):
     # uh
     ax1[irow,0].plot(stat.uh.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h, 
                      c="k", ls="-", lw=2, label="$\\langle u_h \\rangle$")
-    ax1[irow,0].plot(s.uh, s.z/stat.h, c=colorAF[irow], ls="-", lw=2, label="UAS")
+    ax1[irow,0].plot(s.uh, s.z/stat.h, c=stat.color, ls="-", lw=2, label="UAS")
     # shade errors
     ax1[irow,0].fill_betweenx(s.z/stat.h, s.err_uh_lo, s.err_uh_hi, alpha=0.3,
-                              color=colorAF[irow], label="$\\epsilon_{u_h}$")
+                              color=stat.color, label="$\\epsilon_{u_h}$")
     ax1[irow,0].fill_betweenx(s.z/stat.h, s.err_uh_lo3, s.err_uh_hi3, alpha=0.1,
-                              color=colorAF[irow])
+                              color=stat.color)
     # alpha
     ax1[irow,1].plot(stat.wd.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h,
                      c="k", ls="-", lw=2, label="$\\langle \\alpha \\rangle$")
-    ax1[irow,1].plot(s.alpha, s.z/stat.h, c=colorAF[irow], ls="-", lw=2, label="UAS")
+    ax1[irow,1].plot(s.alpha, s.z/stat.h, c=stat.color, ls="-", lw=2, label="UAS")
     # shade errors
     ax1[irow,1].fill_betweenx(s.z/stat.h, s.err_alpha_lo, s.err_alpha_hi, alpha=0.3,
-                              color=colorAF[irow], label="$\\epsilon_{\\alpha}$")
+                              color=stat.color, label="$\\epsilon_{\\alpha}$")
     ax1[irow,1].fill_betweenx(s.z/stat.h, s.err_alpha_lo3, s.err_alpha_hi3, alpha=0.1,
-                              color=colorAF[irow])
+                              color=stat.color)
     # theta
     ax1[irow,2].plot(stat.theta_mean.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h,
                      c="k", ls="-", lw=2, label="$\\langle \\theta \\rangle$")
-    ax1[irow,2].plot(s.theta, s.z/stat.h, c=colorAF[irow], ls="-", lw=2, label="UAS")
+    ax1[irow,2].plot(s.theta, s.z/stat.h, c=stat.color, ls="-", lw=2, label="UAS")
     # shade errors
     ax1[irow,2].fill_betweenx(s.z/stat.h, s.err_theta_lo, s.err_theta_hi, alpha=0.3,
-                              color=colorAF[irow], label="$\\epsilon_{\\theta}$")
+                              color=stat.color, label="$\\epsilon_{\\theta}$")
     ax1[irow,2].fill_betweenx(s.z/stat.h, s.err_theta_lo3, s.err_theta_hi3, alpha=0.1,
-                              color=colorAF[irow])
+                              color=stat.color)
 
 # clean up
 for iax in ax1.flatten():
@@ -466,23 +471,23 @@ for s, stat in zip(ec_all, stat_all):
                 stat.z.isel(z=stat.isbl)/stat.h, 
                 c="k", ls="-", lw=2, label="$u_{*}^2$")
     ax2[0].plot(s.ustar2/stat.ustar0/stat.ustar0,
-                s.z/stat.h, c="r", ls="-", lw=2, label="UAS")
+                s.z/stat.h, c=stat.color, ls="-", lw=2, label="UAS")
     # shade errors
     ax2[0].fill_betweenx(s.z/stat.h, s.err_ustar2_lo, s.err_ustar2_hi, alpha=0.3,
-                         color="r", label="$\\epsilon_{u_{*}^2}$")
+                         color=stat.color, label="$\\epsilon_{u_{*}^2}$")
     ax2[0].fill_betweenx(s.z/stat.h, s.err_ustar2_lo3, s.err_ustar2_hi3, alpha=0.1,
-                         color="r")
+                         color=stat.color)
     # theta'w'
     ax2[1].plot(stat.tw_cov_tot.isel(z=stat.isbl)/stat.ustar0/stat.tstar0,
                 stat.z.isel(z=stat.isbl)/stat.h, 
                 c="k", ls="-", lw=2, label="$\\langle \\theta'w' \\rangle$")
     ax2[1].plot(s.tw_cov_tot/stat.ustar0/stat.tstar0,
-                s.z/stat.h, c="r", ls="-", lw=2, label="UAS")
+                s.z/stat.h, c=stat.color, ls="-", lw=2, label="UAS")
     # shade errors
     ax2[1].fill_betweenx(s.z/stat.h, s.err_tw_lo, s.err_tw_hi, alpha=0.3,
-                         color="r", label="$\\epsilon_{\\theta'w'}$")
+                         color=stat.color, label="$\\epsilon_{\\overline{\\theta'w'}}$")
     ax2[1].fill_betweenx(s.z/stat.h, s.err_tw_lo3, s.err_tw_hi3, alpha=0.1,
-                         color="r")
+                         color=stat.color)
     # clean up
     # for iax in ax2[[0,1,3]]:
     ax2[0].legend(loc="upper right", labelspacing=0.10, 
@@ -532,45 +537,45 @@ for s, stat in zip(ec_all, stat_all):
                 stat.z.isel(z=stat.isbl)/stat.h, 
                 c="k", ls="-", lw=2, label="$\\langle u'u' \\rangle$")
     ax3[0].plot(s.u_var_rot/stat.ustar0/stat.ustar0,
-                s.z/stat.h, c="r", ls="-", lw=2, label="UAS")
+                s.z/stat.h, c=stat.color, ls="-", lw=2, label="UAS")
     # shade errors
     ax3[0].fill_betweenx(s.z/stat.h, s.err_uu_rot_lo, s.err_uu_rot_hi, alpha=0.3,
-                         color="r", label="$\\epsilon_{u'u'}$")
+                         color=stat.color, label="$\\epsilon_{\\overline{u'u'}}$")
     ax3[0].fill_betweenx(s.z/stat.h, s.err_uu_rot_lo3, s.err_uu_rot_hi3, alpha=0.1,
-                         color="r")
+                         color=stat.color)
     # v'v' ROTATED
     ax3[1].plot(stat.v_var_rot.isel(z=stat.isbl)/stat.ustar0/stat.ustar0,
                 stat.z.isel(z=stat.isbl)/stat.h, 
                 c="k", ls="-", lw=2, label="$\\langle v'v' \\rangle$")
     ax3[1].plot(s.v_var_rot/stat.ustar0/stat.ustar0,
-                s.z/stat.h, c="r", ls="-", lw=2, label="UAS")
+                s.z/stat.h, c=stat.color, ls="-", lw=2, label="UAS")
     # shade errors
     ax3[1].fill_betweenx(s.z/stat.h, s.err_vv_rot_lo, s.err_vv_rot_hi, alpha=0.3,
-                         color="r", label="$\\epsilon_{v'v'}$")
+                         color=stat.color, label="$\\epsilon_{\\overline{v'v'}}$")
     ax3[1].fill_betweenx(s.z/stat.h, s.err_vv_rot_lo3, s.err_vv_rot_hi3, alpha=0.1,
-                         color="r")
+                         color=stat.color)
     # w'w'
     ax3[2].plot(stat.w_var.isel(z=stat.isbl)/stat.ustar0/stat.ustar0,
                 stat.z.isel(z=stat.isbl)/stat.h, 
                 c="k", ls="-", lw=2, label="$\\langle w'w' \\rangle$")
     ax3[2].plot(s.w_var/stat.ustar0/stat.ustar0,
-                s.z/stat.h, c="r", ls="-", lw=2, label="UAS")
+                s.z/stat.h, c=stat.color, ls="-", lw=2, label="UAS")
     # shade errors
     ax3[2].fill_betweenx(s.z/stat.h, s.err_ww_lo, s.err_ww_hi, alpha=0.3,
-                         color="r", label="$\\epsilon_{w'w'}$")
+                         color=stat.color, label="$\\epsilon_{\\overline{w'w'}}$")
     ax3[2].fill_betweenx(s.z/stat.h, s.err_ww_lo3, s.err_ww_hi3, alpha=0.1,
-                         color="r")
+                         color=stat.color)
     # TKE
     ax3[3].plot(stat.e.isel(z=stat.isbl)/stat.ustar0/stat.ustar0,
                 stat.z.isel(z=stat.isbl)/stat.h, 
                 c="k", ls="-", lw=2, label="$\\langle e \\rangle$")
     ax3[3].plot(s.e/stat.ustar0/stat.ustar0,
-                s.z/stat.h, c="r", ls="-", lw=2, label="UAS")
+                s.z/stat.h, c=stat.color, ls="-", lw=2, label="UAS")
     # shade errors
     ax3[3].fill_betweenx(s.z/stat.h, s.err_e_lo, s.err_e_hi, alpha=0.3,
-                         color="r", label="$\\epsilon_{e}$")
+                         color=stat.color, label="$\\epsilon_{e}$")
     ax3[3].fill_betweenx(s.z/stat.h, s.err_e_lo3, s.err_e_hi3, alpha=0.1,
-                         color="r")
+                         color=stat.color)
     # clean up
     if config["Tavg_ec"] > 1000.:
         for iax, p in zip(ax3, list("abcd")):
