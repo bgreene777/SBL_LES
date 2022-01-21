@@ -225,6 +225,10 @@ def ec(df, h, time_average=1800.0, time_start=0.0, quicklook=False):
 # Configure plots
 rc('font',weight='normal',size=20,family='serif',serif='Times New Roman')
 rc('text',usetex='True')
+# define colors and linestyles for looping later
+colors = seaborn.color_palette("crest", 6)
+colorAF = [colors[0], colors[5]]
+lines = ["-", "--", ":", "-."]
 
 # figure save directory
 fdir_save = "/home/bgreene/SBL_LES/figures/UASnc/"
@@ -384,67 +388,72 @@ for s, err, stat in zip(ec_all, err_all, stat_all):
 # --------------------------------
 #
 # Figure 1: uh, alpha, theta profiles from both UAS and LES mean
+# update 01/21/2022: plot both A and F in one figure with 2 rows
+# still using loops though since uas_all and stat_all are shallow copies
 #
-for s, stat in zip(uas_all, stat_all):
-    fig1, ax1 = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(14.8, 5))
+fig1, ax1 = plt.subplots(nrows=2, ncols=3, sharey=True, figsize=(14.8, 10))
+for s, stat, irow in zip(uas_all, stat_all, [0,1]):
     # uh
-    ax1[0].plot(stat.uh.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h, 
-                c="k", ls="-", lw=2, label="$\\langle u_h \\rangle$")
-    ax1[0].plot(s.uh, s.z/stat.h, c="r", ls="-", lw=2, label="UAS")
+    ax1[irow,0].plot(stat.uh.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h, 
+                     c="k", ls="-", lw=2, label="$\\langle u_h \\rangle$")
+    ax1[irow,0].plot(s.uh, s.z/stat.h, c=colorAF[irow], ls="-", lw=2, label="UAS")
     # shade errors
-    ax1[0].fill_betweenx(s.z/stat.h, s.err_uh_lo, s.err_uh_hi, alpha=0.3,
-                         color="r", label="$\\epsilon_{u_h}$")
-    ax1[0].fill_betweenx(s.z/stat.h, s.err_uh_lo3, s.err_uh_hi3, alpha=0.1,
-                         color="r")
+    ax1[irow,0].fill_betweenx(s.z/stat.h, s.err_uh_lo, s.err_uh_hi, alpha=0.3,
+                              color=colorAF[irow], label="$\\epsilon_{u_h}$")
+    ax1[irow,0].fill_betweenx(s.z/stat.h, s.err_uh_lo3, s.err_uh_hi3, alpha=0.1,
+                              color=colorAF[irow])
     # alpha
-    ax1[1].plot(stat.wd.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h,
-                c="k", ls="-", lw=2, label="$\\langle \\alpha \\rangle$")
-    ax1[1].plot(s.alpha, s.z/stat.h, c="r", ls="-", lw=2, label="UAS")
+    ax1[irow,1].plot(stat.wd.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h,
+                     c="k", ls="-", lw=2, label="$\\langle \\alpha \\rangle$")
+    ax1[irow,1].plot(s.alpha, s.z/stat.h, c=colorAF[irow], ls="-", lw=2, label="UAS")
     # shade errors
-    ax1[1].fill_betweenx(s.z/stat.h, s.err_alpha_lo, s.err_alpha_hi, alpha=0.3,
-                         color="r", label="$\\epsilon_{\\alpha}$")
-    ax1[1].fill_betweenx(s.z/stat.h, s.err_alpha_lo3, s.err_alpha_hi3, alpha=0.1,
-                         color="r")
+    ax1[irow,1].fill_betweenx(s.z/stat.h, s.err_alpha_lo, s.err_alpha_hi, alpha=0.3,
+                              color=colorAF[irow], label="$\\epsilon_{\\alpha}$")
+    ax1[irow,1].fill_betweenx(s.z/stat.h, s.err_alpha_lo3, s.err_alpha_hi3, alpha=0.1,
+                              color=colorAF[irow])
     # theta
-    ax1[2].plot(stat.theta_mean.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h,
-                c="k", ls="-", lw=2, label="$\\langle \\theta \\rangle$")
-    ax1[2].plot(s.theta, s.z/stat.h, c="r", ls="-", lw=2, label="UAS")
+    ax1[irow,2].plot(stat.theta_mean.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h,
+                     c="k", ls="-", lw=2, label="$\\langle \\theta \\rangle$")
+    ax1[irow,2].plot(s.theta, s.z/stat.h, c=colorAF[irow], ls="-", lw=2, label="UAS")
     # shade errors
-    ax1[2].fill_betweenx(s.z/stat.h, s.err_theta_lo, s.err_theta_hi, alpha=0.3,
-                         color="r", label="$\\epsilon_{\\theta}$")
-    ax1[2].fill_betweenx(s.z/stat.h, s.err_theta_lo3, s.err_theta_hi3, alpha=0.1,
-                         color="r")
-    # clean up
-    for iax in ax1:
-        iax.legend(loc="upper left", labelspacing=0.10, 
-                   handletextpad=0.4, shadow=True)
-    ax1[0].set_xlabel("$u_h$ [m s$^{-1}$]")
-    ax1[0].set_ylabel("$z/h$")
-    ax1[0].set_ylim([0, 1])
-    ax1[0].yaxis.set_major_locator(MultipleLocator(0.2))
-    ax1[0].yaxis.set_minor_locator(MultipleLocator(0.05))
-    ax1[0].set_xlim(config[stat.stability]["xlim"]["ax1_0"])
-    ax1[0].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax1_0"]))
-    ax1[0].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax1_0"]))
-    ax1[1].set_xlabel("$\\alpha$ [$^\circ$]")
-    ax1[1].set_xlim(config[stat.stability]["xlim"]["ax1_1"])
-    ax1[1].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax1_1"]))
-    ax1[1].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax1_1"]))
-    ax1[2].set_xlabel("$\\theta$ [K]")
-    ax1[2].set_xlim(config[stat.stability]["xlim"]["ax1_2"])
-    ax1[2].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax1_2"]))
-    ax1[2].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax1_2"]))
-    # edit ticks and add subplot labels
-    for iax, p in zip(ax1, list("abc")):
-        iax.tick_params(which="both", direction="in", top=True, right=True)
-        iax.text(0.88,0.05,f"$\\textbf{{({p})}}$",fontsize=20,
-                 transform=iax.transAxes)
-    fig1.tight_layout()
-    # save and close
-    fsave1 = f"{fdir_save}{stat.stability}_uh_alpha_theta_{int(config['Tavg_uv']):02d}s.pdf"
-    print(f"Saving figure: {fsave1}")
-    fig1.savefig(fsave1)
-    plt.close(fig1)
+    ax1[irow,2].fill_betweenx(s.z/stat.h, s.err_theta_lo, s.err_theta_hi, alpha=0.3,
+                              color=colorAF[irow], label="$\\epsilon_{\\theta}$")
+    ax1[irow,2].fill_betweenx(s.z/stat.h, s.err_theta_lo3, s.err_theta_hi3, alpha=0.1,
+                              color=colorAF[irow])
+
+# clean up
+for iax in ax1.flatten():
+    iax.legend(loc="upper left", labelspacing=0.10, 
+                handletextpad=0.4, shadow=True)
+# loop over zip([0,1], ["A", "F"]) for simplicity
+for irow, istab in zip([0,1], ["A", "F"]):
+    ax1[irow,0].set_xlabel("$u_h$ [m s$^{-1}$]")
+    ax1[irow,0].set_ylabel("$z/h$")
+    ax1[irow,0].set_ylim([0, 1])
+    ax1[irow,0].yaxis.set_major_locator(MultipleLocator(0.2))
+    ax1[irow,0].yaxis.set_minor_locator(MultipleLocator(0.05))
+    ax1[irow,0].set_xlim(config[istab]["xlim"]["ax1_0"])
+    ax1[irow,0].xaxis.set_major_locator(MultipleLocator(config[istab]["xmaj"]["ax1_0"]))
+    ax1[irow,0].xaxis.set_minor_locator(MultipleLocator(config[istab]["xmin"]["ax1_0"]))
+    ax1[irow,1].set_xlabel("$\\alpha$ [$^\circ$]")
+    ax1[irow,1].set_xlim(config[istab]["xlim"]["ax1_1"])
+    ax1[irow,1].xaxis.set_major_locator(MultipleLocator(config[istab]["xmaj"]["ax1_1"]))
+    ax1[irow,1].xaxis.set_minor_locator(MultipleLocator(config[istab]["xmin"]["ax1_1"]))
+    ax1[irow,2].set_xlabel("$\\theta$ [K]")
+    ax1[irow,2].set_xlim(config[istab]["xlim"]["ax1_2"])
+    ax1[irow,2].xaxis.set_major_locator(MultipleLocator(config[istab]["xmaj"]["ax1_2"]))
+    ax1[irow,2].xaxis.set_minor_locator(MultipleLocator(config[istab]["xmin"]["ax1_2"]))
+# edit ticks and add subplot labels
+for iax, p in zip(ax1.flatten(), list("abcdef")):
+    iax.tick_params(which="both", direction="in", top=True, right=True)
+    iax.text(0.88,0.05,f"$\\textbf{{({p})}}$",fontsize=20,
+                transform=iax.transAxes)
+fig1.tight_layout()
+# save and close
+fsave1 = f"{fdir_save}AF_uh_alpha_theta_{int(config['Tavg_uv']):02d}s.pdf"
+print(f"Saving figure: {fsave1}")
+fig1.savefig(fsave1)
+plt.close(fig1)
     
 #
 # Figure 2: covariances
@@ -680,9 +689,6 @@ for asc in [Aasc, Fasc]:
 #
 # plot optimal ascent rates
 #
-# define colors and linestyles to loop over
-colors = seaborn.color_palette("crest", 6)
-lines = ["-", "--", ":", "-."]
 
 fig4, ax4 = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, 
                         figsize=(7.4,7.5), constrained_layout=True)
