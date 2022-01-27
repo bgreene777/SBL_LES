@@ -97,7 +97,7 @@ tstart: 1800.    # seconds
 
 # parameters for ec recalc - emulated profile
 Tavg_uv: 3.  # seconds
-Tavg_ec: 1800. # seconds
+Tavg_ec: [60., 1800.] # seconds
 T0_ec: 0.    # seconds
 
 # parameters for calculating optimal ec average time

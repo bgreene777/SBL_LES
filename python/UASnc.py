@@ -184,40 +184,56 @@ def ec(df, h, time_average=1800.0, time_start=0.0, quicklook=False):
     :param bool quicklook: flag to make quicklook of raw vs averaged profiles
     Outputs new xarray Dataset with emulated vars and covars
     """
-    # first find the index in df.t that corresponds to time_start
-    istart = int(time_start / df.dt)
-    # determine how many indices to use from time_average
-    nuse = int(time_average / df.dt)
-    # create array of indices to use
-    iuse = np.linspace(istart, istart+nuse-1, nuse, dtype=np.int32)
+    # check if time_average is an array or single value and convert to iterable
+    if np.shape(time_average) == ():
+        time_average = np.array([time_average])
+    else:
+        time_average = np.array(time_average)
     # initialize empty dataset to hold everything
-    ec = xr.Dataset(data_vars=None, coords=dict(z=df.z))
-    # begin calculating statistics
-    # u'w'
-    ec["uw_cov_res"] = xr.cov(df.u.isel(t=iuse), df.w.isel(t=iuse), dim=("t"))
-    ec["uw_cov_tot"] = ec.uw_cov_res + df.txz.isel(t=iuse).mean("t")
-    # v'w'
-    ec["vw_cov_res"] = xr.cov(df.v.isel(t=iuse), df.w.isel(t=iuse), dim=("t"))
-    ec["vw_cov_tot"] = ec.vw_cov_res + df.tyz.isel(t=iuse).mean("t")
-    # theta'w'
-    ec["tw_cov_res"] = xr.cov(df.theta.isel(t=iuse), df.w.isel(t=iuse), dim=("t"))
-    ec["tw_cov_tot"] = ec.tw_cov_res + df.q3.isel(t=iuse).mean("t")
-    # ustar^2 = sqrt(u'w'^2 + v'w'^2)
-    ec["ustar2"] = ((ec.uw_cov_tot**2.) + (ec.vw_cov_tot**2.)) ** 0.5
-    # variances
-    for v in ["u", "v", "w", "theta"]:
-        ec[f"{v}_var"] = df[v].isel(t=iuse).var("t")
-    # rotate u and v
-    angle = np.arctan2(df.v.isel(t=iuse).mean("t"), df.u.isel(t=iuse).mean("t"))
-    u_rot = df.u.isel(t=iuse)*np.cos(angle) + df.v.isel(t=iuse)*np.sin(angle)
-    v_rot =-df.u.isel(t=iuse)*np.sin(angle) + df.v.isel(t=iuse)*np.cos(angle)
-    ec["u_var_rot"] = u_rot.var("t")
-    ec["v_var_rot"] = v_rot.var("t")
-    # calculate TKE
-    ec["e"] = 0.5 * (ec.u_var + ec.v_var + ec.w_var)
+    ec_ = xr.Dataset(data_vars=None, coords=dict(z=df.z, Tsample_ec=time_average))
+    # loop through variable names to initialize empty DataArrays
+    for v in ["uw_cov_res", "uw_cov_tot", "vw_cov_res", "vw_cov_tot", 
+                "tw_cov_res", "tw_cov_tot", "ustar2", "u_var", "v_var", 
+                "w_var", "theta_var", "u_var_rot", "v_var_rot", "e"]:
+                ec_[v] = xr.DataArray(data=np.zeros((len(df.z), len(time_average)), 
+                                                    dtype=np.float64),
+                                    coords=dict(z=df.z, Tsample_ec=time_average))
+    # loop over time_average to calculate ec stats
+    for jt, iT in enumerate(time_average):
+        # first find the index in df.t that corresponds to time_start
+        istart = int(time_start / df.dt)
+        # determine how many indices to use from time_average
+        nuse = int(iT / df.dt)
+        # create array of indices to use
+        iuse = np.linspace(istart, istart+nuse-1, nuse, dtype=np.int32)
+        # begin calculating statistics
+        # u'w'
+        ec_["uw_cov_res"][:,jt] = xr.cov(df.u.isel(t=iuse), df.w.isel(t=iuse), dim=("t"))
+        ec_["uw_cov_tot"][:,jt] = ec_.uw_cov_res[:,jt] + df.txz.isel(t=iuse).mean("t")
+        # v'w'
+        ec_["vw_cov_res"][:,jt] = xr.cov(df.v.isel(t=iuse), df.w.isel(t=iuse), dim=("t"))
+        ec_["vw_cov_tot"][:,jt] = ec_.vw_cov_res[:,jt] + df.tyz.isel(t=iuse).mean("t")
+        # theta'w'
+        ec_["tw_cov_res"][:,jt] = xr.cov(df.theta.isel(t=iuse), df.w.isel(t=iuse), dim=("t"))
+        ec_["tw_cov_tot"][:,jt] = ec_.tw_cov_res[:,jt] + df.q3.isel(t=iuse).mean("t")
+        # ustar^2 = sqrt(u'w'^2 + v'w'^2)
+        ec_["ustar2"][:,jt] = ((ec_.uw_cov_tot[:,jt]**2.) + (ec_.vw_cov_tot[:,jt]**2.)) ** 0.5
+        # variances
+        for v in ["u", "v", "w", "theta"]:
+            ec_[f"{v}_var"][:,jt] = df[v].isel(t=iuse).var("t")
+        # rotate u and v
+        angle = np.arctan2(df.v.isel(t=iuse).mean("t"), df.u.isel(t=iuse).mean("t"))
+        u_rot = df.u.isel(t=iuse)*np.cos(angle) + df.v.isel(t=iuse)*np.sin(angle)
+        v_rot =-df.u.isel(t=iuse)*np.sin(angle) + df.v.isel(t=iuse)*np.cos(angle)
+        ec_["u_var_rot"][:,jt] = u_rot.var("t")
+        ec_["v_var_rot"][:,jt] = v_rot.var("t")
+        # calculate TKE
+        ec_["e"][:,jt] = 0.5 * (ec_.u_var.isel(Tsample_ec=jt) +\
+                                ec_.v_var.isel(Tsample_ec=jt) +\
+                                ec_.w_var.isel(Tsample_ec=jt))
     
     # only return ec where z <= h
-    return ec.where(ec.z <= h, drop=True)
+    return ec_.where(ec_.z <= h, drop=True)
     
 # --------------------------------
 # Configure plots and define directories
@@ -335,54 +351,54 @@ for s in uas_all:
 for s, err, stat in zip(ec_all, err_all, stat_all):
     # covariances
     # 1 sigma
-    s["err_uw_hi"] = (1. + err.uw_cov_tot.isel(Tsample_ec=0)) * (s.uw_cov_tot/stat.ustar0/stat.ustar0)
-    s["err_uw_lo"] = (1. - err.uw_cov_tot.isel(Tsample_ec=0)) * (s.uw_cov_tot/stat.ustar0/stat.ustar0)
-    s["err_vw_hi"] = (1. + err.vw_cov_tot.isel(Tsample_ec=0)) * (s.vw_cov_tot/stat.ustar0/stat.ustar0)
-    s["err_vw_lo"] = (1. - err.vw_cov_tot.isel(Tsample_ec=0)) * (s.vw_cov_tot/stat.ustar0/stat.ustar0)
-    s["err_tw_hi"] = (1. + err.tw_cov_tot.isel(Tsample_ec=0)) * (s.tw_cov_tot/stat.tstar0/stat.ustar0)
-    s["err_tw_lo"] = (1. - err.tw_cov_tot.isel(Tsample_ec=0)) * (s.tw_cov_tot/stat.tstar0/stat.ustar0)
-    s["err_ustar2_hi"] = (1. + err.ustar2.isel(Tsample_ec=0)) * (s.ustar2/stat.ustar0/stat.ustar0)
-    s["err_ustar2_lo"] = (1. - err.ustar2.isel(Tsample_ec=0)) * (s.ustar2/stat.ustar0/stat.ustar0)
+    s["err_uw_hi"] = (1. + err.uw_cov_tot) * (s.uw_cov_tot/stat.ustar0/stat.ustar0)
+    s["err_uw_lo"] = (1. - err.uw_cov_tot) * (s.uw_cov_tot/stat.ustar0/stat.ustar0)
+    s["err_vw_hi"] = (1. + err.vw_cov_tot) * (s.vw_cov_tot/stat.ustar0/stat.ustar0)
+    s["err_vw_lo"] = (1. - err.vw_cov_tot) * (s.vw_cov_tot/stat.ustar0/stat.ustar0)
+    s["err_tw_hi"] = (1. + err.tw_cov_tot) * (s.tw_cov_tot/stat.tstar0/stat.ustar0)
+    s["err_tw_lo"] = (1. - err.tw_cov_tot) * (s.tw_cov_tot/stat.tstar0/stat.ustar0)
+    s["err_ustar2_hi"] = (1. + err.ustar2) * (s.ustar2/stat.ustar0/stat.ustar0)
+    s["err_ustar2_lo"] = (1. - err.ustar2) * (s.ustar2/stat.ustar0/stat.ustar0)
     # 3 sigma
-    s["err_uw_hi3"] = (1. + 3*err.uw_cov_tot.isel(Tsample_ec=0)) * (s.uw_cov_tot/stat.ustar0/stat.ustar0)
-    s["err_uw_lo3"] = (1. - 3*err.uw_cov_tot.isel(Tsample_ec=0)) * (s.uw_cov_tot/stat.ustar0/stat.ustar0)
-    s["err_vw_hi3"] = (1. + 3*err.vw_cov_tot.isel(Tsample_ec=0)) * (s.vw_cov_tot/stat.ustar0/stat.ustar0)
-    s["err_vw_lo3"] = (1. - 3*err.vw_cov_tot.isel(Tsample_ec=0)) * (s.vw_cov_tot/stat.ustar0/stat.ustar0)
-    s["err_tw_hi3"] = (1. + 3*err.tw_cov_tot.isel(Tsample_ec=0)) * (s.tw_cov_tot/stat.tstar0/stat.ustar0)
-    s["err_tw_lo3"] = (1. - 3*err.tw_cov_tot.isel(Tsample_ec=0)) * (s.tw_cov_tot/stat.tstar0/stat.ustar0)
-    s["err_ustar2_hi3"] = (1. + 3*err.ustar2.isel(Tsample_ec=0)) * (s.ustar2/stat.ustar0/stat.ustar0)
-    s["err_ustar2_lo3"] = (1. - 3*err.ustar2.isel(Tsample_ec=0)) * (s.ustar2/stat.ustar0/stat.ustar0)
+    s["err_uw_hi3"] = (1. + 3*err.uw_cov_tot) * (s.uw_cov_tot/stat.ustar0/stat.ustar0)
+    s["err_uw_lo3"] = (1. - 3*err.uw_cov_tot) * (s.uw_cov_tot/stat.ustar0/stat.ustar0)
+    s["err_vw_hi3"] = (1. + 3*err.vw_cov_tot) * (s.vw_cov_tot/stat.ustar0/stat.ustar0)
+    s["err_vw_lo3"] = (1. - 3*err.vw_cov_tot) * (s.vw_cov_tot/stat.ustar0/stat.ustar0)
+    s["err_tw_hi3"] = (1. + 3*err.tw_cov_tot) * (s.tw_cov_tot/stat.tstar0/stat.ustar0)
+    s["err_tw_lo3"] = (1. - 3*err.tw_cov_tot) * (s.tw_cov_tot/stat.tstar0/stat.ustar0)
+    s["err_ustar2_hi3"] = (1. + 3*err.ustar2) * (s.ustar2/stat.ustar0/stat.ustar0)
+    s["err_ustar2_lo3"] = (1. - 3*err.ustar2) * (s.ustar2/stat.ustar0/stat.ustar0)
     # variances
     # 1 sigma
-    s["err_uu_hi"] = (1. + err.uu_var.isel(Tsample_ec=0)) * (s.u_var/stat.ustar0/stat.ustar0)
-    s["err_uu_lo"] = (1. - err.uu_var.isel(Tsample_ec=0)) * (s.u_var/stat.ustar0/stat.ustar0)
-    s["err_uu_rot_hi"] = (1. + err.uu_var_rot.isel(Tsample_ec=0)) * (s.u_var_rot/stat.ustar0/stat.ustar0)
-    s["err_uu_rot_lo"] = (1. - err.uu_var_rot.isel(Tsample_ec=0)) * (s.u_var_rot/stat.ustar0/stat.ustar0)
-    s["err_vv_hi"] = (1. + err.vv_var.isel(Tsample_ec=0)) * (s.v_var/stat.ustar0/stat.ustar0)
-    s["err_vv_lo"] = (1. - err.vv_var.isel(Tsample_ec=0)) * (s.v_var/stat.ustar0/stat.ustar0)
-    s["err_vv_rot_hi"] = (1. + err.vv_var_rot.isel(Tsample_ec=0)) * (s.v_var_rot/stat.ustar0/stat.ustar0)
-    s["err_vv_rot_lo"] = (1. - err.vv_var_rot.isel(Tsample_ec=0)) * (s.v_var_rot/stat.ustar0/stat.ustar0)
-    s["err_ww_hi"] = (1. + err.ww_var.isel(Tsample_ec=0)) * (s.w_var/stat.ustar0/stat.ustar0)
-    s["err_ww_lo"] = (1. - err.ww_var.isel(Tsample_ec=0)) * (s.w_var/stat.ustar0/stat.ustar0)
-    s["err_tt_hi"] = (1. + err.tt_var.isel(Tsample_ec=0)) * (s.theta_var/stat.tstar0/stat.tstar0)
-    s["err_tt_lo"] = (1. - err.tt_var.isel(Tsample_ec=0)) * (s.theta_var/stat.tstar0/stat.tstar0)
+    s["err_uu_hi"] = (1. + err.uu_var) * (s.u_var/stat.ustar0/stat.ustar0)
+    s["err_uu_lo"] = (1. - err.uu_var) * (s.u_var/stat.ustar0/stat.ustar0)
+    s["err_uu_rot_hi"] = (1. + err.uu_var_rot) * (s.u_var_rot/stat.ustar0/stat.ustar0)
+    s["err_uu_rot_lo"] = (1. - err.uu_var_rot) * (s.u_var_rot/stat.ustar0/stat.ustar0)
+    s["err_vv_hi"] = (1. + err.vv_var) * (s.v_var/stat.ustar0/stat.ustar0)
+    s["err_vv_lo"] = (1. - err.vv_var) * (s.v_var/stat.ustar0/stat.ustar0)
+    s["err_vv_rot_hi"] = (1. + err.vv_var_rot) * (s.v_var_rot/stat.ustar0/stat.ustar0)
+    s["err_vv_rot_lo"] = (1. - err.vv_var_rot) * (s.v_var_rot/stat.ustar0/stat.ustar0)
+    s["err_ww_hi"] = (1. + err.ww_var) * (s.w_var/stat.ustar0/stat.ustar0)
+    s["err_ww_lo"] = (1. - err.ww_var) * (s.w_var/stat.ustar0/stat.ustar0)
+    s["err_tt_hi"] = (1. + err.tt_var) * (s.theta_var/stat.tstar0/stat.tstar0)
+    s["err_tt_lo"] = (1. - err.tt_var) * (s.theta_var/stat.tstar0/stat.tstar0)
     # 3 sigma
-    s["err_uu_hi3"] = (1. + 3*err.uu_var.isel(Tsample_ec=0)) * (s.u_var/stat.ustar0/stat.ustar0)
-    s["err_uu_lo3"] = (1. - 3*err.uu_var.isel(Tsample_ec=0)) * (s.u_var/stat.ustar0/stat.ustar0)
-    s["err_uu_rot_hi3"] = (1. + 3*err.uu_var_rot.isel(Tsample_ec=0)) * (s.u_var_rot/stat.ustar0/stat.ustar0)
-    s["err_uu_rot_lo3"] = (1. - 3*err.uu_var_rot.isel(Tsample_ec=0)) * (s.u_var_rot/stat.ustar0/stat.ustar0)
-    s["err_vv_hi3"] = (1. + 3*err.vv_var.isel(Tsample_ec=0)) * (s.v_var/stat.ustar0/stat.ustar0)
-    s["err_vv_lo3"] = (1. - 3*err.vv_var.isel(Tsample_ec=0)) * (s.v_var/stat.ustar0/stat.ustar0)
-    s["err_vv_rot_hi3"] = (1. + 3*err.vv_var_rot.isel(Tsample_ec=0)) * (s.v_var_rot/stat.ustar0/stat.ustar0)
-    s["err_vv_rot_lo3"] = (1. - 3*err.vv_var_rot.isel(Tsample_ec=0)) * (s.v_var_rot/stat.ustar0/stat.ustar0)
-    s["err_ww_hi3"] = (1. + 3*err.ww_var.isel(Tsample_ec=0)) * (s.w_var/stat.ustar0/stat.ustar0)
-    s["err_ww_lo3"] = (1. - 3*err.ww_var.isel(Tsample_ec=0)) * (s.w_var/stat.ustar0/stat.ustar0)
-    s["err_tt_hi3"] = (1. + 3*err.tt_var.isel(Tsample_ec=0)) * (s.theta_var/stat.tstar0/stat.tstar0)
-    s["err_tt_lo3"] = (1. - 3*err.tt_var.isel(Tsample_ec=0)) * (s.theta_var/stat.tstar0/stat.tstar0)
+    s["err_uu_hi3"] = (1. + 3*err.uu_var) * (s.u_var/stat.ustar0/stat.ustar0)
+    s["err_uu_lo3"] = (1. - 3*err.uu_var) * (s.u_var/stat.ustar0/stat.ustar0)
+    s["err_uu_rot_hi3"] = (1. + 3*err.uu_var_rot) * (s.u_var_rot/stat.ustar0/stat.ustar0)
+    s["err_uu_rot_lo3"] = (1. - 3*err.uu_var_rot) * (s.u_var_rot/stat.ustar0/stat.ustar0)
+    s["err_vv_hi3"] = (1. + 3*err.vv_var) * (s.v_var/stat.ustar0/stat.ustar0)
+    s["err_vv_lo3"] = (1. - 3*err.vv_var) * (s.v_var/stat.ustar0/stat.ustar0)
+    s["err_vv_rot_hi3"] = (1. + 3*err.vv_var_rot) * (s.v_var_rot/stat.ustar0/stat.ustar0)
+    s["err_vv_rot_lo3"] = (1. - 3*err.vv_var_rot) * (s.v_var_rot/stat.ustar0/stat.ustar0)
+    s["err_ww_hi3"] = (1. + 3*err.ww_var) * (s.w_var/stat.ustar0/stat.ustar0)
+    s["err_ww_lo3"] = (1. - 3*err.ww_var) * (s.w_var/stat.ustar0/stat.ustar0)
+    s["err_tt_hi3"] = (1. + 3*err.tt_var) * (s.theta_var/stat.tstar0/stat.tstar0)
+    s["err_tt_lo3"] = (1. - 3*err.tt_var) * (s.theta_var/stat.tstar0/stat.tstar0)
     # calculate TKE error
-    err["e"] = np.sqrt(0.25 * ((err.uu_var.isel(Tsample_ec=0)*stat.u_var)**2. +\
-                               (err.vv_var.isel(Tsample_ec=0)*stat.v_var)**2. +\
-                               (err.ww_var.isel(Tsample_ec=0)*stat.w_var)**2.) ) / stat.e
+    err["e"] = np.sqrt(0.25 * ((err.uu_var*stat.u_var)**2. +\
+                               (err.vv_var*stat.v_var)**2. +\
+                               (err.ww_var*stat.w_var)**2.) ) / stat.e
     # calculate TKE bounds
     s["err_e_hi"] = (1. + err.e) * (s.e/stat.ustar0/stat.ustar0)
     s["err_e_lo"] = (1. - err.e) * (s.e/stat.ustar0/stat.ustar0)
@@ -461,173 +477,251 @@ fig1.savefig(fsave1)
 plt.close(fig1)
     
 #
-# Figure 2: covariances
+# Figure 2: covariances + variances
 # ustar^2 and theta'w', normalized with ustar0 and thetastar0
+# u'u', w'w', normalized with ustar0
+# sims A and F, 2 averaging times
+# total of 4x4=16 subpanels
 #
-for s, stat in zip(ec_all, stat_all):
-    fig2, ax2 = plt.subplots(nrows=1, ncols=2, sharey=True, figsize=(9.87, 5))
-    # ustar^2
-    ax2[0].plot(stat.ustar2.isel(z=stat.isbl)/stat.ustar0/stat.ustar0,
-                stat.z.isel(z=stat.isbl)/stat.h, 
-                c="k", ls="-", lw=2, label="$u_{*}^2$")
-    ax2[0].plot(s.ustar2/stat.ustar0/stat.ustar0,
-                s.z/stat.h, c=stat.color, ls="-", lw=2, label="UAS")
-    # shade errors
-    ax2[0].fill_betweenx(s.z/stat.h, s.err_ustar2_lo, s.err_ustar2_hi, alpha=0.3,
-                         color=stat.color, label="$\\epsilon_{u_{*}^2}$")
-    ax2[0].fill_betweenx(s.z/stat.h, s.err_ustar2_lo3, s.err_ustar2_hi3, alpha=0.1,
-                         color=stat.color)
-    # theta'w'
-    ax2[1].plot(stat.tw_cov_tot.isel(z=stat.isbl)/stat.ustar0/stat.tstar0,
-                stat.z.isel(z=stat.isbl)/stat.h, 
-                c="k", ls="-", lw=2, label="$\\langle \\theta'w' \\rangle$")
-    ax2[1].plot(s.tw_cov_tot/stat.ustar0/stat.tstar0,
-                s.z/stat.h, c=stat.color, ls="-", lw=2, label="UAS")
-    # shade errors
-    ax2[1].fill_betweenx(s.z/stat.h, s.err_tw_lo, s.err_tw_hi, alpha=0.3,
-                         color=stat.color, label="$\\epsilon_{\\overline{\\theta'w'}}$")
-    ax2[1].fill_betweenx(s.z/stat.h, s.err_tw_lo3, s.err_tw_hi3, alpha=0.1,
-                         color=stat.color)
-    # clean up
-    # for iax in ax2[[0,1,3]]:
-    ax2[0].legend(loc="upper right", labelspacing=0.10, 
+fig2, ax2 = plt.subplots(nrows=4, ncols=4, sharey=True, sharex="col", figsize=(14.8, 20))
+# column 1: ustar^2
+# row 1: A, 1800s
+ax2[0,0].plot(Astat.ustar2.isel(z=Astat.isbl)/Astat.ustar0/Astat.ustar0,
+              Astat.z.isel(z=Astat.isbl)/Astat.h, 
+              c="k", ls="-", lw=2, label="$u_{*}^2$")
+ax2[0,0].plot(Aec.ustar2[:,1]/Astat.ustar0/Astat.ustar0,
+              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="UAS")
+# shade errors
+ax2[0,0].fill_betweenx(Aec.z/Astat.h, Aec.err_ustar2_lo[:,1], Aec.err_ustar2_hi[:,1], alpha=0.3,
+                       color=Astat.color, label="$\\epsilon_{u_{*}^2}$")
+ax2[0,0].fill_betweenx(Aec.z/Astat.h, Aec.err_ustar2_lo3[:,1], Aec.err_ustar2_hi3[:,1], alpha=0.1,
+                       color=Astat.color)
+# row 2: A, 60s
+ax2[1,0].plot(Astat.ustar2.isel(z=Astat.isbl)/Astat.ustar0/Astat.ustar0,
+              Astat.z.isel(z=Astat.isbl)/Astat.h, 
+              c="k", ls="-", lw=2, label="$u_{*}^2$")
+ax2[1,0].plot(Aec.ustar2[:,0]/Astat.ustar0/Astat.ustar0,
+              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="UAS")
+# shade errors
+ax2[1,0].fill_betweenx(Aec.z/Astat.h, Aec.err_ustar2_lo[:,0], Aec.err_ustar2_hi[:,0], alpha=0.3,
+                       color=Astat.color, label="$\\epsilon_{u_{*}^2}$")
+ax2[1,0].fill_betweenx(Aec.z/Astat.h, Aec.err_ustar2_lo3[:,0], Aec.err_ustar2_hi3[:,0], alpha=0.1,
+                       color=Astat.color)
+# row 3: F, 1800s
+ax2[2,0].plot(Fstat.ustar2.isel(z=Fstat.isbl)/Fstat.ustar0/Fstat.ustar0,
+              Fstat.z.isel(z=Fstat.isbl)/Fstat.h, 
+              c="k", ls="-", lw=2, label="$u_{*}^2$")
+ax2[2,0].plot(Fec.ustar2[:,1]/Fstat.ustar0/Fstat.ustar0,
+              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="UAS")
+# shade errors
+ax2[2,0].fill_betweenx(Fec.z/Fstat.h, Fec.err_ustar2_lo[:,1], Fec.err_ustar2_hi[:,1], alpha=0.3,
+                       color=Fstat.color, label="$\\epsilon_{u_{*}^2}$")
+ax2[2,0].fill_betweenx(Fec.z/Fstat.h, Fec.err_ustar2_lo3[:,1], Fec.err_ustar2_hi3[:,1], alpha=0.1,
+                       color=Fstat.color)
+# row 4: F, 60s
+ax2[3,0].plot(Fstat.ustar2.isel(z=Fstat.isbl)/Fstat.ustar0/Fstat.ustar0,
+              Fstat.z.isel(z=Fstat.isbl)/Fstat.h, 
+              c="k", ls="-", lw=2, label="$u_{*}^2$")
+ax2[3,0].plot(Fec.ustar2[:,0]/Fstat.ustar0/Fstat.ustar0,
+              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="UAS")
+# shade errors
+ax2[3,0].fill_betweenx(Fec.z/Fstat.h, Fec.err_ustar2_lo[:,0], Fec.err_ustar2_hi[:,0], alpha=0.3,
+                       color=Fstat.color, label="$\\epsilon_{u_{*}^2}$")
+ax2[3,0].fill_betweenx(Fec.z/Fstat.h, Fec.err_ustar2_lo3[:,0], Fec.err_ustar2_hi3[:,0], alpha=0.1,
+                       color=Fstat.color)
+# column 2: theta'w'
+# row 1: A, 1800s
+ax2[0,1].plot(Astat.tw_cov_tot.isel(z=Astat.isbl)/Astat.ustar0/Astat.tstar0,
+              Astat.z.isel(z=Astat.isbl)/Astat.h, 
+              c="k", ls="-", lw=2, label="$\\langle \\theta'w' \\rangle$")
+ax2[0,1].plot(Aec.tw_cov_tot[:,1]/Astat.ustar0/Astat.tstar0,
+              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="UAS")
+# shade errors
+ax2[0,1].fill_betweenx(Aec.z/Astat.h, Aec.err_tw_lo[:,1], Aec.err_tw_hi[:,1], alpha=0.3,
+                       color=Astat.color, label="$\\epsilon_{\\overline{\\theta'w'}}$")
+ax2[0,1].fill_betweenx(Aec.z/Astat.h, Aec.err_tw_lo3[:,1], Aec.err_tw_hi3[:,1], alpha=0.1,
+                       color=Astat.color)
+# row 2: A, 60s
+ax2[1,1].plot(Astat.tw_cov_tot.isel(z=Astat.isbl)/Astat.ustar0/Astat.tstar0,
+              Astat.z.isel(z=Astat.isbl)/Astat.h, 
+              c="k", ls="-", lw=2, label="$\\langle \\theta'w' \\rangle$")
+ax2[1,1].plot(Aec.tw_cov_tot[:,0]/Astat.ustar0/Astat.tstar0,
+              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="UAS")
+# shade errors
+ax2[1,1].fill_betweenx(Aec.z/Astat.h, Aec.err_tw_lo[:,0], Aec.err_tw_hi[:,0], alpha=0.3,
+                       color=Astat.color, label="$\\epsilon_{\\overline{\\theta'w'}}$")
+ax2[1,1].fill_betweenx(Aec.z/Astat.h, Aec.err_tw_lo3[:,0], Aec.err_tw_hi3[:,0], alpha=0.1,
+                       color=Astat.color)
+# row 3: F, 1800s
+ax2[2,1].plot(Fstat.tw_cov_tot.isel(z=Fstat.isbl)/Fstat.ustar0/Fstat.tstar0,
+              Fstat.z.isel(z=Fstat.isbl)/Fstat.h, 
+              c="k", ls="-", lw=2, label="$\\langle \\theta'w' \\rangle$")
+ax2[2,1].plot(Fec.tw_cov_tot[:,1]/Fstat.ustar0/Fstat.tstar0,
+              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="UAS")
+# shade errors
+ax2[2,1].fill_betweenx(Fec.z/Fstat.h, Fec.err_tw_lo[:,1], Fec.err_tw_hi[:,1], alpha=0.3,
+                       color=Fstat.color, label="$\\epsilon_{\\overline{\\theta'w'}}$")
+ax2[2,1].fill_betweenx(Fec.z/Fstat.h, Fec.err_tw_lo3[:,1], Fec.err_tw_hi3[:,1], alpha=0.1,
+                       color=Fstat.color)
+# row 4: F, 60s
+ax2[3,1].plot(Fstat.tw_cov_tot.isel(z=Fstat.isbl)/Fstat.ustar0/Fstat.tstar0,
+              Fstat.z.isel(z=Fstat.isbl)/Fstat.h, 
+              c="k", ls="-", lw=2, label="$\\langle \\theta'w' \\rangle$")
+ax2[3,1].plot(Fec.tw_cov_tot[:,0]/Fstat.ustar0/Fstat.tstar0,
+              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="UAS")
+# shade errors
+ax2[3,1].fill_betweenx(Fec.z/Fstat.h, Fec.err_tw_lo[:,0], Fec.err_tw_hi[:,0], alpha=0.3,
+                       color=Fstat.color, label="$\\epsilon_{\\overline{\\theta'w'}}$")
+ax2[3,1].fill_betweenx(Fec.z/Fstat.h, Fec.err_tw_lo3[:,0], Fec.err_tw_hi3[:,0], alpha=0.1,
+                       color=Fstat.color)
+# column 3: u'u' ROTATED
+# row 1: A, 1800s
+ax2[0,2].plot(Astat.u_var_rot.isel(z=Astat.isbl)/Astat.ustar0/Astat.ustar0,
+              Astat.z.isel(z=Astat.isbl)/Astat.h, 
+              c="k", ls="-", lw=2, label="$\\langle u'u' \\rangle$")
+ax2[0,2].plot(Aec.u_var_rot[:,1]/Astat.ustar0/Astat.ustar0,
+              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="UAS")
+# shade errors
+ax2[0,2].fill_betweenx(Aec.z/Astat.h, Aec.err_uu_rot_lo[:,1], Aec.err_uu_rot_hi[:,1], alpha=0.3,
+                       color=Astat.color, label="$\\epsilon_{\\overline{u'u'}}$")
+ax2[0,2].fill_betweenx(Aec.z/Astat.h, Aec.err_uu_rot_lo3[:,1], Aec.err_uu_rot_hi3[:,1], alpha=0.1,
+                       color=Astat.color)
+# row 2: A, 60s
+ax2[1,2].plot(Astat.u_var_rot.isel(z=Astat.isbl)/Astat.ustar0/Astat.ustar0,
+              Astat.z.isel(z=Astat.isbl)/Astat.h, 
+              c="k", ls="-", lw=2, label="$\\langle u'u' \\rangle$")
+ax2[1,2].plot(Aec.u_var_rot[:,0]/Astat.ustar0/Astat.ustar0,
+              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="UAS")
+# shade errors
+ax2[1,2].fill_betweenx(Aec.z/Astat.h, Aec.err_uu_rot_lo[:,0], Aec.err_uu_rot_hi[:,0], alpha=0.3,
+                       color=Astat.color, label="$\\epsilon_{\\overline{u'u'}}$")
+ax2[1,2].fill_betweenx(Aec.z/Astat.h, Aec.err_uu_rot_lo3[:,0], Aec.err_uu_rot_hi3[:,0], alpha=0.1,
+                       color=Astat.color)
+# row 3: F, 1800s
+ax2[2,2].plot(Fstat.u_var_rot.isel(z=Fstat.isbl)/Fstat.ustar0/Fstat.ustar0,
+              Fstat.z.isel(z=Fstat.isbl)/Fstat.h, 
+              c="k", ls="-", lw=2, label="$\\langle u'u' \\rangle$")
+ax2[2,2].plot(Fec.u_var_rot[:,1]/Fstat.ustar0/Fstat.ustar0,
+              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="UAS")
+# shade errors
+ax2[2,2].fill_betweenx(Fec.z/Fstat.h, Fec.err_uu_rot_lo[:,1], Fec.err_uu_rot_hi[:,1], alpha=0.3,
+                       color=Fstat.color, label="$\\epsilon_{\\overline{u'u'}}$")
+ax2[2,2].fill_betweenx(Fec.z/Fstat.h, Fec.err_uu_rot_lo3[:,1], Fec.err_uu_rot_hi3[:,1], alpha=0.1,
+                       color=Fstat.color)
+# row 4: F, 60s
+ax2[3,2].plot(Fstat.u_var_rot.isel(z=Fstat.isbl)/Fstat.ustar0/Fstat.ustar0,
+              Fstat.z.isel(z=Fstat.isbl)/Fstat.h, 
+              c="k", ls="-", lw=2, label="$\\langle u'u' \\rangle$")
+ax2[3,2].plot(Fec.u_var_rot[:,0]/Fstat.ustar0/Fstat.ustar0,
+              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="UAS")
+# shade errors
+ax2[3,2].fill_betweenx(Fec.z/Fstat.h, Fec.err_uu_rot_lo[:,0], Fec.err_uu_rot_hi[:,0], alpha=0.3,
+                       color=Fstat.color, label="$\\epsilon_{\\overline{u'u'}}$")
+ax2[3,2].fill_betweenx(Fec.z/Fstat.h, Fec.err_uu_rot_lo3[:,0], Fec.err_uu_rot_hi3[:,0], alpha=0.1,
+                       color=Fstat.color)
+
+# column 4: w'w'
+# row 1: A, 1800s
+ax2[0,3].plot(Astat.w_var.isel(z=Astat.isbl)/Astat.ustar0/Astat.ustar0,
+              Astat.z.isel(z=Astat.isbl)/Astat.h, 
+              c="k", ls="-", lw=2, label="$\\langle w'w' \\rangle$")
+ax2[0,3].plot(Aec.w_var[:,1]/Astat.ustar0/Astat.ustar0,
+              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="UAS")
+# shade errors
+ax2[0,3].fill_betweenx(Aec.z/Astat.h, Aec.err_ww_lo[:,1], Aec.err_ww_hi[:,1], alpha=0.3,
+                       color=Astat.color, label="$\\epsilon_{\\overline{w'w'}}$")
+ax2[0,3].fill_betweenx(Aec.z/Astat.h, Aec.err_ww_lo3[:,1], Aec.err_ww_hi3[:,1], alpha=0.1,
+                       color=Astat.color)
+# row 2: A, 60s
+ax2[1,3].plot(Astat.w_var.isel(z=Astat.isbl)/Astat.ustar0/Astat.ustar0,
+              Astat.z.isel(z=Astat.isbl)/Astat.h, 
+              c="k", ls="-", lw=2, label="$\\langle w'w' \\rangle$")
+ax2[1,3].plot(Aec.w_var[:,0]/Astat.ustar0/Astat.ustar0,
+              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="UAS")
+# shade errors
+ax2[1,3].fill_betweenx(Aec.z/Astat.h, Aec.err_ww_lo[:,0], Aec.err_ww_hi[:,0], alpha=0.3,
+                       color=Astat.color, label="$\\epsilon_{\\overline{w'w'}}$")
+ax2[1,3].fill_betweenx(Aec.z/Astat.h, Aec.err_ww_lo3[:,0], Aec.err_ww_hi3[:,0], alpha=0.1,
+                       color=Astat.color)
+# row 3: F, 1800s
+ax2[2,3].plot(Fstat.w_var.isel(z=Fstat.isbl)/Fstat.ustar0/Fstat.ustar0,
+              Fstat.z.isel(z=Fstat.isbl)/Fstat.h, 
+              c="k", ls="-", lw=2, label="$\\langle w'w' \\rangle$")
+ax2[2,3].plot(Fec.w_var[:,1]/Fstat.ustar0/Fstat.ustar0,
+              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="UAS")
+# shade errors
+ax2[2,3].fill_betweenx(Fec.z/Fstat.h, Fec.err_ww_lo[:,1], Fec.err_ww_hi[:,1], alpha=0.3,
+                       color=Fstat.color, label="$\\epsilon_{\\overline{w'w'}}$")
+ax2[2,3].fill_betweenx(Fec.z/Fstat.h, Fec.err_ww_lo3[:,1], Fec.err_ww_hi3[:,1], alpha=0.1,
+                       color=Fstat.color)
+# row 4: F, 60s
+ax2[3,3].plot(Fstat.w_var.isel(z=Fstat.isbl)/Fstat.ustar0/Fstat.ustar0,
+              Fstat.z.isel(z=Fstat.isbl)/Fstat.h, 
+              c="k", ls="-", lw=2, label="$\\langle w'w' \\rangle$")
+ax2[3,3].plot(Fec.w_var[:,0]/Fstat.ustar0/Fstat.ustar0,
+              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="UAS")
+# shade errors
+ax2[3,3].fill_betweenx(Fec.z/Fstat.h, Fec.err_ww_lo[:,0], Fec.err_ww_hi[:,0], alpha=0.3,
+                       color=Fstat.color, label="$\\epsilon_{\\overline{w'w'}}$")
+ax2[3,3].fill_betweenx(Fec.z/Fstat.h, Fec.err_ww_lo3[:,0], Fec.err_ww_hi3[:,0], alpha=0.1,
+                       color=Fstat.color)
+
+#
+# clean up
+#
+# legends: upper right for cols 0,2,3, upper left for col 1
+for icol in range(4):
+    for irow in range(4):
+        if icol==1:
+            ax2[irow,icol].legend(loc="upper left", labelspacing=0.10, 
                 handletextpad=0.4, shadow=True)
-    ax2[1].legend(loc="upper left", labelspacing=0.10, 
-                   handletextpad=0.4, shadow=True)
-    ax2[0].set_ylabel("$z/h$")
-    ax2[0].set_ylim([0, 1])
-    ax2[0].yaxis.set_major_locator(MultipleLocator(0.2))
-    ax2[0].yaxis.set_minor_locator(MultipleLocator(0.05))
-    ax2[0].set_xlabel("$u_{*}^2/u_{*0}^2$")
-    ax2[0].set_xlim(config[stat.stability]["xlim"]["ax2_0"])
-    ax2[0].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax2_0"]))
-    ax2[0].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax2_0"]))
-    ax2[1].set_xlabel("$\\overline{\\theta'w'}/u_{*0} \\theta_{*0}$")
-    ax2[1].set_xlim(config[stat.stability]["xlim"]["ax2_1"])
-    ax2[1].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax2_1"]))
-    ax2[1].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax2_1"]))
-    # edit ticks and add subplot labels
-    for iax in ax2:
-        iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
-    if config["Tavg_ec"] > 1000.:
-        ax2[0].text(0.03,0.05,"$\\textbf{(a)}$",fontsize=20,
-                    transform=ax2[0].transAxes)
-        ax2[1].text(0.85,0.05,"$\\textbf{(b)}$",fontsize=20,
-                    transform=ax2[1].transAxes)
+        else:
+            ax2[irow,icol].legend(loc="upper right", labelspacing=0.10, 
+            handletextpad=0.4, shadow=True)
+# yaxis ticks and labels
+for irow in range(4):
+    ax2[irow,0].set_ylabel("$z/h$")
+    ax2[irow,0].set_ylim([0, 1])
+    ax2[irow,0].yaxis.set_major_locator(MultipleLocator(0.2))
+    ax2[irow,0].yaxis.set_minor_locator(MultipleLocator(0.05))
+# x labels, only on bottom row
+# col 1
+ax2[3,0].set_xlabel("$u_{*}^2/u_{*0}^2$")
+ax2[3,0].set_xlim(config["A"]["xlim"]["ax2_0"])
+ax2[3,0].xaxis.set_major_locator(MultipleLocator(config["A"]["xmaj"]["ax2_0"]))
+ax2[3,0].xaxis.set_minor_locator(MultipleLocator(config["A"]["xmin"]["ax2_0"]))
+# col 2
+ax2[3,1].set_xlabel("$\\overline{\\theta'w'}/u_{*0} \\theta_{*0}$")
+ax2[3,1].set_xlim(config["A"]["xlim"]["ax2_1"])
+ax2[3,1].xaxis.set_major_locator(MultipleLocator(config["A"]["xmaj"]["ax2_1"]))
+ax2[3,1].xaxis.set_minor_locator(MultipleLocator(config["A"]["xmin"]["ax2_1"]))
+# col 3
+ax2[3,2].set_xlabel("$\\overline{u'u'}/u_{*0}^2$")
+ax2[3,2].set_xlim(config["A"]["xlim"]["ax3_0"])
+ax2[3,2].xaxis.set_major_locator(MultipleLocator(config["A"]["xmaj"]["ax3_0"]))
+ax2[3,2].xaxis.set_minor_locator(MultipleLocator(config["A"]["xmin"]["ax3_0"]))
+# col 4
+ax2[3,3].set_xlabel("$\\overline{w'w'}/u_{*0}^2$")
+ax2[3,3].set_xlim(config["A"]["xlim"]["ax3_2"])
+ax2[3,3].xaxis.set_major_locator(MultipleLocator(config["A"]["xmaj"]["ax3_2"]))
+ax2[3,3].xaxis.set_minor_locator(MultipleLocator(config["A"]["xmin"]["ax3_2"]))
+# edit tick style and add subplot labels
+for iax in ax2.flatten():
+    iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
+for iax, p, jax in zip(ax2.flatten(), list("abcdefghijklmnop"), range(16)):
+    if jax in [1, 5, 9, 13]:
+        iax.text(0.84,0.05,f"$\\textbf{{({p})}}$",fontsize=20,
+                transform=iax.transAxes)
     else:
-        ax2[0].text(0.03,0.05,"$\\textbf{(c)}$",fontsize=20,
-                    transform=ax2[0].transAxes)
-        ax2[1].text(0.85,0.05,"$\\textbf{(d)}$",fontsize=20,
-                    transform=ax2[1].transAxes)
-    fig2.tight_layout()
-    # save and close
-    fsave2 = f"{fdir_save}{stat.stability}_ustar_tw_covars_{int(config['Tavg_ec']):04d}s.pdf"
-    print(f"Saving figure: {fsave2}")
-    fig2.savefig(fsave2)
-    plt.close(fig2)
+        iax.text(0.03,0.05,f"$\\textbf{{({p})}}$",fontsize=20,
+                transform=iax.transAxes)
 
-#
-# Figure 3: variances
-# u_rot, v_rot, w, TKE
-#
-for s, stat in zip(ec_all, stat_all):
-    fig3, ax3 = plt.subplots(nrows=1, ncols=4, sharey=True, figsize=(14.8, 5))
-    # u'u' ROTATED
-    ax3[0].plot(stat.u_var_rot.isel(z=stat.isbl)/stat.ustar0/stat.ustar0,
-                stat.z.isel(z=stat.isbl)/stat.h, 
-                c="k", ls="-", lw=2, label="$\\langle u'u' \\rangle$")
-    ax3[0].plot(s.u_var_rot/stat.ustar0/stat.ustar0,
-                s.z/stat.h, c=stat.color, ls="-", lw=2, label="UAS")
-    # shade errors
-    ax3[0].fill_betweenx(s.z/stat.h, s.err_uu_rot_lo, s.err_uu_rot_hi, alpha=0.3,
-                         color=stat.color, label="$\\epsilon_{\\overline{u'u'}}$")
-    ax3[0].fill_betweenx(s.z/stat.h, s.err_uu_rot_lo3, s.err_uu_rot_hi3, alpha=0.1,
-                         color=stat.color)
-    # v'v' ROTATED
-    ax3[1].plot(stat.v_var_rot.isel(z=stat.isbl)/stat.ustar0/stat.ustar0,
-                stat.z.isel(z=stat.isbl)/stat.h, 
-                c="k", ls="-", lw=2, label="$\\langle v'v' \\rangle$")
-    ax3[1].plot(s.v_var_rot/stat.ustar0/stat.ustar0,
-                s.z/stat.h, c=stat.color, ls="-", lw=2, label="UAS")
-    # shade errors
-    ax3[1].fill_betweenx(s.z/stat.h, s.err_vv_rot_lo, s.err_vv_rot_hi, alpha=0.3,
-                         color=stat.color, label="$\\epsilon_{\\overline{v'v'}}$")
-    ax3[1].fill_betweenx(s.z/stat.h, s.err_vv_rot_lo3, s.err_vv_rot_hi3, alpha=0.1,
-                         color=stat.color)
-    # w'w'
-    ax3[2].plot(stat.w_var.isel(z=stat.isbl)/stat.ustar0/stat.ustar0,
-                stat.z.isel(z=stat.isbl)/stat.h, 
-                c="k", ls="-", lw=2, label="$\\langle w'w' \\rangle$")
-    ax3[2].plot(s.w_var/stat.ustar0/stat.ustar0,
-                s.z/stat.h, c=stat.color, ls="-", lw=2, label="UAS")
-    # shade errors
-    ax3[2].fill_betweenx(s.z/stat.h, s.err_ww_lo, s.err_ww_hi, alpha=0.3,
-                         color=stat.color, label="$\\epsilon_{\\overline{w'w'}}$")
-    ax3[2].fill_betweenx(s.z/stat.h, s.err_ww_lo3, s.err_ww_hi3, alpha=0.1,
-                         color=stat.color)
-    # TKE
-    ax3[3].plot(stat.e.isel(z=stat.isbl)/stat.ustar0/stat.ustar0,
-                stat.z.isel(z=stat.isbl)/stat.h, 
-                c="k", ls="-", lw=2, label="$\\langle e \\rangle$")
-    ax3[3].plot(s.e/stat.ustar0/stat.ustar0,
-                s.z/stat.h, c=stat.color, ls="-", lw=2, label="UAS")
-    # shade errors
-    ax3[3].fill_betweenx(s.z/stat.h, s.err_e_lo, s.err_e_hi, alpha=0.3,
-                         color=stat.color, label="$\\epsilon_{e}$")
-    ax3[3].fill_betweenx(s.z/stat.h, s.err_e_lo3, s.err_e_hi3, alpha=0.1,
-                         color=stat.color)
-    # clean up
-    if config["Tavg_ec"] > 1000.:
-        for iax, p in zip(ax3, list("abcd")):
-            iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
-            iax.text(0.03,0.05,f"$\\textbf{{({p})}}$",fontsize=20,
-                    transform=iax.transAxes)
-            # move legend in panel b for simulation F
-            if ((stat.stability == "F") & (p == "b")):
-                iax.legend(loc="right", labelspacing=0.10, 
-                        handletextpad=0.4, shadow=True)
-            else:
-                iax.legend(loc="upper right", labelspacing=0.10, 
-                        handletextpad=0.4, shadow=True)
-    else:
-        for iax, p in zip(ax3, list("efgh")):
-            iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
-            iax.text(0.03,0.05,f"$\\textbf{{({p})}}$",fontsize=20,
-                    transform=iax.transAxes)
-            # move legend in panel b for simulation F
-            if ((stat.stability == "F") & (p == "f")):
-                iax.legend(loc="right", labelspacing=0.10, 
-                        handletextpad=0.4, shadow=True)
-            else:
-                iax.legend(loc="upper right", labelspacing=0.10, 
-                        handletextpad=0.4, shadow=True)
-    ax3[0].set_xlabel("$\\overline{u'u'}/u_{*0}^2$")
-    ax3[0].set_ylabel("$z/h$")
-    ax3[0].set_ylim([0, 1])
-    ax3[0].yaxis.set_major_locator(MultipleLocator(0.2))
-    ax3[0].yaxis.set_minor_locator(MultipleLocator(0.05))
-    ax3[0].set_xlim(config[stat.stability]["xlim"]["ax3_0"])
-    ax3[0].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax3_0"]))
-    ax3[0].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax3_0"]))
-    ax3[1].set_xlabel("$\\overline{v'v'}/u_{*0}^2$")
-    ax3[1].set_xlim(config[stat.stability]["xlim"]["ax3_1"])
-    ax3[1].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax3_1"]))
-    ax3[1].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax3_1"]))
-    ax3[2].set_xlabel("$\\overline{w'w'}/u_{*0}^2$")
-    ax3[2].set_xlim(config[stat.stability]["xlim"]["ax3_2"])
-    ax3[2].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax3_2"]))
-    ax3[2].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax3_2"]))
-    ax3[3].set_xlabel("$e/u_{*0}^2$")
-    ax3[3].set_xlim(config[stat.stability]["xlim"]["ax3_3"])
-    ax3[3].xaxis.set_major_locator(MultipleLocator(config[stat.stability]["xmaj"]["ax3_3"]))
-    ax3[3].xaxis.set_minor_locator(MultipleLocator(config[stat.stability]["xmin"]["ax3_3"]))
-
-    fig3.tight_layout()
-    # save and close
-    fsave3 = f"{fdir_save}{stat.stability}uvw_tke_vars_{int(config['Tavg_ec']):04d}s.pdf"
-    print(f"Saving figure: {fsave3}")
-    fig3.savefig(fsave3)
-    plt.close(fig3)
+fig2.tight_layout()
+# save and close
+fsave2 = f"{fdir_save}AF_ec_{int(config['Tavg_ec'][1]):04d}_{int(config['Tavg_ec'][0]):04d}.pdf"
+print(f"Saving figure: {fsave2}")
+fig2.savefig(fsave2)
+plt.close(fig2)
 
 # --------------------------------
 # Calculate optimal ascent rates and plot
