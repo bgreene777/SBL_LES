@@ -107,16 +107,20 @@ def plot_err_prof():
     plt.close(fig1)
     
     #
-    # Figure 2: 2-panel covariances
-    # ustar2, theta'w'
+    # Figure 2: 4-panel covariances and variances
+    # ustar2, theta'w', u'u', w'w'
     #
-    fig2, ax2 = plt.subplots(nrows=1, ncols=2, sharey=True, figsize=(9.87, 5))
+    fig2, ax2 = plt.subplots(nrows=1, ncols=4, sharey=True, figsize=(14.8, 5))
     # loop through simulations
     for i, e in enumerate(err):
         # u'w'
         ax2[0].plot(100.*e.ustar2, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
         # theta'w'
         ax2[1].plot(100.*e.tw_cov_tot, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
+        # u'u' rotated
+        ax2[2].plot(100.*e.uu_var_rot, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
+        # w'w'
+        ax2[3].plot(100.*e.ww_var, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
     # labels
     ax2[0].set_ylabel("$z/h$")
     ax2[0].set_ylim([0, 1])
@@ -127,70 +131,29 @@ def plot_err_prof():
     ax2[0].xaxis.set_major_locator(MultipleLocator(25))
     ax2[0].xaxis.set_minor_locator(MultipleLocator(5))
     ax2[0].legend(loc="right", labelspacing=0.10, handletextpad=0.4, shadow=True)
-    ax2[1].set_xlabel("$\\epsilon_{\\theta'w'}$ [\%]")
+    ax2[1].set_xlabel("$\\epsilon_{\\overline{\\theta'w'}}$ [\%]")
     ax2[1].set_xlim([0, 50])
     ax2[1].xaxis.set_major_locator(MultipleLocator(10))
     ax2[1].xaxis.set_minor_locator(MultipleLocator(2))
+    ax2[2].set_xlabel("$\\epsilon_{\\overline{u'u'}}$ [\%]")
+    ax2[2].set_xlim([0, 20])
+    ax2[2].xaxis.set_major_locator(MultipleLocator(5))
+    ax2[2].xaxis.set_minor_locator(MultipleLocator(1))
+    ax2[3].set_xlabel("$\\epsilon_{\\overline{w'w'}}$ [\%]")
+    ax2[3].set_xlim([0, 10])
+    ax2[3].xaxis.set_major_locator(MultipleLocator(2))
+    ax2[3].xaxis.set_minor_locator(MultipleLocator(0.5))
     # edit ticks and add subplot labels
-    for iax, s in zip(ax2, list("ab")):
+    for iax, s in zip(ax2, list("abcd")):
         iax.tick_params(which="both", direction="in", top=True, right=True)
-        iax.text(0.88,0.05,f"$\\textbf{{({s})}}$",fontsize=20,
+        iax.text(0.84,0.05,f"$\\textbf{{({s})}}$",fontsize=20,
                  transform=iax.transAxes)
     fig2.tight_layout()
     # save and close
-    fsave2 = f"{figdir}errors/ustar2_twcov.pdf"
+    fsave2 = f"{figdir}errors/second_order_all.pdf"
     print(f"Saving figure: {fsave2}")
     fig2.savefig(fsave2)
     plt.close(fig2)
-    
-    #
-    # Figure 3: 4-panel variances
-    # u'u' rotated, v'v' rotated, w'w', TKE
-    #
-    fig3, ax3 = plt.subplots(nrows=1, ncols=4, sharey=True, figsize=(14.8, 5))
-    # loop through simulations
-    for i, e in enumerate(err):
-        # u'u' rotated
-        ax3[0].plot(100.*e.uu_var_rot, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
-        # v'v' rotated
-        ax3[1].plot(100.*e.vv_var_rot, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
-        # w'w'
-        ax3[2].plot(100.*e.ww_var, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
-        # TKE
-        ax3[3].plot(100.*e.e, e.z/stat[i].h, c=colors[i], ls="-", lw=2, label=e.stability)
-    # labels
-    ax3[0].set_xlabel("$\\epsilon_{u'u'}$ [\%]")
-    ax3[0].set_ylabel("$z/h$")
-    ax3[0].set_xlim([0, 20])
-    ax3[0].xaxis.set_major_locator(MultipleLocator(5))
-    ax3[0].xaxis.set_minor_locator(MultipleLocator(1))
-    ax3[0].set_ylim([0, 1])
-    ax3[0].yaxis.set_major_locator(MultipleLocator(0.2))
-    ax3[0].yaxis.set_minor_locator(MultipleLocator(0.05))
-    ax3[1].legend(loc="right", labelspacing=0.10, handletextpad=0.4, shadow=True)
-    ax3[1].set_xlabel("$\\epsilon_{v'v'}$ [\%]")
-    ax3[1].set_xlim([0, 20])
-    ax3[1].xaxis.set_major_locator(MultipleLocator(5))
-    ax3[1].xaxis.set_minor_locator(MultipleLocator(1))
-    ax3[2].set_xlabel("$\\epsilon_{w'w'}$ [\%]")
-    ax3[2].set_xlim([0, 10])
-    ax3[2].xaxis.set_major_locator(MultipleLocator(2))
-    ax3[2].xaxis.set_minor_locator(MultipleLocator(0.5))
-    ax3[3].set_xlabel("$\\epsilon_{e}$ [\%]")
-    ax3[3].set_xlim([0, 15])
-    ax3[3].xaxis.set_major_locator(MultipleLocator(5))
-    ax3[3].xaxis.set_minor_locator(MultipleLocator(1))
-    # edit ticks and add subplot labels
-    for iax, s in zip(ax3, list("abcd")):
-        iax.tick_params(which="both", direction="in", top=True, right=True)
-        iax.text(0.85,0.05,f"$\\textbf{{({s})}}$",fontsize=20,
-                 transform=iax.transAxes)
-    fig3.tight_layout()
-    # save and close
-    fsave3 = f"{figdir}errors/uvw_e_vars.pdf"
-    print(f"Saving figure: {fsave3}")
-    fig3.savefig(fsave3)
-    plt.close(fig3)
     
     return
 
