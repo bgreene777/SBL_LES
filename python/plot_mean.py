@@ -137,10 +137,10 @@ for i, s in enumerate(s_all):
     # now plot
     # row 1
     # (a) <u>, <v>
-    s["ws"] = np.sqrt(s.u_mean**2. + s.v_mean**2.)
-    ax1[0,0].plot(s.u_mean, s.z/s.h, ls="-", c=colors[i], lw=2)
-    ax1[0,0].plot(s.v_mean, s.z/s.h, ls=":", c=colors[i], lw=2)
-#     ax1[0,0].plot(s.ws, s.z/s.h, ls="-", c=colors[i], lw=2)
+    s["uh"] = np.sqrt(s.u_mean**2. + s.v_mean**2.)
+    # ax1[0,0].plot(s.u_mean, s.z/s.h, ls="-", c=colors[i], lw=2)
+    # ax1[0,0].plot(s.v_mean, s.z/s.h, ls=":", c=colors[i], lw=2)
+    ax1[0,0].plot(s.uh, s.z/s.h, ls="-", c=colors[i], lw=2)
     # (b) wind direction
     s["wdir"] = np.arctan2(-s.u_mean, -s.v_mean) * 180./np.pi
     s["wdir"] = s.wdir.where(s.wdir < 0.) + 360.
@@ -149,9 +149,10 @@ for i, s in enumerate(s_all):
     # (c) <\Theta>
     ax1[0,2].plot(s.theta_mean, s.z/s.h, ls="-", c=colors[i], lw=2)
     # row 2
-    # (d) <u'w'>, <v'w'>
-    ax1[1,0].plot(s.uw_cov_tot/s.ustar0/s.ustar0, s.z/s.h, ls="-", c=colors[i], lw=2)
-    ax1[1,0].plot(s.vw_cov_tot/s.ustar0/s.ustar0, s.z/s.h, ls=":", c=colors[i], lw=2)
+    # (d) ustar^2
+    # ax1[1,0].plot(s.uw_cov_tot/s.ustar0/s.ustar0, s.z/s.h, ls="-", c=colors[i], lw=2)
+    # ax1[1,0].plot(s.vw_cov_tot/s.ustar0/s.ustar0, s.z/s.h, ls=":", c=colors[i], lw=2)
+    ax1[1,0].plot(s.ustar2/s.ustar0/s.ustar0, s.z/s.h, ls="-", c=colors[i], lw=2)
     # (e) <\theta'w'>
     ax1[1,1].plot(s.tw_cov_tot/s.ustar0/s.tstar0, s.z/s.h, ls="-", c=colors[i], lw=2)
     # (f) Rig, Rif
@@ -167,15 +168,15 @@ for i, s in enumerate(s_all):
                   ls="-", c=colors[i], lw=2)
 # clean up
 # (a)
-ax1[0,0].set_xlabel("$\\langle u \\rangle$, $\\langle v \\rangle$ [m s$^{-1}$]")
+ax1[0,0].set_xlabel("$\\langle u_h \\rangle$ [m s$^{-1}$]")
 ax1[0,0].set_ylabel("$z/h$")
-ax1[0,0].set_xlim([-2., 12.])
+ax1[0,0].set_xlim([0, 12.])
 ax1[0,0].xaxis.set_major_locator(MultipleLocator(2))
-ax1[0,0].xaxis.set_minor_locator(MultipleLocator(1))
+ax1[0,0].xaxis.set_minor_locator(MultipleLocator(0.5))
 ax1[0,0].set_ylim([0, 1.2])
 ax1[0,0].yaxis.set_major_locator(MultipleLocator(0.2))
 ax1[0,0].yaxis.set_minor_locator(MultipleLocator(0.05))
-ax1[0,0].axvline(0., c="k", alpha=0.5)
+# ax1[0,0].axvline(0., c="k", alpha=0.5)
 ax1[0,0].text(0.87,0.05,r'\textbf{(a)}',fontsize=20,bbox=props, 
               transform=ax1[0,0].transAxes)
 # (b)
@@ -196,13 +197,13 @@ ax1[0,2].xaxis.set_minor_locator(MultipleLocator(1))
 ax1[0,2].text(0.87,0.05,r'\textbf{(c)}',fontsize=20,bbox=props, 
               transform=ax1[0,2].transAxes)
 # (d)
-ax1[1,0].set_xlabel("$\\langle u'w' \\rangle / u_{*0}^2$, $\\langle v'w' \\rangle / u_{*0}^2$")
+ax1[1,0].set_xlabel("$u_*^2 / u_{*0}^2$")
 ax1[1,0].set_ylabel("$z/h$")
-ax1[1,0].set_xlim([-1.0, 0.2])
+ax1[1,0].set_xlim([0, 1.2])
 ax1[1,0].xaxis.set_major_locator(MultipleLocator(0.2))
 ax1[1,0].xaxis.set_minor_locator(MultipleLocator(0.05))
 ax1[1,0].axvline(0., c="k", alpha=0.5)
-ax1[1,0].text(0.87,0.05,r'\textbf{(d)}',fontsize=20,bbox=props, 
+ax1[1,0].text(0.03,0.05,r'\textbf{(d)}',fontsize=20,bbox=props, 
               transform=ax1[1,0].transAxes)
 # (e)
 ax1[1,1].set_xlabel("$\\langle \\theta'w' \\rangle / u_{*0} \\theta_{*0}$")
@@ -252,7 +253,7 @@ for iax in ax1.flatten():
     iax.tick_params(which="both", direction="in", top=True, right=True)
 # save and close
 fig1.tight_layout()
-fig1.savefig(f"{fdir_save}mean_prof_3x3_v2.pdf", format="pdf")
+fig1.savefig(f"{fdir_save}mean_prof_3x3_v3.pdf", format="pdf")
 plt.close(fig1)
 
 # Figure 2: 2-panel TKE and ustar
