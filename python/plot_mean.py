@@ -111,6 +111,16 @@ for i, s in enumerate(s_all):
     s["tstar0"] = -s.tw_cov_tot.isel(z=0)/s.ustar0
     # calculate Obukhov length L
     s["L"] = -(s.ustar0**3) * s.theta_mean.isel(z=0) / (0.4 * 9.81 * s.tw_cov_tot.isel(z=0))
+    # calculate Richardson numbers
+    # sqrt((du_dz**2) + (dv_dz**2))
+    s["du_dz"] = np.sqrt(s.u_mean.differentiate("z", 2)**2. + s.v_mean.differentiate("z", 2)**2.)
+    # Rig = N^2 / S^2
+    N2 = s.theta_mean.differentiate("z", 2) * 9.81 / s.theta_mean.isel(z=0)
+    s["Rig"] = N2 / s.du_dz / s.du_dz
+    # Rif = beta * w'theta' / (u'w' du/dz + v'w' dv/dz)
+    s["Rif"] = (9.81/s.theta_mean.isel(z=0)) * s.tw_cov_tot /\
+                              (s.uw_cov_tot*s.u_mean.differentiate("z", 2) +\
+                               s.vw_cov_tot*s.v_mean.differentiate("z", 2))
     # print table statistics
     print(f"---{s.stability}---")
     print(f"u*: {s.ustar0.values:4.3f} m/s")
@@ -144,15 +154,17 @@ for i, s in enumerate(s_all):
     ax1[1,0].plot(s.vw_cov_tot/s.ustar0/s.ustar0, s.z/s.h, ls=":", c=colors[i], lw=2)
     # (e) <\theta'w'>
     ax1[1,1].plot(s.tw_cov_tot/s.ustar0/s.tstar0, s.z/s.h, ls="-", c=colors[i], lw=2)
-    # (f) <u'^2> ROTATED
-    ax1[1,2].plot(s.u_var_rot/s.ustar0/s.ustar0, s.z/s.h, ls="-", c=colors[i], lw=2)
+    # (f) Rig, Rif
+    ax1[1,2].plot(s.Rig, s.z/s.h, ls="-", c=colors[i], lw=2)
+    ax1[1,2].plot(s.Rif, s.z/s.h, ls="--", c=colors[i], lw=2)
     # row 3
-    # (g) <v'^2> ROTATED
-    ax1[2,0].plot(s.v_var_rot/s.ustar0/s.ustar0, s.z/s.h, ls="-", c=colors[i], lw=2)
+    # (g) <u'^2> ROTATED
+    ax1[2,0].plot(s.u_var_rot/s.ustar0/s.ustar0, s.z/s.h, ls="-", c=colors[i], lw=2)
     # (h) <w'^2>
     ax1[2,1].plot(s.w_var/s.ustar0/s.ustar0, s.z/s.h, ls="-", c=colors[i], lw=2)
-    # (i) TKE
-    ax1[2,2].plot(s.e/s.ustar0/s.ustar0, s.z/s.h, ls="-", c=colors[i], lw=2)
+    # (i) <\epsilon>
+    ax1[2,2].plot(s.dissip_mean*s.z/s.ustar0/s.ustar0/s.ustar0, s.z/s.h, 
+                  ls="-", c=colors[i], lw=2)
 # clean up
 # (a)
 ax1[0,0].set_xlabel("$\\langle u \\rangle$, $\\langle v \\rangle$ [m s$^{-1}$]")
@@ -184,7 +196,7 @@ ax1[0,2].xaxis.set_minor_locator(MultipleLocator(1))
 ax1[0,2].text(0.87,0.05,r'\textbf{(c)}',fontsize=20,bbox=props, 
               transform=ax1[0,2].transAxes)
 # (d)
-ax1[1,0].set_xlabel("$\\langle u'w' \\rangle / u_*^2$, $\\langle v'w' \\rangle / u_*^2$")
+ax1[1,0].set_xlabel("$\\langle u'w' \\rangle / u_{*0}^2$, $\\langle v'w' \\rangle / u_{*0}^2$")
 ax1[1,0].set_ylabel("$z/h$")
 ax1[1,0].set_xlim([-1.0, 0.2])
 ax1[1,0].xaxis.set_major_locator(MultipleLocator(0.2))
@@ -193,7 +205,7 @@ ax1[1,0].axvline(0., c="k", alpha=0.5)
 ax1[1,0].text(0.87,0.05,r'\textbf{(d)}',fontsize=20,bbox=props, 
               transform=ax1[1,0].transAxes)
 # (e)
-ax1[1,1].set_xlabel("$\\langle \\theta'w' \\rangle / u_* \\theta_*$")
+ax1[1,1].set_xlabel("$\\langle \\theta'w' \\rangle / u_{*0} \\theta_{*0}$")
 ax1[1,1].set_xlim([-1.2, 0])
 ax1[1,1].xaxis.set_major_locator(MultipleLocator(0.2))
 ax1[1,1].xaxis.set_minor_locator(MultipleLocator(0.05))
@@ -201,24 +213,24 @@ ax1[1,1].xaxis.set_minor_locator(MultipleLocator(0.05))
 ax1[1,1].text(0.87,0.05,r'\textbf{(e)}',fontsize=20,bbox=props, 
               transform=ax1[1,1].transAxes)
 # (f)
-ax1[1,2].set_xlabel("$\\langle u'^2 \\rangle / u_*^2$")
-ax1[1,2].set_xlim([0, 5])
-ax1[1,2].xaxis.set_major_locator(MultipleLocator(1))
-ax1[1,2].xaxis.set_minor_locator(MultipleLocator(0.25))
+ax1[1,2].set_xlabel("$Ri_g$, $Ri_f$")
+ax1[1,2].set_xlim([0, 1.2])
+ax1[1,2].xaxis.set_major_locator(MultipleLocator(0.2))
+ax1[1,2].xaxis.set_minor_locator(MultipleLocator(0.05))
 # ax1[1,2].axvline(0., c="k", alpha=0.5)
-ax1[1,2].text(0.03,0.05,r'\textbf{(f)}',fontsize=20,bbox=props, 
+ax1[1,2].text(0.87,0.05,r'\textbf{(f)}',fontsize=20,bbox=props, 
               transform=ax1[1,2].transAxes)
 # (g)
-ax1[2,0].set_xlabel("$\\langle v'^2 \\rangle / u_*^2$")
+ax1[2,0].set_xlabel("$\\langle u'^2 \\rangle / u_{*0}^2$")
 ax1[2,0].set_ylabel("$z/h$")
-ax1[2,0].set_xlim([0, 3])
+ax1[2,0].set_xlim([0, 5])
 ax1[2,0].xaxis.set_major_locator(MultipleLocator(1))
 ax1[2,0].xaxis.set_minor_locator(MultipleLocator(0.25))
 # ax1[2,0].axvline(0., c="k", alpha=0.5)
 ax1[2,0].text(0.03,0.05,r'\textbf{(g)}',fontsize=20,bbox=props, 
               transform=ax1[2,0].transAxes)
 # (h)
-ax1[2,1].set_xlabel("$\\langle w'^2 \\rangle / u_*^2$")
+ax1[2,1].set_xlabel("$\\langle w'^2 \\rangle / u_{*0}^2$")
 ax1[2,1].set_xlim([0, 1.8])
 ax1[2,1].xaxis.set_major_locator(MultipleLocator(0.5))
 ax1[2,1].xaxis.set_minor_locator(MultipleLocator(0.1))
@@ -226,10 +238,10 @@ ax1[2,1].xaxis.set_minor_locator(MultipleLocator(0.1))
 ax1[2,1].text(0.87,0.05,r'\textbf{(h)}',fontsize=20,bbox=props, 
               transform=ax1[2,1].transAxes)
 # (i)
-ax1[2,2].set_xlabel("$\\langle e \\rangle / u_*^2$")
-ax1[2,2].set_xlim([0, 4])
-ax1[2,2].xaxis.set_major_locator(MultipleLocator(1))
-ax1[2,2].xaxis.set_minor_locator(MultipleLocator(0.25))
+ax1[2,2].set_xlabel("$\\langle \\varepsilon \\rangle z/u_{*0}^3$ ")
+ax1[2,2].set_xlim([-12, 0])
+ax1[2,2].xaxis.set_major_locator(MultipleLocator(3))
+ax1[2,2].xaxis.set_minor_locator(MultipleLocator(0.5))
 # ax1[2,2].axvline(0., c="k", alpha=0.5)
 ax1[2,2].text(0.03,0.05,r'\textbf{(i)}',fontsize=20,bbox=props, 
               transform=ax1[2,2].transAxes)
@@ -240,7 +252,7 @@ for iax in ax1.flatten():
     iax.tick_params(which="both", direction="in", top=True, right=True)
 # save and close
 fig1.tight_layout()
-fig1.savefig(f"{fdir_save}mean_prof_3x3.pdf", format="pdf")
+fig1.savefig(f"{fdir_save}mean_prof_3x3_v2.pdf", format="pdf")
 plt.close(fig1)
 
 # Figure 2: 2-panel TKE and ustar
