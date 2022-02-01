@@ -944,8 +944,8 @@ for ec in [Aecavg, Fecavg]:
 #
 # plot covariances
 #
-fig5, ax5 = plt.subplots(nrows=2, ncols=3, sharex="col", sharey=True, 
-                        figsize=(10,7.5), constrained_layout=True)
+fig5, ax5 = plt.subplots(nrows=2, ncols=4, sharex="col", sharey=True, 
+                        figsize=(14.8,7.5), constrained_layout=True)
 # loop over error levels
 for je, e in enumerate(err_range_ec):
     # A
@@ -955,8 +955,11 @@ for je, e in enumerate(err_range_ec):
     # tw_cov_tot
     ax5[0,1].plot(Aecavg.t_tw_cov_tot.isel(err=je)/60., Aecavg.z/Aecavg.h,
                        ls=lines[je], c=colors[0], lw=2)
-    # TKE
-    ax5[0,2].plot(Aecavg.t_e.isel(err=je)/60., Aecavg.z/Aecavg.h,
+    # u_var_rot
+    ax5[0,2].plot(Aecavg.t_uu_var_rot.isel(err=je)/60., Aecavg.z/Aecavg.h,
+                       ls=lines[je], c=colors[0], lw=2)
+    # w_var_rot
+    ax5[0,3].plot(Aecavg.t_ww_var.isel(err=je)/60., Aecavg.z/Aecavg.h,
                        ls=lines[je], c=colors[0], lw=2)
     # F
     # ustar2
@@ -965,8 +968,11 @@ for je, e in enumerate(err_range_ec):
     # tw_cov_tot
     ax5[1,1].plot(Fecavg.t_tw_cov_tot.isel(err=je)/60., Fecavg.z/Fecavg.h,
                        ls=lines[je], c=colors[5], lw=2)
-    # TKE
-    ax5[1,2].plot(Fecavg.t_e.isel(err=je)/60., Fecavg.z/Fecavg.h,
+    # u_var_rot
+    ax5[1,2].plot(Aecavg.t_uu_var_rot.isel(err=je)/60., Aecavg.z/Aecavg.h,
+                       ls=lines[je], c=colors[5], lw=2)
+    # w_var_rot
+    ax5[1,3].plot(Aecavg.t_ww_var.isel(err=je)/60., Aecavg.z/Aecavg.h,
                        ls=lines[je], c=colors[5], lw=2)
 
 # create line handles to explain linestyle for error ranges
@@ -981,12 +987,12 @@ l7=ax5[0,0].plot([], [], ls=lines[3], c="k",
 # combine
 ltot = l4 + l5 + l6 + l7
 # add legend
-ax5[1,2].legend(handles=ltot, loc="upper right",
+ax5[0,0].legend(handles=ltot, loc="right",
                 labelspacing=0.10, handletextpad=0.4, shadow=True)
 # clean up
-for iax, p in zip(ax5.flatten(), list("abcdef")):
+for iax, p in zip(ax5.flatten(), list("abcdefgh")):
     iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
-    iax.text(0.85,0.03,f"$\\textbf{{({p})}}$",fontsize=20,
+    iax.text(0.85,0.05,f"$\\textbf{{({p})}}$",fontsize=20,
              transform=iax.transAxes)
 ax5[0,0].set_xlim([0, 120])
 ax5[0,0].xaxis.set_major_locator(MultipleLocator(30))
@@ -997,17 +1003,21 @@ ax5[0,0].set_ylim([0, 1])
 ax5[0,0].yaxis.set_major_locator(MultipleLocator(0.2))
 ax5[0,0].yaxis.set_minor_locator(MultipleLocator(0.05))
 ax5[1,0].set_ylabel("$z/h$")
-ax5[1,0].set_xlabel("Averaging Time [min]")
+ax5[1,0].set_xlabel("$u_*^2$ Averaging Time [min]")
 ax5[1,1].set_xlim([0, 120])
 ax5[1,1].xaxis.set_major_locator(MultipleLocator(30))
 ax5[1,1].xaxis.set_minor_locator(MultipleLocator(5))
-ax5[1,1].set_xlabel("Averaging Time [min]")
-ax5[1,2].set_xlim([0, 60])
-ax5[1,2].xaxis.set_major_locator(MultipleLocator(20))
+ax5[1,1].set_xlabel("$\\overline{\\theta'w'}$ Averaging Time [min]")
+ax5[1,2].set_xlim([0, 120])
+ax5[1,2].xaxis.set_major_locator(MultipleLocator(30))
 ax5[1,2].xaxis.set_minor_locator(MultipleLocator(5))
-ax5[1,2].set_xlabel("Averaging Time [min]")
+ax5[1,2].set_xlabel("$\\overline{u'u'}$ Averaging Time [min]")
+ax5[1,3].set_xlim([0, 60])
+ax5[1,3].xaxis.set_major_locator(MultipleLocator(20))
+ax5[1,3].xaxis.set_minor_locator(MultipleLocator(5))
+ax5[1,3].set_xlabel("$\\overline{w'w'}$ Averaging Time [min]")
 # save and close
-fsave5 = f"{fdir_save}AF_tavg_covar_tke.pdf"
+fsave5 = f"{fdir_save}AF_tavg_covar_var.pdf"
 print(f"Saving figure: {fsave5}")
 fig5.savefig(fsave5)
 plt.close(fig5)
