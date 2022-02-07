@@ -121,13 +121,19 @@ for i, s in enumerate(s_all):
     s["Rif"] = (9.81/s.theta_mean.isel(z=0)) * s.tw_cov_tot /\
                               (s.uw_cov_tot*s.u_mean.differentiate("z", 2) +\
                                s.vw_cov_tot*s.v_mean.differentiate("z", 2))
+    # calculate uh and alpha
+    s["uh"] = np.sqrt(s.u_mean**2. + s.v_mean**2.)
+    s["wdir"] = np.arctan2(-s.u_mean, -s.v_mean) * 180./np.pi
+    s["wdir"] = s.wdir.where(s.wdir < 0.) + 360.
     # print table statistics
     print(f"---{s.stability}---")
     print(f"u*: {s.ustar0.values:4.3f} m/s")
+    print(f"theta*: {s.tstar0.values:5.4f} K")
     print(f"Q*: {1000*s.tw_cov_tot.isel(z=0).values:4.3f} K m/s")
     print(f"h: {s.h.values:4.3f} m")
     print(f"L: {s.L.values:4.3f} m")
     print(f"h/L: {(s.h/s.L).values:4.3f}")
+    print(f"zj/h: {(s.z.isel(z=s.uh.argmax())/s.h).values:4.3f}")
 #     print(f"{s.stability}: {s.h.values} m")
     # calculate zi as in Sullivan et al 2016: max d<theta>/dz
 #     dtheta_dz = s.theta_mean.differentiate("z", 2)
@@ -137,13 +143,10 @@ for i, s in enumerate(s_all):
     # now plot
     # row 1
     # (a) <u>, <v>
-    s["uh"] = np.sqrt(s.u_mean**2. + s.v_mean**2.)
     # ax1[0,0].plot(s.u_mean, s.z/s.h, ls="-", c=colors[i], lw=2)
     # ax1[0,0].plot(s.v_mean, s.z/s.h, ls=":", c=colors[i], lw=2)
     ax1[0,0].plot(s.uh, s.z/s.h, ls="-", c=colors[i], lw=2)
     # (b) wind direction
-    s["wdir"] = np.arctan2(-s.u_mean, -s.v_mean) * 180./np.pi
-    s["wdir"] = s.wdir.where(s.wdir < 0.) + 360.
     ax1[0,1].plot(s.wdir, s.z/s.h, ls="-", c=colors[i], lw=2, 
                   label=f"{s.stability}")
     # (c) <\Theta>
