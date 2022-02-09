@@ -125,6 +125,10 @@ for i, s in enumerate(s_all):
     s["uh"] = np.sqrt(s.u_mean**2. + s.v_mean**2.)
     s["wdir"] = np.arctan2(-s.u_mean, -s.v_mean) * 180./np.pi
     s["wdir"] = s.wdir.where(s.wdir < 0.) + 360.
+    # calculate mean lapse rate between lowest grid point and z=h
+    delta_T = s.theta_mean.sel(z=s.h, method="nearest") - s.theta_mean[0]
+    delta_z = s.z.sel(z=s.h, method="nearest") - s.z[0]
+    s["dT_dz"] = delta_T / delta_z
     # print table statistics
     print(f"---{s.stability}---")
     print(f"u*: {s.ustar0.values:4.3f} m/s")
@@ -134,6 +138,7 @@ for i, s in enumerate(s_all):
     print(f"L: {s.L.values:4.3f} m")
     print(f"h/L: {(s.h/s.L).values:4.3f}")
     print(f"zj/h: {(s.z.isel(z=s.uh.argmax())/s.h).values:4.3f}")
+    print(f"dT/dz: {1000*s.dT_dz.values:4.1f} K/km")
 #     print(f"{s.stability}: {s.h.values} m")
     # calculate zi as in Sullivan et al 2016: max d<theta>/dz
 #     dtheta_dz = s.theta_mean.differentiate("z", 2)
