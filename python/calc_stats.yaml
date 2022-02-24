@@ -8,14 +8,14 @@
 # --------------------------------
 
 # directory with netcdf files
-fdir: "/home/bgreene/simulations/F_160_interp/output/netcdf/"
+fdir: "/home/bgreene/simulations/F_096/output/netcdf/"
 # new filename to save
 fsave: "average_statistics.nc"
 # start and end timesteps to read
-t0: 1080000
-t1: 1260000
+t0: 810000
+t1: 900000
 dt: 1000
 # time step in seconds
-delta_t: 0.02
+delta_t: 0.04
 # total averaging time
 tavg: "1h"

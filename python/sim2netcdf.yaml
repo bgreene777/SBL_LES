@@ -7,12 +7,12 @@
 # to new netcdf
 # --------------------------------
 
-res: 160
+res: 96
 stab: "F"
-fdir: "/home/bgreene/simulations/F_160_interp/output/"
-sdir: "/home/bgreene/simulations/F_160_interp/output/netcdf/"
-t0: 1080000
-t1: 1260000
+fdir: "/home/bgreene/simulations/F_096/output/"
+sdir: "/home/bgreene/simulations/F_096/output/netcdf/"
+t0: 810000
+t1: 900000
 dt: 1000
 Lx: 800.0
 Ly: 800.0
