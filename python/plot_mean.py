@@ -258,7 +258,7 @@ ax1[2,2].text(0.03,0.05,r'\textbf{(i)}',fontsize=20,bbox=props,
 # tick lines inside plot
 for iax in ax1.flatten():
     iax.axhline(1.0, c="k", alpha=0.5, ls="--")
-    iax.tick_params(which="both", direction="in", top=True, right=True)
+    iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
 # save and close
 fig1.tight_layout()
 fig1.savefig(f"{fdir_save}mean_prof_3x3_v3.pdf", format="pdf")
@@ -310,6 +310,35 @@ ax3[2].legend()
 fig3.tight_layout()
 fig3.savefig(f"{fdir_save}h_test.png", dpi=300)
 plt.close(fig3)
+
+# Figure 4: Ri_g, Ri_f, Pr_t
+fig4, ax4 = plt.subplots(nrows=1, ncols=3, sharey=True, sharex=True, figsize=(14.8, 5))
+for i, s in enumerate(s_all):
+     # (a) Rig
+    ax4[0].plot(s.Rig, s.z/s.h, ls="-", c=colors[i], lw=2, label=s.stability)
+    # (b) Rif
+    ax4[1].plot(s.Rif, s.z/s.h, ls="-", c=colors[i], lw=2)
+    # (c) Pr
+    ax4[2].plot(s.Rig/s.Rif, s.z/s.h, ls="-", c=colors[i], lw=2)
+# clean up
+ax4[0].legend(loc=0, labelspacing=0.10, handletextpad=0.4, shadow=True)
+ax4[0].set_xlabel("$Ri_g$")
+ax4[0].set_xlim([0, 1.2])
+ax4[0].xaxis.set_major_locator(MultipleLocator(0.2))
+ax4[0].xaxis.set_minor_locator(MultipleLocator(0.05))
+ax4[1].set_xlabel("$Ri_f$")
+ax4[2].set_xlabel("$Pr_t$")
+ax4[0].set_ylim([0, 1.2])
+ax4[0].yaxis.set_major_locator(MultipleLocator(0.2))
+ax4[0].yaxis.set_minor_locator(MultipleLocator(0.05))
+ax4[0].set_ylabel("$z/h$")
+for iax in ax4.flatten():
+    iax.axhline(1.0, c="k", alpha=0.5, ls="--")
+
+# save and close
+fig4.tight_layout()
+fig4.savefig(f"{fdir_save}prandtl.png", dpi=300)
+plt.close(fig4)
 """
 #
 # Figure 1: unrotated u, v, wspd; wdir; theta
