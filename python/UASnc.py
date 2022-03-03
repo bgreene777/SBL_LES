@@ -969,10 +969,10 @@ for je, e in enumerate(err_range_ec):
     ax5[1,1].plot(Fecavg.t_tw_cov_tot.isel(err=je)/60., Fecavg.z/Fecavg.h,
                        ls=lines[je], c=colors[5], lw=2)
     # u_var_rot
-    ax5[1,2].plot(Aecavg.t_uu_var_rot.isel(err=je)/60., Aecavg.z/Aecavg.h,
+    ax5[1,2].plot(Fecavg.t_uu_var_rot.isel(err=je)/60., Fecavg.z/Fecavg.h,
                        ls=lines[je], c=colors[5], lw=2)
     # w_var_rot
-    ax5[1,3].plot(Aecavg.t_ww_var.isel(err=je)/60., Aecavg.z/Aecavg.h,
+    ax5[1,3].plot(Fecavg.t_ww_var.isel(err=je)/60., Fecavg.z/Fecavg.h,
                        ls=lines[je], c=colors[5], lw=2)
 
 # create line handles to explain linestyle for error ranges
