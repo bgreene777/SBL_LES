@@ -205,6 +205,7 @@ def load_stats(fstats, display=False):
     input display: boolean flag to print statistics from files, default=False
     return dd: xarray dataset
     """
+    print(f"Reading file: {fstats}")
     dd = xr.load_dataset(fstats)
     # calculate ustar and h
     dd["ustar"] = ((dd.uw_cov_tot**2.) + (dd.vw_cov_tot**2.)) ** 0.25
