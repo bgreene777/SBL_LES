@@ -1,0 +1,64 @@
+# --------------------------------
+# Name: LESnc.yaml
+# Author: Brian R. Greene
+# University of Oklahoma
+# Created: 15 March 2022
+# Purpose: parameters for use in LESnc.py that combines
+# sim2netcdf.yaml and calc_stats.yaml
+# --------------------------------
+# flag to run sim2netcdf when running LESnc as script
+run_sim2netcdf: True
+# flag to run calc_stats when running LESnc as script
+run_calc_stats: True
+# simulation resolution
+res: 96
+# string to label stability
+stab: "F"
+# directory for individual simulation output
+dout: "/home/bgreene/simulations/F_096/output/"
+# directory for netcdf files to be saved or read
+dnc: "/home/bgreene/simulations/F_096/output/netcdf/"
+# name of stats file to be saved
+fstats: "average_statistics.nc"
+# start and end timesteps to read
+t0: 810000
+t1: 900000
+# output file frequency in timesteps
+dt: 1000
+# dimensional timestep in seconds
+delta_t: 0.04
+# total physical averaging time
+tavg: "1h"
+# simulation domain sizes in meters
+Lx: 800.0
+Ly: 800.0
+Lz: 400.0
+# dimensional scales for velocity and temperature
+uscale: 0.4
+Tscale: 300
+# denote whether reading in dissip
+use_dissip: True
+# variable attributes to loop over and save into netcdf files
+var_attrs:
+    u:
+        units: "m/s"
+    v:
+        units: "m/s"
+    w:
+        units: "m/s"
+    theta:
+        units: "K"
+    txz:
+        units: "m^2/s^2"
+    tyz:
+        units: "m^2/s^2"
+    q3:
+        units: "K m/s"
+    dissip:
+        units: "m^2/s^3"
+    x:
+        units: "m"
+    y:
+        units: "m"
+    z:
+        units: "m"
