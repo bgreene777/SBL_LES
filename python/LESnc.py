@@ -197,7 +197,7 @@ def calc_stats():
     print("Finished!")
     return
 # ---------------------------------------------
-def load_stats(fstats, display=False):
+def load_stats(fstats, SBL=True, display=False):
     """
     Reading function for average statistics files created from calc_stats()
     Load netcdf files using xarray and calculate numerous relevant parameters
@@ -210,22 +210,35 @@ def load_stats(fstats, display=False):
     # calculate ustar and h
     dd["ustar"] = ((dd.uw_cov_tot**2.) + (dd.vw_cov_tot**2.)) ** 0.25
     dd["ustar2"] = dd.ustar ** 2.
-    dd["h"] = dd.z.where(dd.ustar2 <= 0.05*dd.ustar2[0], drop=True)[0] / 0.95
+    if SBL:
+        dd["h"] = dd.z.where(dd.ustar2 <= 0.05*dd.ustar2[0], drop=True)[0] / 0.95
+    else:
+        dd["h"] = 0. # TODO: fix this later
     # grab ustar0 and calc tstar0 for normalizing in plotting
     dd["ustar0"] = dd.ustar.isel(z=0)
     dd["tstar0"] = -dd.tw_cov_tot.isel(z=0)/dd.ustar0
     # calculate Obukhov length L
     dd["L"] = -(dd.ustar0**3) * dd.theta_mean.isel(z=0) / (0.4 * 9.81 * dd.tw_cov_tot.isel(z=0))
-    # calculate Richardson numbers
-    # sqrt((du_dz**2) + (dv_dz**2))
-    dd["du_dz"] = np.sqrt(dd.u_mean.differentiate("z", 2)**2. + dd.v_mean.differentiate("z", 2)**2.)
-    # Rig = N^2 / S^2
-    N2 = dd.theta_mean.differentiate("z", 2) * 9.81 / dd.theta_mean.isel(z=0)
-    dd["Rig"] = N2 / dd.du_dz / dd.du_dz
-    # Rif = beta * w'theta' / (u'w' du/dz + v'w' dv/dz)
-    dd["Rif"] = (9.81/dd.theta_mean.isel(z=0)) * dd.tw_cov_tot /\
-                              (dd.uw_cov_tot*dd.u_mean.differentiate("z", 2) +\
-                               dd.vw_cov_tot*dd.v_mean.differentiate("z", 2))
+    if SBL:
+        # calculate Richardson numbers
+        # sqrt((du_dz**2) + (dv_dz**2))
+        dd["du_dz"] = np.sqrt(dd.u_mean.differentiate("z", 2)**2. + dd.v_mean.differentiate("z", 2)**2.)
+        # Rig = N^2 / S^2
+        dd["N2"] = dd.theta_mean.differentiate("z", 2) * 9.81 / dd.theta_mean.isel(z=0)
+        dd["Rig"] = dd.N2 / dd.du_dz / dd.du_dz
+        # Rif = beta * w'theta' / (u'w' du/dz + v'w' dv/dz)
+        dd["Rif"] = (9.81/dd.theta_mean.isel(z=0)) * dd.tw_cov_tot /\
+                                (dd.uw_cov_tot*dd.u_mean.differentiate("z", 2) +\
+                                dd.vw_cov_tot*dd.v_mean.differentiate("z", 2))
+        # calc Ozmidov scale real quick
+        dd["Lo"] = np.sqrt(-dd.dissip_mean / (dd.N2 ** (3./2.)))
+        # calculate gradient scales from Sorbjan 2017, Greene et al. 2022
+        l0 = 19.22 # m
+        l1 = 1./(dd.Rig**(3./2.)).where(dd.z <= dd.h, drop=True)
+        kz = 0.4 * dd.z.where(dd.z <= dd.h, drop=True)
+        dd["Ls"] = kz / (1 + (kz/l0) + (kz/l1))
+        dd["Us"] = dd.Ls * np.sqrt(dd.N2)
+        dd["Ts"] = dd.Ls * dd.theta_mean.differentiate("z", 2)
     # calculate uh and wdir
     dd["uh"] = np.sqrt(dd.u_mean**2. + dd.v_mean**2.)
     dd["wdir"] = np.arctan2(-dd.u_mean, -dd.v_mean) * 180./np.pi
