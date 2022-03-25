@@ -71,7 +71,8 @@ def calc_spectra(dnc):
     E_save["ww"] = E_ww_ytmean
     E_save["tt"] = E_tt_ytmean
     # TODO: cospectra for u'w', theta'w'
-    # TODO: only save positive frequencies
+    # only save positive frequencies
+    E_save = E_save.where(E_save.freq_x > 0., drop=True)
     # save file
     fsavenc = f"{dnc}spectrogram.nc"
     print(f"Saving file: {fsavenc}")
@@ -93,12 +94,15 @@ def plot_spectrogram(dnc, figdir):
     """
     # load stats file
     s = load_stats(dnc+"average_statistics.nc")
+    # test similarity scale for plotting
+    # height where Ls is maximum
+    s["zLs"] = s.z.isel(z=s.Ls.argmax())
     # load spectra file
     E = xr.load_dataset(dnc+"spectrogram.nc")
 
     # plot quicklook
     print("Begin plotting...")
-    fig1, ax1 = plt.subplots(1)
+    fig1, ax1 = plt.subplots(nrows=1, ncols=3, sharey=True, sharex=True, figsize=(14.8, 5))
     # cax1 = ax1.contour(E_uu_nondim.z/sA.h, 1/E_uu_nondim.freq_x/sA.h,
     #                    E_uu_nondim, levels=np.linspace(0.0, 0.75, 26),
     #                    extend="max")
@@ -111,23 +115,35 @@ def plot_spectrogram(dnc, figdir):
     # cax1 = ax1.contour(E_uu_nondim.z/sA.Ls.isel(z=0), 1/E_uu_nondim.freq_x/sA.Ls.isel(z=0),
     #                    E_uu_nondim, levels=np.linspace(0.0, 0.75, 26),
     #                    extend="max")
-    cax1 = ax1.contour(E.uu.z, 1/E.uu.freq_x, E.uu)
-    ax1.set_xlabel("$z$")
-    ax1.set_ylabel("$\\lambda_x$")
-    ax1.set_xscale("log")
-    ax1.set_yscale("log")
+    # Euu
+    cax1_0 = ax1[0].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.uu/s.ustar0/s.ustar0/2/np.pi)
+    # Eww
+    cax1_1 = ax1[1].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.ww/s.ustar0/s.ustar0/2/np.pi)
+    # Ett
+    cax1_2 = ax1[2].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.tt/s.tstar0/s.tstar0/2/np.pi)
+    # clean up
+    ax1[0].set_xlabel("$z/z_{L_s}$")
+    ax1[0].set_ylabel("$\\lambda_x/z_{L_s}$")
+    ax1[0].set_xscale("log")
+    ax1[0].set_yscale("log")
+    ax1[1].set_xlabel("$z/z_{L_s}$")
+    ax1[2].set_xlabel("$z/z_{L_s}$")
     # ax1.set_xlim([0.01, 1])
     # ax1.set_ylim([0.05, 10])
-    # E_uu_nondim.plot.contour(x="z", y="freq_x",
-    #                          ax=ax1, xscale="log", yscale="log",
-    #                          add_colorbar=True)
-    cb1 = fig1.colorbar(cax1, ax=ax1, location="right")
+    cb1_0 = fig1.colorbar(cax1_0, ax=ax1[0], location="bottom")
+    cb1_1 = fig1.colorbar(cax1_1, ax=ax1[1], location="bottom")
+    cb1_2 = fig1.colorbar(cax1_2, ax=ax1[2], location="bottom")
 
-    # ax1.axhline(1, c="k", lw=2)
+    cb1_0.ax.set_xlabel("$k_x \\Phi_{uu} / u_*^2$")
+    cb1_1.ax.set_xlabel("$k_x \\Phi_{ww} / u_*^2$")
+    cb1_2.ax.set_xlabel("$k_x \\Phi_{\\theta\\theta} / \\theta_*^2$")
+
+    for iax in ax1.flatten():
+        iax.axhline(1, c="k", lw=2)
     # ax1.axvline(1, c="k", lw=2)
 
     # save
-    fsave1 = f"{figdir}{E.stability}_uu.png"
+    fsave1 = f"{figdir}{E.stability}_uu_ww_tt.png"
     fig1.savefig(fsave1, dpi=300)
     plt.close(fig1)
 
@@ -138,9 +154,9 @@ def plot_spectrogram(dnc, figdir):
 # --------------------------------
 if __name__ == "__main__":
     # hardcode netcdf directory for now
-    ncdir = "/home/bgreene/simulations/A_192_interp/output/netcdf/"
+    ncdir = "/home/bgreene/simulations/B_192_interp/output/netcdf/"
     figdir = "/home/bgreene/SBL_LES/figures/spectrogram/"
     # run calc_spectra
-    # calc_spectra(ncdir)
+    calc_spectra(ncdir)
     # run plot_spectrogram
     plot_spectrogram(ncdir, figdir)
