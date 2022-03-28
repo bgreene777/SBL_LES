@@ -57,6 +57,16 @@ def calc_spectra(dnc):
     E_tt = xrft.power_spectrum(dd.theta, dim="x", true_phase=True, true_amplitude=True)
     # average in time and y
     E_tt_ytmean = E_tt.mean(dim=("time","y"))
+    # # u'w'
+    # E_uw = xrft.cross_spectrum(dd.u_rot, dd.w, dim="x", scaling="density",
+    #                            true_phase=True, true_amplitude=True)
+    # # average in time and y
+    # E_uw_ytmean = E_uw.mean(dim=("time","y"))
+    # # theta'w'
+    # E_tw = xrft.cross_spectrum(dd.theta, dd.w, dim="x", scaling="density",
+    #                            true_phase=True, true_amplitude=True)
+    # # average in time and y
+    # E_tw_ytmean = E_tw.mean(dim=("time","y"))
 
     #
     # Combine yt-averaged spectra into one Dataset and save nc
@@ -70,7 +80,8 @@ def calc_spectra(dnc):
     E_save["uu"] = E_uu_ytmean
     E_save["ww"] = E_ww_ytmean
     E_save["tt"] = E_tt_ytmean
-    # TODO: cospectra for u'w', theta'w'
+    # E_save["uw"] = E_uw_ytmean
+    # E_save["tw"] = E_tw_ytmean
     # only save positive frequencies
     E_save = E_save.where(E_save.freq_x > 0., drop=True)
     # save file
@@ -100,8 +111,8 @@ def plot_spectrogram(dnc, figdir):
     # load spectra file
     E = xr.load_dataset(dnc+"spectrogram.nc")
 
-    # plot quicklook
-    print("Begin plotting...")
+    # Fig 1: E_uu, E_ww, E_tt
+    print("Begin plotting Fig 1")
     fig1, ax1 = plt.subplots(nrows=1, ncols=3, sharey=True, sharex=True, figsize=(14.8, 5))
     # cax1 = ax1.contour(E_uu_nondim.z/sA.h, 1/E_uu_nondim.freq_x/sA.h,
     #                    E_uu_nondim, levels=np.linspace(0.0, 0.75, 26),
@@ -144,8 +155,39 @@ def plot_spectrogram(dnc, figdir):
 
     # save
     fsave1 = f"{figdir}{E.stability}_uu_ww_tt.png"
+    print(f"Saving figure {fsave1}")
     fig1.savefig(fsave1, dpi=300)
     plt.close(fig1)
+
+    # # Fig 2: E_uw, E_tw
+    # print("Begin plotting Fig 2...")
+    # fig2, ax2 = plt.subplots(nrows=1, ncols=2, sharey=True, sharex=True, figsize=(14.8, 5))
+    # # Euw
+    # cax2_0 = ax2[0].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.uw/s.ustar0/s.ustar0/2/np.pi)
+    # # Etw
+    # cax2_1 = ax2[1].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.ww/s.ustar0/s.tstar0/2/np.pi)
+    # # clean up
+    # ax2[0].set_xlabel("$z/z_{L_s}$")
+    # ax2[0].set_ylabel("$\\lambda_x/z_{L_s}$")
+    # ax2[0].set_xscale("log")
+    # ax2[0].set_yscale("log")
+    # ax2[1].set_xlabel("$z/z_{L_s}$")
+    # # ax1.set_xlim([0.01, 1])
+    # # ax1.set_ylim([0.05, 10])
+    # cb2_0 = fig2.colorbar(cax2_0, ax=ax2[0], location="bottom")
+    # cb2_1 = fig2.colorbar(cax2_1, ax=ax2[1], location="bottom")
+
+    # cb2_0.ax.set_xlabel("$k_x \\Phi_{uw} / u_*^2$")
+    # cb2_1.ax.set_xlabel("$k_x \\Phi_{tw} / u_* \\theta_*$")
+
+    # for iax in ax2.flatten():
+    #     iax.axhline(1, c="k", lw=2)
+    # # ax1.axvline(1, c="k", lw=2)
+
+    # # save
+    # fsave2 = f"{figdir}{E.stability}_uw_tw.png"
+    # fig2.savefig(fsave2, dpi=300)
+    # plt.close(fig2)
 
     return
 
@@ -153,10 +195,13 @@ def plot_spectrogram(dnc, figdir):
 # main
 # --------------------------------
 if __name__ == "__main__":
-    # hardcode netcdf directory for now
-    ncdir = "/home/bgreene/simulations/B_192_interp/output/netcdf/"
     figdir = "/home/bgreene/SBL_LES/figures/spectrogram/"
-    # run calc_spectra
-    calc_spectra(ncdir)
-    # run plot_spectrogram
-    plot_spectrogram(ncdir, figdir)
+    # loop sims A--F
+    for sim in list("DEF"):
+        print(f"---Begin Sim {sim}---")
+        ncdir = f"/home/bgreene/simulations/{sim}_192_interp/output/netcdf/"
+        # run calc_spectra
+        calc_spectra(ncdir)
+        # run plot_spectrogram
+        plot_spectrogram(ncdir, figdir)
+        print(f"---End Sim {sim}---")
