@@ -57,16 +57,21 @@ def calc_spectra(dnc):
     E_tt = xrft.power_spectrum(dd.theta, dim="x", true_phase=True, true_amplitude=True)
     # average in time and y
     E_tt_ytmean = E_tt.mean(dim=("time","y"))
-    # # u'w'
-    # E_uw = xrft.cross_spectrum(dd.u_rot, dd.w, dim="x", scaling="density",
-    #                            true_phase=True, true_amplitude=True)
-    # # average in time and y
-    # E_uw_ytmean = E_uw.mean(dim=("time","y"))
-    # # theta'w'
-    # E_tw = xrft.cross_spectrum(dd.theta, dd.w, dim="x", scaling="density",
-    #                            true_phase=True, true_amplitude=True)
-    # # average in time and y
-    # E_tw_ytmean = E_tw.mean(dim=("time","y"))
+    # u'w'
+    E_uw = xrft.cross_spectrum(dd.u_rot, dd.w, dim="x", scaling="density",
+                               true_phase=True, true_amplitude=True)
+    # average in time and y, only take real component
+    E_uw_ytmean = np.real(E_uw.mean(dim=("time","y")))
+    # theta'w'
+    E_tw = xrft.cross_spectrum(dd.theta, dd.w, dim="x", scaling="density",
+                               true_phase=True, true_amplitude=True)
+    # average in time and y, only take real component
+    E_tw_ytmean = np.real(E_tw.mean(dim=("time","y")))
+    # theta'u'
+    E_tu = xrft.cross_spectrum(dd.theta, dd.u_rot, dim="x", scaling="density",
+                               true_phase=True, true_amplitude=True)
+    # average in time and y, only take real component
+    E_tu_ytmean = np.real(E_tu.mean(dim=("time","y")))
 
     #
     # Combine yt-averaged spectra into one Dataset and save nc
@@ -80,8 +85,9 @@ def calc_spectra(dnc):
     E_save["uu"] = E_uu_ytmean
     E_save["ww"] = E_ww_ytmean
     E_save["tt"] = E_tt_ytmean
-    # E_save["uw"] = E_uw_ytmean
-    # E_save["tw"] = E_tw_ytmean
+    E_save["uw"] = E_uw_ytmean
+    E_save["tw"] = E_tw_ytmean
+    E_save["tu"] = E_tu_ytmean
     # only save positive frequencies
     E_save = E_save.where(E_save.freq_x > 0., drop=True)
     # save file
@@ -223,11 +229,11 @@ def plot_spectrogram(dnc, figdir):
     #                    E_uu_nondim, levels=np.linspace(0.0, 0.75, 26),
     #                    extend="max")
     # Euu
-    cax1_0 = ax1[0].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.uu/s.ustar0/s.ustar0/2/np.pi)
+    cax1_0 = ax1[0].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.uu/s.ustar0/s.ustar0)
     # Eww
-    cax1_1 = ax1[1].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.ww/s.ustar0/s.ustar0/2/np.pi)
+    cax1_1 = ax1[1].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.ww/s.ustar0/s.ustar0)
     # Ett
-    cax1_2 = ax1[2].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.tt/s.tstar0/s.tstar0/2/np.pi)
+    cax1_2 = ax1[2].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.tt/s.tstar0/s.tstar0)
     # clean up
     ax1[0].set_xlabel("$z/z_{L_s}$")
     ax1[0].set_ylabel("$\\lambda_x/z_{L_s}$")
@@ -255,35 +261,40 @@ def plot_spectrogram(dnc, figdir):
     fig1.savefig(fsave1, dpi=300)
     plt.close(fig1)
 
-    # # Fig 2: E_uw, E_tw
-    # print("Begin plotting Fig 2...")
-    # fig2, ax2 = plt.subplots(nrows=1, ncols=2, sharey=True, sharex=True, figsize=(14.8, 5))
-    # # Euw
-    # cax2_0 = ax2[0].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.uw/s.ustar0/s.ustar0/2/np.pi)
-    # # Etw
-    # cax2_1 = ax2[1].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.ww/s.ustar0/s.tstar0/2/np.pi)
-    # # clean up
-    # ax2[0].set_xlabel("$z/z_{L_s}$")
-    # ax2[0].set_ylabel("$\\lambda_x/z_{L_s}$")
-    # ax2[0].set_xscale("log")
-    # ax2[0].set_yscale("log")
-    # ax2[1].set_xlabel("$z/z_{L_s}$")
-    # # ax1.set_xlim([0.01, 1])
-    # # ax1.set_ylim([0.05, 10])
-    # cb2_0 = fig2.colorbar(cax2_0, ax=ax2[0], location="bottom")
-    # cb2_1 = fig2.colorbar(cax2_1, ax=ax2[1], location="bottom")
+    # Fig 2: E_uw, E_tw
+    print("Begin plotting Fig 2...")
+    fig2, ax2 = plt.subplots(nrows=1, ncols=3, sharey=True, sharex=True, figsize=(14.8, 5))
+    # Euw
+    cax2_0 = ax2[0].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.uw/s.ustar0/s.ustar0)
+    # Etw
+    cax2_1 = ax2[1].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.tw/s.ustar0/s.tstar0)
+    # Etu
+    cax2_2 = ax2[2].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.tu/s.ustar0/s.tstar0)
+    # clean up
+    ax2[0].set_xlabel("$z/z_{L_s}$")
+    ax2[0].set_ylabel("$\\lambda_x/z_{L_s}$")
+    ax2[0].set_xscale("log")
+    ax2[0].set_yscale("log")
+    ax2[1].set_xlabel("$z/z_{L_s}$")
+    ax2[2].set_xlabel("$z/z_{L_s}$")
+    # ax1.set_xlim([0.01, 1])
+    # ax1.set_ylim([0.05, 10])
+    cb2_0 = fig2.colorbar(cax2_0, ax=ax2[0], location="bottom")
+    cb2_1 = fig2.colorbar(cax2_1, ax=ax2[1], location="bottom")
+    cb2_2 = fig2.colorbar(cax2_2, ax=ax2[2], location="bottom")
 
-    # cb2_0.ax.set_xlabel("$k_x \\Phi_{uw} / u_*^2$")
-    # cb2_1.ax.set_xlabel("$k_x \\Phi_{tw} / u_* \\theta_*$")
+    cb2_0.ax.set_xlabel("$k_x \\Phi_{uw} / u_*^2$")
+    cb2_1.ax.set_xlabel("$k_x \\Phi_{\\theta w} / u_* \\theta_*$")
+    cb2_2.ax.set_xlabel("$k_x \\Phi_{\\theta u} / u_* \\theta_*$")
 
-    # for iax in ax2.flatten():
-    #     iax.axhline(1, c="k", lw=2)
-    # # ax1.axvline(1, c="k", lw=2)
+    for iax in ax2.flatten():
+        iax.axhline(1, c="k", lw=2)
+    # ax1.axvline(1, c="k", lw=2)
 
-    # # save
-    # fsave2 = f"{figdir}{E.stability}_uw_tw.png"
-    # fig2.savefig(fsave2, dpi=300)
-    # plt.close(fig2)
+    # save
+    fsave2 = f"{figdir}{E.stability}_uw_tw_tu.png"
+    fig2.savefig(fsave2, dpi=300)
+    plt.close(fig2)
 
     return
 
@@ -293,13 +304,13 @@ def plot_spectrogram(dnc, figdir):
 if __name__ == "__main__":
     figdir = "/home/bgreene/SBL_LES/figures/spectrogram/"
     # loop sims A--F
-    for sim in list("A"):
+    for sim in list("BCDE"):
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}_192_interp/output/netcdf/"
         # run calc_spectra
-        # calc_spectra(ncdir)
+        calc_spectra(ncdir)
         # run plot_spectrogram
-        # plot_spectrogram(ncdir, figdir)
+        plot_spectrogram(ncdir, figdir)
         # run test_calc_spec
-        test_calc_spec(ncdir, figdir)
+        # test_calc_spec(ncdir, figdir)
         print(f"---End Sim {sim}---")
