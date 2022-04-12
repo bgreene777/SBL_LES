@@ -299,18 +299,82 @@ def plot_spectrogram(dnc, figdir):
     return
 
 # --------------------------------
+# Define function to read output files and plot 1D spectra
+# --------------------------------
+
+def plot_1D_spectra(dnc, figdir):
+    """
+    Multi-panel plot from single simulation of all premultiplied spectra
+    Input dnc: directory with nc files for given sim
+    Input figdir: directory to save output figures
+    Output: saved figures in figdir
+    """
+    # load stats file
+    s = load_stats(dnc+"average_statistics.nc")
+    # load spectra file
+    E = xr.load_dataset(dnc+"spectrogram.nc")
+    # add z/h as coordinate and swap with z
+    # define array of z/h
+    zh = E.z / s.h
+    # assign coupled with z
+    E = E.assign_coords(zh=("z",zh.values))
+    # swap
+    E = E.swap_dims({"z": "zh"})
+
+    # three panel plot
+    # Euu, Eww, Ett
+    # init figure
+    fig, ax = plt.subplots(nrows=1, ncols=3, sharex=True, figsize=(14.8, 5))
+    # loop over heights z/h
+    zhplot = np.arange(0.1, 0.9, 0.1)
+    for jz in zhplot:
+        # Euu
+        ax[0].plot(E.freq_x * E.z.sel(zh=jz, method="nearest"), 
+                   E.uu.sel(zh=jz, method="nearest") /\
+                   (E.z.sel(zh=jz, method="nearest") * s.ustar0 * s.ustar0 ), 
+                   label=f"$z/h=${jz:2.1f}")
+        # Eww
+        ax[1].plot(E.freq_x * E.z.sel(zh=jz, method="nearest"),
+                   E.ww.sel(zh=jz, method="nearest") /\
+                   (E.z.sel(zh=jz, method="nearest") * s.ustar0 * s.ustar0 ))
+        # Ett
+        ax[2].plot(E.freq_x * E.z.sel(zh=jz, method="nearest"), 
+                   E.tt.sel(zh=jz, method="nearest") /\
+                   (E.z.sel(zh=jz, method="nearest") * s.tstar0 * s.tstar0 ))
+
+    ax[0].legend(loc=0)
+    ax[0].set_xscale("log")
+    ax[0].set_xlabel("$k_x z$")
+    ax[0].set_yscale("log")
+    ax[0].set_ylabel("$E_{uu} u_{*}^{-2} z^{-1}$")
+    ax[1].set_xlabel("$k_x z$")
+    ax[1].set_yscale("log")
+    ax[1].set_ylabel("$E_{ww} u_{*}^{-2} z^{-1}$")
+    ax[2].set_xlabel("$k_x z$")
+    ax[2].set_yscale("log")
+    ax[2].set_ylabel("$E_{\\theta \\theta} \\theta_{*}^{-2} z^{-1}$")
+    # save
+    fsave = f"{figdir}{E.stability}_1D_spectra.png"
+    fig.savefig(fsave, dpi=300)
+    plt.close(fig)
+
+    return
+
+# --------------------------------
 # main
 # --------------------------------
 if __name__ == "__main__":
     figdir = "/home/bgreene/SBL_LES/figures/spectrogram/"
     # loop sims A--F
-    for sim in list("BCDE"):
+    for sim in list("ABCDEF"):
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}_192_interp/output/netcdf/"
         # run calc_spectra
-        calc_spectra(ncdir)
+        # calc_spectra(ncdir)
         # run plot_spectrogram
-        plot_spectrogram(ncdir, figdir)
+        # plot_spectrogram(ncdir, figdir)
         # run test_calc_spec
         # test_calc_spec(ncdir, figdir)
+        # run plot_1D_spectra
+        plot_1D_spectra(ncdir, figdir)
         print(f"---End Sim {sim}---")
