@@ -7,11 +7,15 @@
 # wavelength and height above ground and optionally plot
 # --------------------------------
 import xrft
+import seaborn
+import cmocean
 import numpy as np
 import xarray as xr
 from dask.diagnostics import ProgressBar
 from matplotlib import pyplot as plt
-from LESnc import load_stats
+from matplotlib import rc
+from matplotlib.ticker import MultipleLocator
+from LESnc import load_stats, MidPointNormalize
 # --------------------------------
 # Define function to calculate spectra
 # --------------------------------
@@ -205,6 +209,14 @@ def plot_spectrogram(dnc, figdir):
     Input figdir: directory to save output figures
     Output: saved figures in figdir
     """
+    # configure plots
+    rc('font',weight='normal',size=20,family='serif',serif='Times New Roman')
+    rc('text',usetex='True')
+    nlevel = 36
+    cmap = seaborn.color_palette("cubehelix", as_cmap=True)
+    cmap_r = seaborn.color_palette("cubehelix_r", as_cmap=True)
+    # cmap2 = seaborn.color_palette("vlag", as_cmap=True)
+    cmap2 = cmocean.cm.balance
     # load stats file
     s = load_stats(dnc+"average_statistics.nc")
     # test similarity scale for plotting
@@ -215,7 +227,8 @@ def plot_spectrogram(dnc, figdir):
 
     # Fig 1: E_uu, E_ww, E_tt
     print("Begin plotting Fig 1")
-    fig1, ax1 = plt.subplots(nrows=1, ncols=3, sharey=True, sharex=True, figsize=(14.8, 5))
+    fig1, ax1 = plt.subplots(nrows=1, ncols=3, sharey=True, sharex=True, 
+                             figsize=(14, 5), constrained_layout=True)
     # cax1 = ax1.contour(E_uu_nondim.z/sA.h, 1/E_uu_nondim.freq_x/sA.h,
     #                    E_uu_nondim, levels=np.linspace(0.0, 0.75, 26),
     #                    extend="max")
@@ -229,11 +242,14 @@ def plot_spectrogram(dnc, figdir):
     #                    E_uu_nondim, levels=np.linspace(0.0, 0.75, 26),
     #                    extend="max")
     # Euu
-    cax1_0 = ax1[0].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.uu/s.ustar0/s.ustar0)
+    cax1_0 = ax1[0].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.uu/s.ustar0/s.ustar0,
+                            levels=np.linspace(0.0, 0.8, nlevel), extend="max", cmap=cmap)
     # Eww
-    cax1_1 = ax1[1].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.ww/s.ustar0/s.ustar0)
+    cax1_1 = ax1[1].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.ww/s.ustar0/s.ustar0,
+                            levels=np.linspace(0.0, 0.8, nlevel), extend="max", cmap=cmap)
     # Ett
-    cax1_2 = ax1[2].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.tt/s.tstar0/s.tstar0)
+    cax1_2 = ax1[2].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.tt/s.tstar0/s.tstar0,
+                            levels=np.linspace(0.0, 0.5, nlevel), extend="max", cmap=cmap)
     # clean up
     ax1[0].set_xlabel("$z/z_{L_s}$")
     ax1[0].set_ylabel("$\\lambda_x/z_{L_s}$")
@@ -243,9 +259,12 @@ def plot_spectrogram(dnc, figdir):
     ax1[2].set_xlabel("$z/z_{L_s}$")
     # ax1.set_xlim([0.01, 1])
     # ax1.set_ylim([0.05, 10])
-    cb1_0 = fig1.colorbar(cax1_0, ax=ax1[0], location="bottom")
-    cb1_1 = fig1.colorbar(cax1_1, ax=ax1[1], location="bottom")
-    cb1_2 = fig1.colorbar(cax1_2, ax=ax1[2], location="bottom")
+    cb1_0 = fig1.colorbar(cax1_0, ax=ax1[0], location="bottom", 
+                          ticks=MultipleLocator(0.2), shrink=0.8)
+    cb1_1 = fig1.colorbar(cax1_1, ax=ax1[1], location="bottom", 
+                          ticks=MultipleLocator(0.2), shrink=0.8)
+    cb1_2 = fig1.colorbar(cax1_2, ax=ax1[2], location="bottom", 
+                          ticks=MultipleLocator(0.1), shrink=0.8)
 
     cb1_0.ax.set_xlabel("$k_x \\Phi_{uu} / u_*^2$")
     cb1_1.ax.set_xlabel("$k_x \\Phi_{ww} / u_*^2$")
@@ -263,13 +282,18 @@ def plot_spectrogram(dnc, figdir):
 
     # Fig 2: E_uw, E_tw
     print("Begin plotting Fig 2...")
-    fig2, ax2 = plt.subplots(nrows=1, ncols=3, sharey=True, sharex=True, figsize=(14.8, 5))
+    fig2, ax2 = plt.subplots(nrows=1, ncols=3, sharey=True, sharex=True,
+                             figsize=(14, 5), constrained_layout=True)
     # Euw
-    cax2_0 = ax2[0].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.uw/s.ustar0/s.ustar0)
+    cax2_0 = ax2[0].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.uw/s.ustar0/s.ustar0,
+                            levels=np.linspace(-0.2, 0.0, nlevel), extend="both", cmap=cmap_r)
     # Etw
-    cax2_1 = ax2[1].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.tw/s.ustar0/s.tstar0)
+    cax2_1 = ax2[1].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.tw/s.ustar0/s.tstar0,
+                            levels=np.linspace(-0.2, 0.0, nlevel), extend="both", cmap=cmap_r)
     # Etu
-    cax2_2 = ax2[2].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.tu/s.ustar0/s.tstar0)
+    norm=MidPointNormalize(midpoint=0.0)
+    cax2_2 = ax2[2].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.tu/s.ustar0/s.tstar0,
+                            levels=np.linspace(-0.2, 0.4, nlevel), extend="both", cmap=cmap2, norm=norm)
     # clean up
     ax2[0].set_xlabel("$z/z_{L_s}$")
     ax2[0].set_ylabel("$\\lambda_x/z_{L_s}$")
@@ -279,9 +303,12 @@ def plot_spectrogram(dnc, figdir):
     ax2[2].set_xlabel("$z/z_{L_s}$")
     # ax1.set_xlim([0.01, 1])
     # ax1.set_ylim([0.05, 10])
-    cb2_0 = fig2.colorbar(cax2_0, ax=ax2[0], location="bottom")
-    cb2_1 = fig2.colorbar(cax2_1, ax=ax2[1], location="bottom")
-    cb2_2 = fig2.colorbar(cax2_2, ax=ax2[2], location="bottom")
+    cb2_0 = fig2.colorbar(cax2_0, ax=ax2[0], location="bottom",
+                          ticks=MultipleLocator(0.1), shrink=0.8)
+    cb2_1 = fig2.colorbar(cax2_1, ax=ax2[1], location="bottom",
+                          ticks=MultipleLocator(0.1), shrink=0.8)
+    cb2_2 = fig2.colorbar(cax2_2, ax=ax2[2], location="bottom",
+                          ticks=MultipleLocator(0.1), shrink=0.8)
 
     cb2_0.ax.set_xlabel("$k_x \\Phi_{uw} / u_*^2$")
     cb2_1.ax.set_xlabel("$k_x \\Phi_{\\theta w} / u_* \\theta_*$")
@@ -293,6 +320,7 @@ def plot_spectrogram(dnc, figdir):
 
     # save
     fsave2 = f"{figdir}{E.stability}_uw_tw_tu.png"
+    print(f"Saving figure {fsave2}")
     fig2.savefig(fsave2, dpi=300)
     plt.close(fig2)
 
@@ -330,29 +358,30 @@ def plot_1D_spectra(dnc, figdir):
     for jz in zhplot:
         # Euu
         ax[0].plot(E.freq_x * E.z.sel(zh=jz, method="nearest"), 
-                   E.uu.sel(zh=jz, method="nearest") /\
-                   (E.z.sel(zh=jz, method="nearest") * s.ustar0 * s.ustar0 ), 
+                   E.uu.sel(zh=jz, method="nearest") * E.freq_x /\
+                   (s.ustar0 * s.ustar0 ), 
                    label=f"$z/h=${jz:2.1f}")
         # Eww
         ax[1].plot(E.freq_x * E.z.sel(zh=jz, method="nearest"),
-                   E.ww.sel(zh=jz, method="nearest") /\
-                   (E.z.sel(zh=jz, method="nearest") * s.ustar0 * s.ustar0 ))
+                   E.ww.sel(zh=jz, method="nearest") * E.freq_x /\
+                   (s.ustar0 * s.ustar0 ))
         # Ett
         ax[2].plot(E.freq_x * E.z.sel(zh=jz, method="nearest"), 
-                   E.tt.sel(zh=jz, method="nearest") /\
-                   (E.z.sel(zh=jz, method="nearest") * s.tstar0 * s.tstar0 ))
+                   E.tt.sel(zh=jz, method="nearest") * E.freq_x /\
+                   (s.tstar0 * s.tstar0 ))
 
     ax[0].legend(loc=0)
     ax[0].set_xscale("log")
     ax[0].set_xlabel("$k_x z$")
     ax[0].set_yscale("log")
-    ax[0].set_ylabel("$E_{uu} u_{*}^{-2} z^{-1}$")
+    ax[0].set_ylabel("$k_x E_{uu} u_{*}^{-2}$")
     ax[1].set_xlabel("$k_x z$")
     ax[1].set_yscale("log")
-    ax[1].set_ylabel("$E_{ww} u_{*}^{-2} z^{-1}$")
+    ax[1].set_ylabel("$k_x E_{ww} u_{*}^{-2}$")
     ax[2].set_xlabel("$k_x z$")
     ax[2].set_yscale("log")
-    ax[2].set_ylabel("$E_{\\theta \\theta} \\theta_{*}^{-2} z^{-1}$")
+    ax[2].set_ylabel("$k_x E_{\\theta \\theta} \\theta_{*}^{-2}$")
+    fig.tight_layout()
     # save
     fsave = f"{figdir}{E.stability}_1D_spectra.png"
     fig.savefig(fsave, dpi=300)
@@ -366,15 +395,15 @@ def plot_1D_spectra(dnc, figdir):
 if __name__ == "__main__":
     figdir = "/home/bgreene/SBL_LES/figures/spectrogram/"
     # loop sims A--F
-    for sim in list("ABCDEF"):
+    for sim in list("AF"):
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}_192_interp/output/netcdf/"
         # run calc_spectra
         # calc_spectra(ncdir)
         # run plot_spectrogram
-        # plot_spectrogram(ncdir, figdir)
+        plot_spectrogram(ncdir, figdir)
         # run test_calc_spec
         # test_calc_spec(ncdir, figdir)
         # run plot_1D_spectra
-        plot_1D_spectra(ncdir, figdir)
+        # plot_1D_spectra(ncdir, figdir)
         print(f"---End Sim {sim}---")
