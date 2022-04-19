@@ -238,9 +238,13 @@ def load_stats(fstats, SBL=True, display=False):
     # grab ustar0 and calc tstar0 for normalizing in plotting
     dd["ustar0"] = dd.ustar.isel(z=0)
     dd["tstar0"] = -dd.tw_cov_tot.isel(z=0)/dd.ustar0
+    # calculate TKE
+    dd["e"] = 0.5 * (dd.u_var + dd.v_var + dd.w_var)
     # calculate Obukhov length L
     dd["L"] = -(dd.ustar0**3) * dd.theta_mean.isel(z=0) / (0.4 * 9.81 * dd.tw_cov_tot.isel(z=0))
     if SBL:
+        # calculate TKE-based sbl depth
+        dd["he"] = dd.z.where(dd.e <= 0.05*dd.e[0], drop=True)[0]
         # calculate Richardson numbers
         # sqrt((du_dz**2) + (dv_dz**2))
         dd["du_dz"] = np.sqrt(dd.u_mean.differentiate("z", 2)**2. + dd.v_mean.differentiate("z", 2)**2.)
@@ -271,8 +275,6 @@ def load_stats(fstats, SBL=True, display=False):
     # calculate eddy turnover time TL
     dd["TL"] = dd.h / dd.ustar0
     dd["nTL"] = 3600. / dd.TL
-    # calculate TKE
-    dd["e"] = 0.5 * (dd.u_var + dd.v_var + dd.w_var)
     # print table statistics
     if display:
         print(f"---{dd.stability}---")
