@@ -242,21 +242,21 @@ def plot_spectrogram(dnc, figdir):
     #                    E_uu_nondim, levels=np.linspace(0.0, 0.75, 26),
     #                    extend="max")
     # Euu
-    cax1_0 = ax1[0].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.uu/s.ustar0/s.ustar0,
+    cax1_0 = ax1[0].contour(E.z/s.h, 1/E.freq_x/s.h, E.freq_x*E.uu/s.ustar0/s.ustar0,
                             levels=np.linspace(0.0, 0.8, nlevel), extend="max", cmap=cmap)
     # Eww
-    cax1_1 = ax1[1].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.ww/s.ustar0/s.ustar0,
+    cax1_1 = ax1[1].contour(E.z/s.h, 1/E.freq_x/s.h, E.freq_x*E.ww/s.ustar0/s.ustar0,
                             levels=np.linspace(0.0, 0.8, nlevel), extend="max", cmap=cmap)
     # Ett
-    cax1_2 = ax1[2].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.tt/s.tstar0/s.tstar0,
+    cax1_2 = ax1[2].contour(E.z/s.h, 1/E.freq_x/s.h, E.freq_x*E.tt/s.tstar0/s.tstar0,
                             levels=np.linspace(0.0, 0.5, nlevel), extend="max", cmap=cmap)
     # clean up
-    ax1[0].set_xlabel("$z/z_{L_s}$")
-    ax1[0].set_ylabel("$\\lambda_x/z_{L_s}$")
+    ax1[0].set_xlabel("$z/h$")
+    ax1[0].set_ylabel("$\\lambda_x/h$")
     ax1[0].set_xscale("log")
     ax1[0].set_yscale("log")
-    ax1[1].set_xlabel("$z/z_{L_s}$")
-    ax1[2].set_xlabel("$z/z_{L_s}$")
+    ax1[1].set_xlabel("$z/h$")
+    ax1[2].set_xlabel("$z/h$")
     # ax1.set_xlim([0.01, 1])
     # ax1.set_ylim([0.05, 10])
     cb1_0 = fig1.colorbar(cax1_0, ax=ax1[0], location="bottom", 
@@ -270,8 +270,8 @@ def plot_spectrogram(dnc, figdir):
     cb1_1.ax.set_xlabel("$k_x \\Phi_{ww} / u_*^2$")
     cb1_2.ax.set_xlabel("$k_x \\Phi_{\\theta\\theta} / \\theta_*^2$")
 
-    for iax in ax1.flatten():
-        iax.axhline(1, c="k", lw=2)
+    # for iax in ax1.flatten():
+    #     iax.axhline(s.zLs/s.h, c="k", lw=2)
     # ax1.axvline(1, c="k", lw=2)
 
     # save
@@ -285,22 +285,22 @@ def plot_spectrogram(dnc, figdir):
     fig2, ax2 = plt.subplots(nrows=1, ncols=3, sharey=True, sharex=True,
                              figsize=(14, 5), constrained_layout=True)
     # Euw
-    cax2_0 = ax2[0].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.uw/s.ustar0/s.ustar0,
+    cax2_0 = ax2[0].contour(E.z/s.h, 1/E.freq_x/s.h, E.freq_x*E.uw/s.ustar0/s.ustar0,
                             levels=np.linspace(-0.2, 0.0, nlevel), extend="both", cmap=cmap_r)
     # Etw
-    cax2_1 = ax2[1].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.tw/s.ustar0/s.tstar0,
+    cax2_1 = ax2[1].contour(E.z/s.h, 1/E.freq_x/s.h, E.freq_x*E.tw/s.ustar0/s.tstar0,
                             levels=np.linspace(-0.2, 0.0, nlevel), extend="both", cmap=cmap_r)
     # Etu
     norm=MidPointNormalize(midpoint=0.0)
-    cax2_2 = ax2[2].contour(E.z/s.zLs, 1/E.freq_x/s.zLs, E.freq_x*E.tu/s.ustar0/s.tstar0,
+    cax2_2 = ax2[2].contour(E.z/s.h, 1/E.freq_x/s.h, E.freq_x*E.tu/s.ustar0/s.tstar0,
                             levels=np.linspace(-0.2, 0.4, nlevel), extend="both", cmap=cmap2, norm=norm)
     # clean up
-    ax2[0].set_xlabel("$z/z_{L_s}$")
-    ax2[0].set_ylabel("$\\lambda_x/z_{L_s}$")
+    ax2[0].set_xlabel("$z/h$")
+    ax2[0].set_ylabel("$\\lambda_x/h$")
     ax2[0].set_xscale("log")
     ax2[0].set_yscale("log")
-    ax2[1].set_xlabel("$z/z_{L_s}$")
-    ax2[2].set_xlabel("$z/z_{L_s}$")
+    ax2[1].set_xlabel("$z/h$")
+    ax2[2].set_xlabel("$z/h$")
     # ax1.set_xlim([0.01, 1])
     # ax1.set_ylim([0.05, 10])
     cb2_0 = fig2.colorbar(cax2_0, ax=ax2[0], location="bottom",
@@ -314,10 +314,10 @@ def plot_spectrogram(dnc, figdir):
     cb2_1.ax.set_xlabel("$k_x \\Phi_{\\theta w} / u_* \\theta_*$")
     cb2_2.ax.set_xlabel("$k_x \\Phi_{\\theta u} / u_* \\theta_*$")
 
-    for iax in ax2.flatten():
-        iax.axhline(1, c="k", lw=2)
+    # for iax in ax2.flatten():
+    #     iax.axhline(s.zLs/s.h, c="k", lw=2)
     # ax1.axvline(1, c="k", lw=2)
-
+    # print(f"zLs/h = {(s.zLs/s.h).values:3.2f}")
     # save
     fsave2 = f"{figdir}{E.stability}_uw_tw_tu.png"
     print(f"Saving figure {fsave2}")
