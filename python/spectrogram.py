@@ -11,6 +11,7 @@ import seaborn
 import cmocean
 import numpy as np
 import xarray as xr
+from scipy.signal import hilbert
 from dask.diagnostics import ProgressBar
 from matplotlib import pyplot as plt
 from matplotlib import rc
@@ -294,20 +295,189 @@ def plot_1D_spectra(dnc, figdir):
     return
 
 # --------------------------------
+# Define function to calculate amplitude modulation from timeseries
+# --------------------------------
+def amp_mod(dnc, figdir):
+    """
+    Calculate amplitude modulation coefficients from LES timeseries netcdf file
+    Input dnc: string path directory for location of netcdf files
+    Output netcdf file in dnc
+    """
+    # TODO: write load_timeseries() function in LESnc
+    # load timeseries file
+    d = xr.open_dataset(dnc+"timeseries_all.nc")
+    # load stats file
+    stat = load_stats(dnc+"average_statistics.nc")
+    # pre-processing ------------------------------------------------
+    # calculate means
+    for v in ["u", "v", "w", "theta", "txz", "tyz", "q3"]:
+        d[f"{v}_mean"] = d[v].mean("t") # average in time
+    # rotate coords so <v> = 0
+    angle = np.arctan2(d.v_mean, d.u_mean)
+    d["u_mean_rot"] = d.u_mean*np.cos(angle) + d.v_mean*np.sin(angle)
+    d["v_mean_rot"] =-d.u_mean*np.sin(angle) + d.v_mean*np.cos(angle)
+    # rotate instantaneous u and v
+    d["u_rot"] = d.u*np.cos(angle) + d.v*np.sin(angle)
+    d["v_rot"] =-d.u*np.sin(angle) + d.v*np.cos(angle)
+    # calculate covars
+    # u'w'
+    d["uw_cov_res"] = xr.cov(d.u, d.w, dim=("t"))
+    d["uw_cov_tot"] = d.uw_cov_res + d.txz_mean
+    # v'w'
+    d["vw_cov_res"] = xr.cov(d.v, d.w, dim=("t"))
+    d["vw_cov_tot"] = d.vw_cov_res + d.tyz_mean
+    # theta'w'
+    d["tw_cov_res"] = xr.cov(d.theta, d.w, dim=("t"))
+    d["tw_cov_tot"] = d.tw_cov_res + d.q3_mean
+    # calculate vars
+    for s in ["u", "v", "w", "theta"]:
+        d[f"{s}_var"] = d[s].var("t")
+    # recalculate u_var_rot, v_var_rot
+    d["u_var_rot"] = d.u_rot.var("t")
+    d["v_var_rot"] = d.v_rot.var("t")
+    # calculate ustar, L, and z/L
+    d["ustar"] = (d.uw_cov_tot**2. + d.vw_cov_tot**2.) ** 0.25
+    d["L"] = (-1. * (d.ustar**3.) * d.theta_mean) / (0.4 * 9.81 * d.tw_cov_tot)
+    d["zL"] = d.z/d.L
+
+    # filtering ------------------------------------------------
+    # lengthscale of filter to separate large and small scales
+    # for now will hardcode value for sim A
+    delta = 60. # m
+    # cutoff frequency from Taylor hypothesis - use same for all heights
+    f_c = 1./(delta/d.u_mean_rot)
+    # calculate FFT of u, theta
+    f_u = xrft.fft(d.u_rot, dim="t", true_phase=True, true_amplitude=True)
+    f_t = xrft.fft(d.theta, dim="t", true_phase=True, true_amplitude=True)
+    # loop over heights and lowpass filter
+    for jz in range(d.nz):
+        # can do this all in one line
+        # set high frequencies equal to zero -- sharp spectral filter
+        # only keep -f_c < freq_t < f_c
+        f_u[:,jz] = f_u[:,jz].where((f_u.freq_t < f_c.isel(z=jz)) &\
+                                    (f_u.freq_t > -f_c.isel(z=jz)), other=0.)
+        f_t[:,jz] = f_t[:,jz].where((f_t.freq_t < f_c.isel(z=jz)) &\
+                                    (f_t.freq_t > -f_c.isel(z=jz)), other=0.)
+
+    # Inverse FFT to get large-scale component of signal
+    u_l = xrft.ifft(f_u, dim="freq_t", true_phase=True, true_amplitude=True,
+                    lag=f_u.freq_t.direct_lag).real
+    t_l = xrft.ifft(f_t, dim="freq_t", true_phase=True, true_amplitude=True,
+                    lag=f_t.freq_t.direct_lag).real
+    # reset time coordinate
+    u_l["t"] = d.t
+    t_l["t"] = d.t
+
+    # calculate small-scale component by subtracting large-scale from full
+    u_s = d.u_rot - u_l
+    t_s = d.theta - t_l
+
+    # envelope of small-scale signal from Hilbert transform
+    E_u = xr.DataArray(data=np.abs(hilbert(u_s, axis=0)),
+                       coords=dict(t=u_s.t,
+                                   z=u_s.z)    )
+    E_t = xr.DataArray(data=np.abs(hilbert(t_s, axis=0)),
+                       coords=dict(t=t_s.t,
+                                   z=t_s.z)    )
+
+    # lowpass filter the small-scale envelope
+    # fft the envelopes
+    f_Eu = xrft.fft(E_u, dim="t", true_phase=True, true_amplitude=True)
+    f_Et = xrft.fft(E_t, dim="t", true_phase=True, true_amplitude=True)
+    # loop over heights and lowpass filter - copied from above
+    for jz in range(d.nz):
+        # can do this all in one line
+        # set high frequencies equal to zero -- sharp spectral filter
+        # only keep -f_c < freq_t < f_c
+        f_Eu[:,jz] = f_Eu[:,jz].where((f_Eu.freq_t < f_c.isel(z=jz)) &\
+                                      (f_Eu.freq_t > -f_c.isel(z=jz)), other=0.)
+        f_Et[:,jz] = f_Et[:,jz].where((f_Et.freq_t < f_c.isel(z=jz)) &\
+                                      (f_Et.freq_t > -f_c.isel(z=jz)), other=0.)
+    # inverse fft the filtered envelopes
+    E_u_f = xrft.ifft(f_Eu, dim="freq_t", true_phase=True, true_amplitude=True,
+                      lag=f_Eu.freq_t.direct_lag).real
+    E_t_f = xrft.ifft(f_Et, dim="freq_t", true_phase=True, true_amplitude=True,
+                      lag=f_Et.freq_t.direct_lag).real
+    # reset time coordinate
+    E_u_f["t"] = d.t
+    E_t_f["t"] = d.t
+
+    # AM coefficients ------------------------------------------------
+    # new dataset to hold corr coeff
+    R = xr.Dataset(data_vars=None,
+                   coords=dict(z=d.z),
+                   attrs=d.attrs
+                  )
+    # correlation between large scale u and filtered envelope of small-scale variable
+    R["ul_Eu"] = xr.corr(u_l, E_u_f, dim="t")
+    R["ul_Et"] = xr.corr(u_l, E_t_f, dim="t")
+    # correlation between large scale u and filtered envelope of small-scale variable
+    R["tl_Et"] = xr.corr(t_l, E_t_f, dim="t")
+    # TODO: add more variables
+
+    # Plot ------------------------------------------------
+    # figure 1 - two panels
+    # (a) modulation of small-scale u by large-scale u: R_ul_Eu
+    # (b) modulation of small-scale theta by large-scale u: R_tl_Et
+    fig1, ax1 = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True,
+                             figsize=(9.8, 5))
+    # (a) R_ul_Eu vs z/h
+    ax1[0].plot(R.z/stat.he, R.ul_Eu, "-k")
+    # (b) R_ul_Et vs z/h
+    ax1[1].plot(R.z/stat.he, R.ul_Et, "-k")
+    # clean up
+    ax1[0].set_xlabel("$z/h$")
+    ax1[0].set_ylabel("$R_{u_l,u_s}$")
+    ax1[0].set_ylim([-0.5, 0.5])
+    ax1[0].set_xscale("log")
+    ax1[1].set_xlabel("$z/h$")
+    ax1[1].set_ylabel("$R_{u_l,\\theta_s}$")
+    # plot ref lines
+    for iax in ax1.flatten():
+        iax.axhline(0, c="k", ls="-", alpha=0.5)
+        iax.axvline(delta/stat.he, c="k", ls="-", alpha=0.5)
+
+    # save
+    fig1.tight_layout()
+    fsave1 = f"{figdir}{R.stability}_amp_mod.png"
+    print(f"Saving figure {fsave1}")
+    fig1.savefig(fsave1, dpi=300)
+    plt.close(fig1)
+
+    """
+    # figure 2 - timeseries with envelope
+    fig2, ax2 = plt.subplots(nrows=2, ncols=1, sharex=True, figsize=(14.8, 5))
+    # (a) us, ul, El(us)
+    ax2[0].plot(u_s.t*stat.ustar0/stat.he, u_s[:,1]/stat.ustar0, "-k", alpha=0.5, label="$u_s$")
+    ax2[0].plot(u_l.t*stat.ustar0/stat.he, u_l[:,1]/stat.ustar0, "--b", label="$u_l$")
+    ax2[0].plot(E_u.t*stat.ustar0/stat.he, E_u[:,1]/stat.ustar0, "-r", label="$E_l (u_s)$")
+    # (b) ul, El'(us)
+    ax2[1].plot(u_l.t*stat.ustar0/stat.he, u_l[:,1]/stat.ustar0, "--b", label="$u_l$")
+    ax2[1].plot(E_u_f.t*stat.ustar0/stat.he, E_u_f[:,1]/stat.ustar0, "-r", label="$E_l' (u_s)$")
+    # clean up
+    ax2[0].set_ylabel("$u/u_*$")
+    ax2[1].set_ylabel("$E_l'/u_*$")
+    ax2[1].set_xlabel("$t u_* / h$")
+    fig2.tight_layout()
+     # save
+    fsave2 = f"{figdir}{R.stability}_timeseries.png"
+    print(f"Saving figure {fsave2}")
+    fig2.savefig(fsave2, dpi=300)
+    plt.close(fig2)
+    """ 
+
+# --------------------------------
 # main
 # --------------------------------
 if __name__ == "__main__":
     figdir = "/home/bgreene/SBL_LES/figures/spectrogram/"
+    figdir_AM = "/home/bgreene/SBL_LES/figures/amp_mod/"
     # loop sims A--F
-    for sim in list("AF"):
+    for sim in list("A"):
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}_192_interp/output/netcdf/"
-        # run calc_spectra
         # calc_spectra(ncdir)
-        # run plot_spectrogram
-        plot_spectrogram(ncdir, figdir)
-        # run test_calc_spec
-        # test_calc_spec(ncdir, figdir)
-        # run plot_1D_spectra
+        # plot_spectrogram(ncdir, figdir)
         # plot_1D_spectra(ncdir, figdir)
+        amp_mod(ncdir, figdir_AM)
         print(f"---End Sim {sim}---")
