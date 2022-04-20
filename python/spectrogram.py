@@ -471,57 +471,77 @@ def amp_mod(dnc, figdir):
     R["wl_Euw"] = xr.corr(w_l, E_uw_f, dim="t")
     R["wl_Etw"] = xr.corr(w_l, E_tw_f, dim="t")    
     # correlation between large scale u and filtered envelope of small-scale variable
+    R["tl_Eu"] = xr.corr(t_l, E_u_f, dim="t")
+    R["tl_Ew"] = xr.corr(t_l, E_w_f, dim="t")
     R["tl_Et"] = xr.corr(t_l, E_t_f, dim="t")
-    
+    R["tl_Euw"] = xr.corr(t_l, E_uw_f, dim="t")
+    R["tl_Etw"] = xr.corr(t_l, E_tw_f, dim="t")
 
     # Plot ------------------------------------------------
     print("Begin plotting figure 1")
-    # figure 1 - ten panels - modulation by u_l and w_l
+    # figure 1 - fifteen panels - modulation by u_l and w_l and t_l
     # col 1 - modulation by u_l
     # col 2 - modulation by w_l
-    # row 1 - modulation of small-scale u by large-scale u&w
-    # row 2 - modulation of small-scale w by large-scale u&w
-    # row 3 - modulation of small-scale theta by large-scale u&w
-    # row 4 - modulation of small-scale uw by large-scale u&w
-    # row 5 - modulation of small-scale tw by large-scale u&w
-    fig1, ax1 = plt.subplots(nrows=5, ncols=2, sharex=True, sharey=True,
-                             figsize=(9.8, 16), constrained_layout=True)
+    # col 3 - modulation by t_l
+    # row 1 - modulation of small-scale u by large-scale u&w&t
+    # row 2 - modulation of small-scale w by large-scale u&w&t
+    # row 3 - modulation of small-scale theta by large-scale u&w&t
+    # row 4 - modulation of small-scale uw by large-scale u&w&t
+    # row 5 - modulation of small-scale tw by large-scale u&w&t
+    fig1, ax1 = plt.subplots(nrows=5, ncols=3, sharex=True, sharey=True,
+                             figsize=(12, 16), constrained_layout=True)
     # (a) R_ul_Eu
     ax1[0,0].plot(R.z/stat.he, R.ul_Eu, "-k")
     ax1[0,0].set_ylabel("$R_{u_l,u_s}$")
     # (b) R_wl_Eu
     ax1[0,1].plot(R.z/stat.he, R.wl_Eu, "-k")
     ax1[0,1].set_ylabel("$R_{w_l,u_s}$")
-    # (c) R_ul_Ew
+    # (c) R_tl_Eu
+    ax1[0,2].plot(R.z/stat.he, R.tl_Eu, "-k")
+    ax1[0,2].set_ylabel("$R_{\\theta_l,u_s}$")
+    # (d) R_ul_Ew
     ax1[1,0].plot(R.z/stat.he, R.ul_Ew, "-k")
     ax1[1,0].set_ylabel("$R_{u_l,w_s}$")
-    # (d) R_wl_Ew
+    # (e) R_wl_Ew
     ax1[1,1].plot(R.z/stat.he, R.wl_Ew, "-k")
     ax1[1,1].set_ylabel("$R_{w_l,w_s}$")
-    # (e) R_ul_Et
+    # (f) R_tl_Ew
+    ax1[1,2].plot(R.z/stat.he, R.tl_Ew, "-k")
+    ax1[1,2].set_ylabel("$R_{\\theta_l,w_s}$")
+    # (g) R_ul_Et
     ax1[2,0].plot(R.z/stat.he, R.ul_Et, "-k")
     ax1[2,0].set_ylabel("$R_{u_l,\\theta_s}$")
-    # (f) R_wl_Et
+    # (h) R_wl_Et
     ax1[2,1].plot(R.z/stat.he, R.wl_Et, "-k")
     ax1[2,1].set_ylabel("$R_{w_l,\\theta_s}$")
-    # (g) R_ul_Euw
+    # (i) R_tl_Et
+    ax1[2,2].plot(R.z/stat.he, R.tl_Et, "-k")
+    ax1[2,2].set_ylabel("$R_{\\theta_l,\\theta_s}$")
+    # (j) R_ul_Euw
     ax1[3,0].plot(R.z/stat.he, R.ul_Euw, "-k")
     ax1[3,0].set_ylabel("$R_{u_l,(uw)_s}$")
-    # (h) R_wl_Euw
+    # (k) R_wl_Euw
     ax1[3,1].plot(R.z/stat.he, R.wl_Euw, "-k")
     ax1[3,1].set_ylabel("$R_{w_l,(uw)_s}$")
-    # (i) R_ul_Etw
+    # (l) R_tl_Euw
+    ax1[3,2].plot(R.z/stat.he, R.tl_Euw, "-k")
+    ax1[3,2].set_ylabel("$R_{\\theta_l,(uw)_s}$")
+    # (m) R_ul_Etw
     ax1[4,0].plot(R.z/stat.he, R.ul_Etw, "-k")
     ax1[4,0].set_ylabel("$R_{u_l,(\\theta w)_s}$")
-    # (j) R_wl_Etw
+    # (n) R_wl_Etw
     ax1[4,1].plot(R.z/stat.he, R.wl_Etw, "-k")
     ax1[4,1].set_ylabel("$R_{w_l,(\\theta w)_s}$")
+    # (o) R_wl_Etw
+    ax1[4,2].plot(R.z/stat.he, R.tl_Etw, "-k")
+    ax1[4,2].set_ylabel("$R_{\\theta_l,(\\theta w)_s}$")
 
     # clean up
     ax1[4,0].set_xlabel("$z/h$")
     ax1[0,0].set_ylim([-0.5, 0.5])
     ax1[0,0].set_xscale("log")
     ax1[4,1].set_xlabel("$z/h$")
+    ax1[4,2].set_xlabel("$z/h$")
     # plot ref lines
     for iax in ax1.flatten():
         iax.axhline(0, c="k", ls="-", alpha=0.5)
@@ -566,7 +586,7 @@ if __name__ == "__main__":
     figdir = "/home/bgreene/SBL_LES/figures/spectrogram/"
     figdir_AM = "/home/bgreene/SBL_LES/figures/amp_mod/"
     # loop sims A--F
-    for sim in list("B"):
+    for sim in list("A"):
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}_192_interp/output/netcdf/"
         # calc_spectra(ncdir)
