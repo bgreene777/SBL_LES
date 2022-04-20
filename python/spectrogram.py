@@ -295,7 +295,7 @@ def plot_1D_spectra(dnc, figdir):
 # --------------------------------
 # Define function to calculate amplitude modulation from timeseries
 # --------------------------------
-def amp_mod(dnc, figdir):
+def amp_mod(dnc):
     """
     Calculate amplitude modulation coefficients from LES timeseries netcdf file
     Input dnc: string path directory for location of netcdf files
@@ -304,8 +304,6 @@ def amp_mod(dnc, figdir):
     # TODO: write load_timeseries() function in LESnc
     # load timeseries file
     d = xr.open_dataset(dnc+"timeseries_all.nc")
-    # load stats file
-    stat = load_stats(dnc+"average_statistics.nc")
     # pre-processing ------------------------------------------------
     # calculate means
     for v in ["u", "v", "w", "theta", "txz", "tyz", "q3"]:
@@ -458,6 +456,8 @@ def amp_mod(dnc, figdir):
                    coords=dict(z=d.z),
                    attrs=d.attrs
                   )
+    # add delta as attr
+    R.attrs["cutoff"] = delta
     # correlation between large scale u and filtered envelope of small-scale variable
     R["ul_Eu"] = xr.corr(u_l, E_u_f, dim="t")
     R["ul_Ew"] = xr.corr(u_l, E_w_f, dim="t")
@@ -477,6 +477,33 @@ def amp_mod(dnc, figdir):
     R["tl_Euw"] = xr.corr(t_l, E_uw_f, dim="t")
     R["tl_Etw"] = xr.corr(t_l, E_tw_f, dim="t")
 
+    # save file
+    fsavenc = f"{dnc}AM_coefficients.nc"
+    print(f"Saving file: {fsavenc}")
+    with ProgressBar():
+        R.to_netcdf(fsavenc, mode="w")
+
+    return
+
+def plot_AM(dnc, figdir):
+    # load stats file
+    stat = load_stats(dnc+"average_statistics.nc")    
+    # load AM coeff file
+    R = xr.open_dataset(dnc+"AM_coefficients.nc")
+    # add z/h as coordinate and swap with z
+    # define array of z/h
+    zh = R.z / stat.he
+    # assign coupled with z
+    R = R.assign_coords(zh=("z",zh.values))
+    # swap
+    R = R.swap_dims({"z": "zh"})
+    # define new array of z/h logspace
+    zhbin = np.logspace(-2, 0, 21)
+    # group by zh bins and calculate mean in one line
+    Rbin = R.groupby_bins("zh", zhbin).mean("zh", skipna=True)
+    # create new coordinate "zh_bins", then swap and drop
+    Rbin = Rbin.assign_coords({"zh": ("zh_bins", zhbin)}).swap_dims({"zh_bins": "zh"})
+
     # Plot ------------------------------------------------
     print("Begin plotting figure 1")
     # figure 1 - fifteen panels - modulation by u_l and w_l and t_l
@@ -491,49 +518,49 @@ def amp_mod(dnc, figdir):
     fig1, ax1 = plt.subplots(nrows=5, ncols=3, sharex=True, sharey=True,
                              figsize=(12, 16), constrained_layout=True)
     # (a) R_ul_Eu
-    ax1[0,0].plot(R.z/stat.he, R.ul_Eu, "-k")
+    ax1[0,0].plot(Rbin.zh_bins, Rbin.ul_Eu, "-k")
     ax1[0,0].set_ylabel("$R_{u_l,u_s}$")
     # (b) R_wl_Eu
-    ax1[0,1].plot(R.z/stat.he, R.wl_Eu, "-k")
+    ax1[0,1].plot(Rbin.zh_bins, Rbin.wl_Eu, "-k")
     ax1[0,1].set_ylabel("$R_{w_l,u_s}$")
     # (c) R_tl_Eu
-    ax1[0,2].plot(R.z/stat.he, R.tl_Eu, "-k")
+    ax1[0,2].plot(Rbin.zh_bins, Rbin.tl_Eu, "-k")
     ax1[0,2].set_ylabel("$R_{\\theta_l,u_s}$")
     # (d) R_ul_Ew
-    ax1[1,0].plot(R.z/stat.he, R.ul_Ew, "-k")
+    ax1[1,0].plot(Rbin.zh_bins, Rbin.ul_Ew, "-k")
     ax1[1,0].set_ylabel("$R_{u_l,w_s}$")
     # (e) R_wl_Ew
-    ax1[1,1].plot(R.z/stat.he, R.wl_Ew, "-k")
+    ax1[1,1].plot(Rbin.zh_bins, Rbin.wl_Ew, "-k")
     ax1[1,1].set_ylabel("$R_{w_l,w_s}$")
     # (f) R_tl_Ew
-    ax1[1,2].plot(R.z/stat.he, R.tl_Ew, "-k")
+    ax1[1,2].plot(Rbin.zh_bins, Rbin.tl_Ew, "-k")
     ax1[1,2].set_ylabel("$R_{\\theta_l,w_s}$")
     # (g) R_ul_Et
-    ax1[2,0].plot(R.z/stat.he, R.ul_Et, "-k")
+    ax1[2,0].plot(Rbin.zh_bins, Rbin.ul_Et, "-k")
     ax1[2,0].set_ylabel("$R_{u_l,\\theta_s}$")
     # (h) R_wl_Et
-    ax1[2,1].plot(R.z/stat.he, R.wl_Et, "-k")
+    ax1[2,1].plot(Rbin.zh_bins, Rbin.wl_Et, "-k")
     ax1[2,1].set_ylabel("$R_{w_l,\\theta_s}$")
     # (i) R_tl_Et
-    ax1[2,2].plot(R.z/stat.he, R.tl_Et, "-k")
+    ax1[2,2].plot(Rbin.zh_bins, Rbin.tl_Et, "-k")
     ax1[2,2].set_ylabel("$R_{\\theta_l,\\theta_s}$")
     # (j) R_ul_Euw
-    ax1[3,0].plot(R.z/stat.he, R.ul_Euw, "-k")
+    ax1[3,0].plot(Rbin.zh_bins, Rbin.ul_Euw, "-k")
     ax1[3,0].set_ylabel("$R_{u_l,(uw)_s}$")
     # (k) R_wl_Euw
-    ax1[3,1].plot(R.z/stat.he, R.wl_Euw, "-k")
+    ax1[3,1].plot(Rbin.zh_bins, Rbin.wl_Euw, "-k")
     ax1[3,1].set_ylabel("$R_{w_l,(uw)_s}$")
     # (l) R_tl_Euw
-    ax1[3,2].plot(R.z/stat.he, R.tl_Euw, "-k")
+    ax1[3,2].plot(Rbin.zh_bins, Rbin.tl_Euw, "-k")
     ax1[3,2].set_ylabel("$R_{\\theta_l,(uw)_s}$")
     # (m) R_ul_Etw
-    ax1[4,0].plot(R.z/stat.he, R.ul_Etw, "-k")
+    ax1[4,0].plot(Rbin.zh_bins, Rbin.ul_Etw, "-k")
     ax1[4,0].set_ylabel("$R_{u_l,(\\theta w)_s}$")
     # (n) R_wl_Etw
-    ax1[4,1].plot(R.z/stat.he, R.wl_Etw, "-k")
+    ax1[4,1].plot(Rbin.zh_bins, Rbin.wl_Etw, "-k")
     ax1[4,1].set_ylabel("$R_{w_l,(\\theta w)_s}$")
     # (o) R_wl_Etw
-    ax1[4,2].plot(R.z/stat.he, R.tl_Etw, "-k")
+    ax1[4,2].plot(Rbin.zh_bins, Rbin.tl_Etw, "-k")
     ax1[4,2].set_ylabel("$R_{\\theta_l,(\\theta w)_s}$")
 
     # clean up
@@ -545,7 +572,7 @@ def amp_mod(dnc, figdir):
     # plot ref lines
     for iax in ax1.flatten():
         iax.axhline(0, c="k", ls="-", alpha=0.5)
-        iax.axvline(delta/stat.he, c="k", ls="-", alpha=0.5)
+        iax.axvline(R.cutoff/stat.he, c="k", ls="-", alpha=0.5)
 
     # save
     fsave1 = f"{figdir}{R.stability}_amp_mod.png"
@@ -574,6 +601,7 @@ def amp_mod(dnc, figdir):
     fig2.savefig(fsave2, dpi=300)
     plt.close(fig2)
     """ 
+    return
 
 # --------------------------------
 # main
@@ -592,5 +620,6 @@ if __name__ == "__main__":
         # calc_spectra(ncdir)
         # plot_spectrogram(ncdir, figdir)
         # plot_1D_spectra(ncdir, figdir)
-        amp_mod(ncdir, figdir_AM)
+        # amp_mod(ncdir)
+        plot_AM(ncdir, figdir_AM)
         print(f"---End Sim {sim}---")
