@@ -486,92 +486,89 @@ def amp_mod(dnc):
 
     return
 
-def plot_AM(dnc, figdir):
-    # load stats file
-    stat = load_stats(dnc+"average_statistics.nc")    
-    # load AM coeff file
-    R = xr.open_dataset(dnc+"AM_coefficients.nc")
-    # add z/h as coordinate and swap with z
-    # define array of z/h
-    zh = R.z / stat.he
-    # assign coupled with z
-    R = R.assign_coords(zh=("z",zh.values))
-    # swap
-    R = R.swap_dims({"z": "zh"})
-    # define new array of z/h logspace for bin averaging
-    zhbin = np.logspace(-2, 0, 21)
-    # from this, also need len(zhbin)-1 with midpoints of bins for plotting
-    zhnew = [] # define empty array
-    for iz in range(20):
-        zhnew.append(gmean([zhbin[iz], zhbin[iz+1]]))
-    zhnew = np.array(zhnew)
-    # group by zh bins and calculate mean in one line
-    Rbin = R.groupby_bins("zh", zhbin).mean("zh", skipna=True)
-    # create new coordinate "zh_bins", then swap and drop
-    Rbin = Rbin.assign_coords({"zh": ("zh_bins", zhnew)}).swap_dims({"zh_bins": "zh"})
-    # interpolate empty values for better plotting
-    Rbin = Rbin.interpolate_na(dim="zh")
-
-    # Plot ------------------------------------------------
-    print("Begin plotting figure 1")
-    # figure 1 - fifteen panels - modulation by u_l and w_l and t_l
-    # col 1 - modulation by u_l
-    # col 2 - modulation by w_l
-    # col 3 - modulation by t_l
-    # row 1 - modulation of small-scale u by large-scale u&w&t
-    # row 2 - modulation of small-scale w by large-scale u&w&t
-    # row 3 - modulation of small-scale theta by large-scale u&w&t
-    # row 4 - modulation of small-scale uw by large-scale u&w&t
-    # row 5 - modulation of small-scale tw by large-scale u&w&t
+def plot_AM(dnclist, figdir):
+    """
+    Input list of directories for plotting to loop over
+    Output figures
+    """
+    # initialize figure before looping
     fig1, ax1 = plt.subplots(nrows=5, ncols=3, sharex=True, sharey=True,
-                             figsize=(12, 16), constrained_layout=True)
-    # (a) R_ul_Eu
-    ax1[0,0].plot(Rbin.zh, Rbin.ul_Eu, "-k")
-    ax1[0,0].set_ylabel("$R_{u_l,u_s}$")
-    # (b) R_wl_Eu
-    ax1[0,1].plot(Rbin.zh, Rbin.wl_Eu, "-k")
-    ax1[0,1].set_ylabel("$R_{w_l,u_s}$")
-    # (c) R_tl_Eu
-    ax1[0,2].plot(Rbin.zh, Rbin.tl_Eu, "-k")
-    ax1[0,2].set_ylabel("$R_{\\theta_l,u_s}$")
-    # (d) R_ul_Ew
-    ax1[1,0].plot(Rbin.zh, Rbin.ul_Ew, "-k")
-    ax1[1,0].set_ylabel("$R_{u_l,w_s}$")
-    # (e) R_wl_Ew
-    ax1[1,1].plot(Rbin.zh, Rbin.wl_Ew, "-k")
-    ax1[1,1].set_ylabel("$R_{w_l,w_s}$")
-    # (f) R_tl_Ew
-    ax1[1,2].plot(Rbin.zh, Rbin.tl_Ew, "-k")
-    ax1[1,2].set_ylabel("$R_{\\theta_l,w_s}$")
-    # (g) R_ul_Et
-    ax1[2,0].plot(Rbin.zh, Rbin.ul_Et, "-k")
-    ax1[2,0].set_ylabel("$R_{u_l,\\theta_s}$")
-    # (h) R_wl_Et
-    ax1[2,1].plot(Rbin.zh, Rbin.wl_Et, "-k")
-    ax1[2,1].set_ylabel("$R_{w_l,\\theta_s}$")
-    # (i) R_tl_Et
-    ax1[2,2].plot(Rbin.zh, Rbin.tl_Et, "-k")
-    ax1[2,2].set_ylabel("$R_{\\theta_l,\\theta_s}$")
-    # (j) R_ul_Euw
-    ax1[3,0].plot(Rbin.zh, Rbin.ul_Euw, "-k")
-    ax1[3,0].set_ylabel("$R_{u_l,(uw)_s}$")
-    # (k) R_wl_Euw
-    ax1[3,1].plot(Rbin.zh, Rbin.wl_Euw, "-k")
-    ax1[3,1].set_ylabel("$R_{w_l,(uw)_s}$")
-    # (l) R_tl_Euw
-    ax1[3,2].plot(Rbin.zh, Rbin.tl_Euw, "-k")
-    ax1[3,2].set_ylabel("$R_{\\theta_l,(uw)_s}$")
-    # (m) R_ul_Etw
-    ax1[4,0].plot(Rbin.zh, Rbin.ul_Etw, "-k")
-    ax1[4,0].set_ylabel("$R_{u_l,(\\theta w)_s}$")
-    # (n) R_wl_Etw
-    ax1[4,1].plot(Rbin.zh, Rbin.wl_Etw, "-k")
-    ax1[4,1].set_ylabel("$R_{w_l,(\\theta w)_s}$")
-    # (o) R_wl_Etw
-    ax1[4,2].plot(Rbin.zh, Rbin.tl_Etw, "-k")
-    ax1[4,2].set_ylabel("$R_{\\theta_l,(\\theta w)_s}$")
+                            figsize=(12, 16), constrained_layout=True)
+    # define color palette
+    nsim = len(dnclist)
+    colors = seaborn.color_palette("cubehelix", nsim)
+    for isim, dnc in enumerate(dnclist):
+        # load stats file
+        stat = load_stats(dnc+"average_statistics.nc")    
+        # load AM coeff file
+        R = xr.open_dataset(dnc+"AM_coefficients.nc")
+        # add z/h as coordinate and swap with z
+        # define array of z/h
+        zh = R.z / stat.he
+        # assign coupled with z
+        R = R.assign_coords(zh=("z",zh.values))
+        # swap
+        R = R.swap_dims({"z": "zh"})
+        # define new array of z/h logspace for bin averaging
+        zhbin = np.logspace(-2, 0, 21)
+        # from this, also need len(zhbin)-1 with midpoints of bins for plotting
+        zhnew = [] # define empty array
+        for iz in range(20):
+            zhnew.append(gmean([zhbin[iz], zhbin[iz+1]]))
+        zhnew = np.array(zhnew)
+        # group by zh bins and calculate mean in one line
+        Rbin = R.groupby_bins("zh", zhbin).mean("zh", skipna=True)
+        # create new coordinate "zh_bins", then swap and drop
+        Rbin = Rbin.assign_coords({"zh": ("zh_bins", zhnew)}).swap_dims({"zh_bins": "zh"})
+        # interpolate empty values for better plotting
+        Rbin = Rbin.interpolate_na(dim="zh")
+        # calculate h/L parameter for plotting
+        hL = (stat.he/stat.L).values
+        # Plot ------------------------------------------------
+        print(f"Figure 1 - Sim {isim}")
+        # figure 1 - fifteen panels - modulation by u_l and w_l and t_l
+        # col 1 - modulation by u_l
+        # col 2 - modulation by w_l
+        # col 3 - modulation by t_l
+        # row 1 - modulation of small-scale u by large-scale u&w&t
+        # row 2 - modulation of small-scale w by large-scale u&w&t
+        # row 3 - modulation of small-scale theta by large-scale u&w&t
+        # row 4 - modulation of small-scale uw by large-scale u&w&t
+        # row 5 - modulation of small-scale tw by large-scale u&w&t
+        # (a) R_ul_Eu
+        ax1[0,0].plot(Rbin.zh, Rbin.ul_Eu, ls="-", c=colors[isim], lw=2,
+                      label=f"$h/L=${hL:3.1f}")
+        # (b) R_wl_Eu
+        ax1[0,1].plot(Rbin.zh, Rbin.wl_Eu, ls="-", c=colors[isim], lw=2)
+        # (c) R_tl_Eu
+        ax1[0,2].plot(Rbin.zh, Rbin.tl_Eu, ls="-", c=colors[isim], lw=2)
+        # (d) R_ul_Ew
+        ax1[1,0].plot(Rbin.zh, Rbin.ul_Ew, ls="-", c=colors[isim], lw=2)
+        # (e) R_wl_Ew
+        ax1[1,1].plot(Rbin.zh, Rbin.wl_Ew, ls="-", c=colors[isim], lw=2)
+        # (f) R_tl_Ew
+        ax1[1,2].plot(Rbin.zh, Rbin.tl_Ew, ls="-", c=colors[isim], lw=2)
+        # (g) R_ul_Et
+        ax1[2,0].plot(Rbin.zh, Rbin.ul_Et, ls="-", c=colors[isim], lw=2)
+        # (h) R_wl_Et
+        ax1[2,1].plot(Rbin.zh, Rbin.wl_Et, ls="-", c=colors[isim], lw=2)
+        # (i) R_tl_Et
+        ax1[2,2].plot(Rbin.zh, Rbin.tl_Et, ls="-", c=colors[isim], lw=2)
+        # (j) R_ul_Euw
+        ax1[3,0].plot(Rbin.zh, Rbin.ul_Euw, ls="-", c=colors[isim], lw=2)
+        # (k) R_wl_Euw
+        ax1[3,1].plot(Rbin.zh, Rbin.wl_Euw, ls="-", c=colors[isim], lw=2)
+        # (l) R_tl_Euw
+        ax1[3,2].plot(Rbin.zh, Rbin.tl_Euw, ls="-", c=colors[isim], lw=2)
+        # (m) R_ul_Etw
+        ax1[4,0].plot(Rbin.zh, Rbin.ul_Etw, ls="-", c=colors[isim], lw=2)
+        # (n) R_wl_Etw
+        ax1[4,1].plot(Rbin.zh, Rbin.wl_Etw, ls="-", c=colors[isim], lw=2)
+        # (o) R_wl_Etw
+        ax1[4,2].plot(Rbin.zh, Rbin.tl_Etw, ls="-", c=colors[isim], lw=2)
 
-    # clean up
+    # OUTSIDE LOOP
+    # clean up fig 1
     ax1[4,0].set_xlabel("$z/h$")
     ax1[4,0].set_xlim([1e-2, 1e0])
     ax1[0,0].set_ylim([-0.5, 0.5])
@@ -580,13 +577,35 @@ def plot_AM(dnc, figdir):
     ax1[0,0].set_xscale("log")
     ax1[4,1].set_xlabel("$z/h$")
     ax1[4,2].set_xlabel("$z/h$")
+    ax1[0,0].legend(loc="lower left", labelspacing=0.10, 
+                    handletextpad=0.4, handlelength=0.75,
+                    fontsize=14)
     # plot ref lines
     for iax in ax1.flatten():
         iax.axhline(0, c="k", ls="-", alpha=0.5)
         iax.axvline(R.cutoff/stat.he, c="k", ls="-", alpha=0.5)
+    # y-axis labels
+    for iax in ax1[:,0]:
+        iax.set_ylabel("$R$")
+    # text labels
+    ax1[0,0].text(0.03, 0.90, "$R_{u_l,u_s}$", fontsize=16, transform=ax1[0,0].transAxes)
+    ax1[0,1].text(0.03, 0.90, "$R_{w_l,u_s}$", fontsize=16, transform=ax1[0,1].transAxes)
+    ax1[0,2].text(0.03, 0.90, "$R_{\\theta_l,u_s}$", fontsize=16, transform=ax1[0,2].transAxes)
+    ax1[1,0].text(0.03, 0.90, "$R_{u_l,w_s}$", fontsize=16, transform=ax1[1,0].transAxes)
+    ax1[1,1].text(0.03, 0.90, "$R_{w_l,w_s}$", fontsize=16, transform=ax1[1,1].transAxes)
+    ax1[1,2].text(0.03, 0.90, "$R_{\\theta_l,w_s}$", fontsize=16, transform=ax1[1,2].transAxes)
+    ax1[2,0].text(0.03, 0.90, "$R_{u_l,\\theta_s}$", fontsize=16, transform=ax1[2,0].transAxes)
+    ax1[2,1].text(0.03, 0.90, "$R_{w_l,\\theta_s}$", fontsize=16, transform=ax1[2,1].transAxes)
+    ax1[2,2].text(0.03, 0.90, "$R_{\\theta_l,\\theta_s}$", fontsize=16, transform=ax1[2,2].transAxes)
+    ax1[3,0].text(0.03, 0.90, "$R_{u_l,(uw)_s}$", fontsize=16, transform=ax1[3,0].transAxes)
+    ax1[3,1].text(0.03, 0.90, "$R_{w_l,(uw)_s}$", fontsize=16, transform=ax1[3,1].transAxes)
+    ax1[3,2].text(0.03, 0.90, "$R_{\\theta_l,(uw)_s}$", fontsize=16, transform=ax1[3,2].transAxes)
+    ax1[4,0].text(0.03, 0.90, "$R_{u_l,(\\theta w)_s}$", fontsize=16, transform=ax1[4,0].transAxes)
+    ax1[4,1].text(0.03, 0.90, "$R_{w_l,(\\theta w)_s}$", fontsize=16, transform=ax1[4,1].transAxes)
+    ax1[4,2].text(0.03, 0.90, "$R_{\\theta_l,(\\theta w)_s}$", fontsize=16, transform=ax1[4,2].transAxes)
 
     # save
-    fsave1 = f"{figdir}{R.stability}_amp_mod.png"
+    fsave1 = f"{figdir}all_amp_mod.png"
     print(f"Saving figure {fsave1}")
     fig1.savefig(fsave1, dpi=300)
     plt.close(fig1)
@@ -624,13 +643,15 @@ if __name__ == "__main__":
     # figure save directories
     figdir = "/home/bgreene/SBL_LES/figures/spectrogram/"
     figdir_AM = "/home/bgreene/SBL_LES/figures/amp_mod/"
+    ncdirlist = []
     # loop sims A--F
-    for sim in list("F"):
+    for sim in list("ABCD"):
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}_192_interp/output/netcdf/"
+        ncdirlist.append(ncdir)
         # calc_spectra(ncdir)
         # plot_spectrogram(ncdir, figdir)
         # plot_1D_spectra(ncdir, figdir)
-        amp_mod(ncdir)
-        plot_AM(ncdir, figdir_AM)
+        # amp_mod(ncdir)
         print(f"---End Sim {sim}---")
+    plot_AM(ncdirlist, figdir_AM)
