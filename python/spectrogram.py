@@ -247,11 +247,16 @@ def plot_1D_spectra(dnc, figdir):
     E = xr.load_dataset(dnc+"spectrogram.nc")
     # add z/h as coordinate and swap with z
     # define array of z/h
-    zh = E.z / s.h
+    zh = E.z / s.he
     # assign coupled with z
     E = E.assign_coords(zh=("z",zh.values))
     # swap
     E = E.swap_dims({"z": "zh"})
+    # do same for s
+    s = s.assign_coords(zh=("z",zh.values)).swap_dims({"z": "zh"})
+    # Kolmogorov constant
+    Cu = (18./55) * 1.55
+    Cw = (24./55) * 1.55
 
     # three panel plot
     # Euu, Eww, Ett
@@ -262,29 +267,29 @@ def plot_1D_spectra(dnc, figdir):
     for jz in zhplot:
         # Euu
         ax[0].plot(E.freq_x * E.z.sel(zh=jz, method="nearest"), 
-                   E.uu.sel(zh=jz, method="nearest") * E.freq_x /\
-                   (s.ustar0 * s.ustar0 ), 
+                   E.uu.sel(zh=jz, method="nearest") /\
+                   (Cu*abs(s.dissip_mean.sel(zh=jz, method="nearest"))**(2./3)), 
                    label=f"$z/h=${jz:2.1f}")
         # Eww
         ax[1].plot(E.freq_x * E.z.sel(zh=jz, method="nearest"),
-                   E.ww.sel(zh=jz, method="nearest") * E.freq_x /\
-                   (s.ustar0 * s.ustar0 ))
+                   E.ww.sel(zh=jz, method="nearest") /\
+                   (Cw*abs(s.dissip_mean.sel(zh=jz, method="nearest"))**(2./3)))
         # Ett
         ax[2].plot(E.freq_x * E.z.sel(zh=jz, method="nearest"), 
-                   E.tt.sel(zh=jz, method="nearest") * E.freq_x /\
-                   (s.tstar0 * s.tstar0 ))
+                   E.tt.sel(zh=jz, method="nearest")/\
+                   (abs(s.dissip_mean.sel(zh=jz, method="nearest"))**(2./3)))
 
-    ax[0].legend(loc=0)
+    ax[0].legend(loc=0, fontsize=12)
     ax[0].set_xscale("log")
     ax[0].set_xlabel("$k_x z$")
     ax[0].set_yscale("log")
-    ax[0].set_ylabel("$k_x E_{uu} u_{*}^{-2}$")
+    ax[0].set_ylabel("$E_{uu} C_u^{-1} \\epsilon ^{-2/3}$")
     ax[1].set_xlabel("$k_x z$")
     ax[1].set_yscale("log")
-    ax[1].set_ylabel("$k_x E_{ww} u_{*}^{-2}$")
+    ax[1].set_ylabel("$E_{ww} C_w^{-1} \\epsilon ^{-2/3}$")
     ax[2].set_xlabel("$k_x z$")
     ax[2].set_yscale("log")
-    ax[2].set_ylabel("$k_x E_{\\theta \\theta} \\theta_{*}^{-2}$")
+    ax[2].set_ylabel("$E_{\\theta \\theta} \\epsilon ^{-2/3}$")
     fig.tight_layout()
     # save
     fsave = f"{figdir}{E.stability}_1D_spectra.png"
@@ -645,13 +650,13 @@ if __name__ == "__main__":
     figdir_AM = "/home/bgreene/SBL_LES/figures/amp_mod/"
     ncdirlist = []
     # loop sims A--F
-    for sim in list("ABCD"):
+    for sim in list("A"):
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}_192_interp/output/netcdf/"
         ncdirlist.append(ncdir)
         # calc_spectra(ncdir)
         # plot_spectrogram(ncdir, figdir)
-        # plot_1D_spectra(ncdir, figdir)
+        plot_1D_spectra(ncdir, figdir)
         # amp_mod(ncdir)
         print(f"---End Sim {sim}---")
-    plot_AM(ncdirlist, figdir_AM)
+    # plot_AM(ncdirlist, figdir_AM)
