@@ -155,7 +155,7 @@ ax1[2,1].xaxis.set_minor_locator(MultipleLocator(0.1))
 ax1[2,1].text(0.87,0.05,r'\textbf{(h)}',fontsize=20,bbox=props, 
               transform=ax1[2,1].transAxes)
 # (i)
-ax1[2,2].set_xlabel("$\\langle \\varepsilon \\rangle z/u_{*0}^3$ ")
+ax1[2,2].set_xlabel("$-∏\\langle \\varepsilon \\rangle z/u_{*0}^3$ ")
 ax1[2,2].set_xlim([-12, 0])
 ax1[2,2].xaxis.set_major_locator(MultipleLocator(3))
 ax1[2,2].xaxis.set_minor_locator(MultipleLocator(0.5))
