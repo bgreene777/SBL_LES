@@ -639,6 +639,127 @@ def plot_AM(dnclist, figdir):
     return
 
 # --------------------------------
+# Define function to perform quadrant analysis of resolved fluxes
+# --------------------------------
+def calc_quadrant(dnc):
+    """
+    Calculate quadrant components of u'w' and theta'w'
+    and save single netcdf file for plotting later
+    Input dnc: string path directory for location of netcdf files
+    Output netcdf file in dnc
+    """
+    # load stats file
+    s = load_stats(dnc+"average_statistics.nc")
+    # load final hour of individual files into one dataset
+    # note this is specific for SBL simulations
+    timesteps = np.arange(1080000, 1260000+1, 1000, dtype=np.int32)
+    # determine files to read from timesteps
+    fall = [f"{dnc}all_{tt:07d}.nc" for tt in timesteps]
+    nf = len(fall)
+    # calculate array of times represented by each file
+    times = np.array([i*0.02*1000 for i in range(nf)])
+    # read files
+    print("Loading files...")
+    dd = xr.open_mfdataset(fall, combine="nested", concat_dim="time")
+    dd.coords["time"] = times
+    dd.time.attrs["units"] = "s"
+    # calculate rotated u, v based on alpha in stats
+    dd["u_rot"] = dd.u*np.cos(s.alpha) + dd.v*np.sin(s.alpha)
+    dd["v_rot"] =-dd.u*np.sin(s.alpha) + dd.v*np.cos(s.alpha)
+
+    # get instantaneous u, w, theta perturbations
+    u = dd.u_rot - s.u_mean_rot
+    w = dd.w - s.w_mean
+    theta = dd.theta - s.theta_mean
+
+    # calculate four quadrants
+    quad = xr.Dataset(data_vars=None,
+                      coords=dict(z=s.z),
+                      attrs=s.attrs)
+    # 1) u'w'
+    # u'>0, w'>0
+    uw_pp = u.where(u > 0.) * w.where(w > 0.)
+    # u'>0, w'<0
+    uw_pn = u.where(u > 0.) * w.where(w < 0.)
+    # u'<0, w'>0
+    uw_np = u.where(u < 0.) * w.where(w > 0.)
+    # u'<0, w'<0
+    uw_nn = u.where(u < 0.) * w.where(w < 0.)
+    # calculate averages and store in dataset
+    quad["uw_pp"] = uw_pp.mean(dim=("time","x","y"))
+    quad["uw_pn"] = uw_pn.mean(dim=("time","x","y"))
+    quad["uw_np"] = uw_np.mean(dim=("time","x","y"))
+    quad["uw_nn"] = uw_nn.mean(dim=("time","x","y"))
+
+    # 2) theta'w'
+    # theta'>0, w'>0
+    tw_pp = theta.where(theta > 0.) * w.where(w > 0.)
+    # theta'>0, w'<0
+    tw_pn = theta.where(theta > 0.) * w.where(w < 0.)
+    # theta'<0, w'>0
+    tw_np = theta.where(theta < 0.) * w.where(w > 0.)
+    # theta'<0, w'<0
+    tw_nn = theta.where(theta < 0.) * w.where(w < 0.)
+    # calculate averages and store in dataset
+    quad["tw_pp"] = tw_pp.mean(dim=("time","x","y"))
+    quad["tw_pn"] = tw_pn.mean(dim=("time","x","y"))
+    quad["tw_np"] = tw_np.mean(dim=("time","x","y"))
+    quad["tw_nn"] = tw_nn.mean(dim=("time","x","y"))
+
+    # save quad Dataset as netcdf file for plotting later
+    fsave = f"{dnc}uw_tw_quadrant.nc"
+    print(f"Saving file: {fsave}")
+    with ProgressBar():
+        quad.to_netcdf(fsave, mode="w")
+    print("Finished!")
+    return
+
+def plot_quadrant(dnc, figdir):
+     # load stats file
+    s = load_stats(dnc+"average_statistics.nc")
+    # load quadrant file
+    q = xr.load_dataset(dnc+"uw_tw_quadrant.nc")
+    # plot
+    # 1) 2-panel: uw and tw
+    fig1, ax1 = plt.subplots(nrows=1, ncols=2, sharey=True, 
+                             figsize=(14.8, 5), constrained_layout=True)
+    # a: u'w'
+    # u'>0, w'>0
+    ax1[0].plot(q.uw_pp, q.z/s.he, c="b", ls="-", lw=2, label="$u_{+}w_{+}$")
+    # u'>0, w'<0
+    ax1[0].plot(q.uw_pn, q.z/s.he, c="b", ls="--", lw=2, label="$u_{+}w_{-}$")
+    # u'<0, w'>0
+    ax1[0].plot(q.uw_np, q.z/s.he, c="b", ls="-.", lw=2, label="$u_{-}w_{+}$")
+    # u'<0, w'<0
+    ax1[0].plot(q.uw_nn, q.z/s.he, c="b", ls=":", lw=2, label="$u_{-}w_{-}$")
+    # u'w' total
+    ax1[0].plot(s.uw_cov_res, s.z/s.he, c="k", ls="-", lw=2, label="$\\langle u'w' \\rangle$")
+    # b: theta'w'
+    # u'>0, w'>0
+    ax1[1].plot(q.tw_pp, q.z/s.he, c="b", ls="-", lw=2, label="$\\theta_{+}w_{+}$")
+    # theta'>0, w'<0
+    ax1[1].plot(q.tw_pn, q.z/s.he, c="b", ls="--", lw=2, label="$\\theta_{+}w_{-}$")
+    # theta'<0, w'>0
+    ax1[1].plot(q.tw_np, q.z/s.he, c="b", ls="-.", lw=2, label="$\\theta_{-}w_{+}$")
+    # theta'<0, w'<0
+    ax1[1].plot(q.tw_nn, q.z/s.he, c="b", ls=":", lw=2, label="$\\theta_{-}w_{-}$")
+    # theta'w' total
+    ax1[1].plot(s.tw_cov_res, s.z/s.he, c="k", ls="-", lw=2, label="$\\langle \\theta'w' \\rangle$")
+
+    # clean up
+    ax1[0].legend(loc=0)
+    ax1[1].legend(loc=0)
+    ax1[0].set_ylim([0, 1.2])
+    ax1[0].set_ylabel("$z/h$")
+    ax1[0].set_xlabel("$u'w'$ [m$^2$ s$^{-2}$]")
+    ax1[1].set_xlabel("$\\theta'w'$ [K m s$^{-1}$]")
+
+    # save and close
+    fsave1 = f"{figdir}{s.stability}_uw_tw_quad.png"
+    print(f"Saving figure {fsave1}")
+    fig1.savefig(fsave1, dpi=300)
+    plt.close(fig1)
+# --------------------------------
 # main
 # --------------------------------
 if __name__ == "__main__":
@@ -648,15 +769,18 @@ if __name__ == "__main__":
     # figure save directories
     figdir = "/home/bgreene/SBL_LES/figures/spectrogram/"
     figdir_AM = "/home/bgreene/SBL_LES/figures/amp_mod/"
+    figdir_quad = "/home/bgreene/SBL_LES/figures/quadrant/"
     ncdirlist = []
     # loop sims A--F
-    for sim in list("A"):
+    for sim in list("CDEF"):
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}_192_interp/output/netcdf/"
         ncdirlist.append(ncdir)
         # calc_spectra(ncdir)
         # plot_spectrogram(ncdir, figdir)
-        plot_1D_spectra(ncdir, figdir)
+        # plot_1D_spectra(ncdir, figdir)
         # amp_mod(ncdir)
+        calc_quadrant(ncdir)
+        plot_quadrant(ncdir, figdir_quad)
         print(f"---End Sim {sim}---")
     # plot_AM(ncdirlist, figdir_AM)
