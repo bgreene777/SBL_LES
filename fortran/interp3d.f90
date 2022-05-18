@@ -55,7 +55,7 @@ REAL(KIND=rprec),DIMENSION(nx_new,ny_new,1) :: theta_new_2d
 
 character(len=128) :: fout, fout2, fout3, fout4, fout5, fout6, fout7      !Name of output files
 
-fname='/home/bgreene/simulations/A.10_192_interp/vel_sc_spinup.out'
+fname='/home/bgreene/simulations/A.33_192_interp/vel_sc_spinup.out'
 print*,"Reading file: ", fname
 open(10,file=TRIM(fname),form='unformatted')
 READ (10) u(:,:,1:nz),v(:,:,1:nz),w(:,:,1:nz), theta(:,:,1:nz),   &
@@ -223,7 +223,7 @@ print *,"All parameters finished interpolating!"
 !print*,"Finished saving ", fout6
 
 ! now try saving new interpolated vel_sc.out so new simulation can use
-fout7='/home/bgreene/simulations/A.10_192_interp/vel_sc.out'
+fout7='/home/bgreene/simulations/A.33_192_interp/vel_sc.out'
 print*,"Saving file: ", fout7
 open(1007,file=TRIM(fout7),access='stream',status='unknown')
 write(1007) u_new_ld(:,:,1:nz_new+1), v_new_ld(:,:,1:nz_new+1), &
