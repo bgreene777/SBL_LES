@@ -7,26 +7,34 @@
 # sim2netcdf.yaml and calc_stats.yaml
 # --------------------------------
 # flag to run sim2netcdf when running LESnc as script
-run_sim2netcdf: True
+run_sim2netcdf: False
 # flag to run calc_stats when running LESnc as script
-run_calc_stats: True
+run_calc_stats: False
+# flag to run timeseries2netcdf when running LESnc as script
+run_timeseries: True
 # simulation resolution
-res: 96
+res: 192
 # string to label stability
-stab: "F"
+stab: "A.10"
 # directory for individual simulation output
-dout: "/home/bgreene/simulations/F_096/output/"
+dout: "/home/bgreene/simulations/A.10_192_interp/output/"
 # directory for netcdf files to be saved or read
-dnc: "/home/bgreene/simulations/F_096/output/netcdf/"
+dnc: "/home/bgreene/simulations/A.10_192_interp/output/netcdf/"
 # name of stats file to be saved
 fstats: "average_statistics.nc"
+# name of timeseries file to be saved
+fts: "timeseries_all.nc"
+# name of text file for saving print statements
+fprint: "/home/bgreene/SBL_LES/output/Print/timeseries_nc.txt"
 # start and end timesteps to read
-t0: 810000
-t1: 900000
+t0: 1080000
+t1: 1260000
+# final timestep for timeseries NOTE: != t1
+tf: 720000
 # output file frequency in timesteps
 dt: 1000
 # dimensional timestep in seconds
-delta_t: 0.04
+delta_t: 0.02
 # total physical averaging time
 tavg: "1h"
 # simulation domain sizes in meters

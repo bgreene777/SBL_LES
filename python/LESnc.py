@@ -14,6 +14,7 @@ import numpy as np
 import xarray as xr
 from dask.diagnostics import ProgressBar
 from matplotlib.colors import Normalize
+from RFMnc import print_both
 # --------------------------------
 # Define plotting class for custom diverging colorbars
 # --------------------------------
@@ -218,6 +219,81 @@ def calc_stats():
     print("Finished!")
     return
 # ---------------------------------------------
+def timeseries2netcdf():
+    dout = config["dout"]
+    dnc = config["dnc"]
+    fprint = config["fprint"]
+    # grab relevent parameters
+    u_scale = config["uscale"]
+    theta_scale = config["Tscale"]
+    delta_t = config["delta_t"]
+    nz = config["res"]
+    Lz = config["Lz"]
+    dz = Lz/nz
+    # define z array
+    z = np.linspace(dz, Lz-dz, nz, dtype=np.float64)  # meters
+    # only load last hour of simulation
+    nt_tot = config["tf"]
+    # 1 hour is 3600/delta_t
+    nt = int(3600./delta_t)
+    istart = nt_tot - nt
+    # define array of time in seconds
+    time = np.linspace(0., 3600.-delta_t, nt, dtype=np.float64)
+
+    # begin looping over heights
+    print_both(f"Begin loading simulation {config['stab']}", fprint)   
+    # define DataArrays for u, v, w, theta, txz, tyz, q3
+    # shape(nt,nz)
+    u_ts, v_ts, w_ts, theta_ts, txz_ts, tyz_ts, q3_ts =\
+    (xr.DataArray(np.zeros((nt, nz), dtype=np.float64),
+                  dims=("t", "z"), coords=dict(t=time, z=z)) for _ in range(7))
+    # now loop through each file (one for each jz)
+    for jz in range(nz):
+        print_both(f"Loading timeseries data, jz={jz}", fprint)
+        fu = f"{dout}u_timeseries_c{jz:03d}.out"
+        u_ts[:,jz] = np.loadtxt(fu, skiprows=istart, usecols=1)
+        fv = f"{dout}v_timeseries_c{jz:03d}.out"
+        v_ts[:,jz] = np.loadtxt(fv, skiprows=istart, usecols=1)
+        fw = f"{dout}w_timeseries_c{jz:03d}.out"
+        w_ts[:,jz] = np.loadtxt(fw, skiprows=istart, usecols=1)
+        ftheta = f"{dout}t_timeseries_c{jz:03d}.out"
+        theta_ts[:,jz] = np.loadtxt(ftheta, skiprows=istart, usecols=1)
+        ftxz = f"{dout}txz_timeseries_c{jz:03d}.out"
+        txz_ts[:,jz] = np.loadtxt(ftxz, skiprows=istart, usecols=1)
+        ftyz = f"{dout}tyz_timeseries_c{jz:03d}.out"
+        tyz_ts[:,jz] = np.loadtxt(ftyz, skiprows=istart, usecols=1)
+        fq3 = f"{dout}q3_timeseries_c{jz:03d}.out"
+        q3_ts[:,jz] = np.loadtxt(fq3, skiprows=istart, usecols=1)
+    # apply scales
+    u_ts *= u_scale
+    v_ts *= u_scale
+    w_ts *= u_scale
+    theta_ts *= theta_scale
+    txz_ts *= (u_scale * u_scale)
+    tyz_ts *= (u_scale * u_scale)
+    q3_ts *= (u_scale * theta_scale)
+    # define dictionary of attributes
+    attrs = {"stability": config["stab"], "dt": delta_t, "nt": nt, "nz": nz, "total_time": config["tavg"]}
+    # combine DataArrays into Dataset and save as netcdf
+    # initialize empty Dataset
+    ts_all = xr.Dataset(data_vars=None, coords=dict(t=time, z=z), attrs=attrs)
+    # now store
+    ts_all["u"] = u_ts
+    ts_all["v"] = v_ts
+    ts_all["w"] = w_ts
+    ts_all["theta"] = theta_ts
+    ts_all["txz"] = txz_ts
+    ts_all["tyz"] = tyz_ts
+    ts_all["q3"] = q3_ts
+    # save to netcdf
+    fsave_ts = f"{dnc}{config['fts']}"
+    with ProgressBar():
+        ts_all.to_netcdf(fsave_ts, mode="w")
+        
+    print_both("Finished saving all simulations!", fprint)
+
+    return
+# ---------------------------------------------
 def load_stats(fstats, SBL=True, display=False):
     """
     Reading function for average statistics files created from calc_stats()
@@ -304,3 +380,6 @@ if __name__ == "__main__":
     # run calc_stats
     if config["run_calc_stats"]:
         calc_stats()
+    # run timeseries2netcdf
+    if config["run_timeseries"]:
+        timeseries2netcdf()
