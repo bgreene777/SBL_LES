@@ -366,6 +366,42 @@ def load_stats(fstats, SBL=True, display=False):
         print(f"nTL: {dd.nTL.values:4.1f}")
 
     return dd
+# ---------------------------------------------
+def load_full(dnc, t0, t1, dt, delta_t, use_stats, SBL):
+    """
+    Reading function for multiple instantaneous volumetric netcdf files
+    Load netcdf files using xarray
+    input dnc: string path directory for location of netcdf files
+    input t0, t1, dt: start, end, and spacing of file names
+    input delta_t: simulation timestep in seconds
+    input use_stats: optional flag to use statistics file for u,v rotation
+    input SBL: flag for calculating SBL parameters
+    return dd: xarray dataset of 4d volumes
+    return s: xarray dataset of statistics file
+    """
+    # load final hour of individual files into one dataset
+    # note this is specific for SBL simulations
+    timesteps = np.arange(t0, t1+1, dt, dtype=np.int32)
+    # determine files to read from timesteps
+    fall = [f"{dnc}all_{tt:07d}.nc" for tt in timesteps]
+    nf = len(fall)
+    # calculate array of times represented by each file
+    times = np.array([i*delta_t*dt for i in range(nf)])
+    # read files
+    print("Loading files...")
+    dd = xr.open_mfdataset(fall, combine="nested", concat_dim="time")
+    dd.coords["time"] = times
+    dd.time.attrs["units"] = "s"
+    if use_stats:
+        # load stats file
+        s = load_stats(dnc+"average_statistics.nc", SBL=SBL)
+        # calculate rotated u, v based on alpha in stats
+        dd["u_rot"] = dd.u*np.cos(s.alpha) + dd.v*np.sin(s.alpha)
+        dd["v_rot"] =-dd.u*np.sin(s.alpha) + dd.v*np.cos(s.alpha)
+        # return both dd and s
+        return dd, s
+    # just return dd if no SBL
+    return dd
 # --------------------------------
 # Run script if desired
 # --------------------------------
