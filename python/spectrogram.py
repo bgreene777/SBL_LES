@@ -11,13 +11,13 @@ import seaborn
 import cmocean
 import numpy as np
 import xarray as xr
-from scipy.signal import hilbert
+from scipy.signal import hilbert, fftconvolve
 from scipy.stats import gmean
 from dask.diagnostics import ProgressBar
 from matplotlib import pyplot as plt
 from matplotlib import rc
 from matplotlib.ticker import MultipleLocator
-from LESnc import load_stats, MidPointNormalize
+from LESnc import load_stats, load_full, MidPointNormalize
 # --------------------------------
 # Define function to calculate spectra
 # --------------------------------
@@ -759,6 +759,63 @@ def plot_quadrant(dnc, figdir):
     print(f"Saving figure {fsave1}")
     fig1.savefig(fsave1, dpi=300)
     plt.close(fig1)
+
+# --------------------------------
+# Define function to calculate 2d correlations in x and z
+# --------------------------------
+def corr2d(f):
+    """
+    Input 4d parameter as xarray
+    Output DataArray of yt-averaged 2-point correlation R_ff(xlag,zlag)
+    R_ff.shape = (nx, nz)
+    Calculate along x- and z-dimesnions
+    """
+    # calculate normalized perturbations
+    temp = (f - f.mean("x")) / f.std("x")
+    # fftconvolve along axis=(1,3), i.e. x and z
+    corr_xz = fftconvolve(temp, temp[:,::-1,:,::-1]/f.x.size/f.z.size, mode="full", axes=(1,3))
+    # average along y and t
+    corr_xz_ytavg = np.mean(corr_xz, axis=(0,2))
+    # grab only z lags >= 0
+    imid = (2*f.x.size-1) // 2
+    # construct DataArray of xlag coordinates for storing in R_ff
+    xall = np.concatenate((-f.x[::-1][:-1], f.x))
+    xall = xr.DataArray(data=None, dims="x", coords=dict(x=xall))
+    xall.x.attrs["units"] = "m"
+    # store in new xarray DataArray with same coords as f and return
+    R_ff = xr.DataArray(data=corr_xz_ytavg[:,imid:],
+                        dims=["x","z"],
+                        coords=dict(
+                            x = xall.x,
+                            z = f.z)
+                       )
+    return R_ff    
+
+def calc_corr2d(dnc):
+    # load data and stats files
+    dd, s = load_full(dnc, 1080000, 1260000, 1000, 0.02, True, True)
+    print("Calculate 2d corr for u_rot...")
+    R_uu = corr2d(dd.u_rot)
+    # find argmax in x of R_uu at each z to plot
+    xmax = R_uu.x.isel(x=R_uu.argmax("x"))/s.he
+    # plot quicklook
+    fig, ax = plt.subplots(1, figsize=(6,5))
+    cfax = ax.contour(R_uu.x/s.he, R_uu.z/s.he, R_uu.T,
+                      cmap=seaborn.color_palette("cubehelix_r", as_cmap=True),
+                      levels=np.linspace(0.1, 0.9, 17))
+    ax.plot(xmax, xmax.z/s.he, "ok")
+    cb = fig.colorbar(cfax, ax=ax, location="right")
+    cb.ax.set_ylabel("$R_{uu}$")
+    ax.set_xlabel("$\Delta x /h$")
+    ax.set_ylabel("$\Delta z /h$")
+    ax.set_xlim([-0.5, 0.5])
+    ax.set_ylim([0, 0.25])
+    fig.tight_layout()
+    fsave = "/home/bgreene/SBL_LES/figures/test/R_uu.png"
+    fig.savefig(fsave, dpi=300)
+    plt.close(fig)
+    return
+
 # --------------------------------
 # main
 # --------------------------------
@@ -772,7 +829,7 @@ if __name__ == "__main__":
     figdir_quad = "/home/bgreene/SBL_LES/figures/quadrant/"
     ncdirlist = []
     # loop sims A--F
-    for sim in list("CDEF"):
+    for sim in list("A"):
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}_192_interp/output/netcdf/"
         ncdirlist.append(ncdir)
@@ -780,7 +837,8 @@ if __name__ == "__main__":
         # plot_spectrogram(ncdir, figdir)
         # plot_1D_spectra(ncdir, figdir)
         # amp_mod(ncdir)
-        calc_quadrant(ncdir)
-        plot_quadrant(ncdir, figdir_quad)
+        # calc_quadrant(ncdir)
+        # plot_quadrant(ncdir, figdir_quad)
+        calc_corr2d(ncdir)
         print(f"---End Sim {sim}---")
     # plot_AM(ncdirlist, figdir_AM)
