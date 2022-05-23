@@ -6,6 +6,7 @@
 # Purpose: calculate spectra from SBL simulations as functions of
 # wavelength and height above ground and optionally plot
 # --------------------------------
+import os
 import xrft
 import seaborn
 import cmocean
@@ -763,6 +764,7 @@ def plot_quadrant(dnc, figdir):
 # --------------------------------
 # Define function to calculate 2d correlations in x and z
 # --------------------------------
+'''
 def corr2d(f):
     """
     Input 4d parameter as xarray
@@ -790,28 +792,83 @@ def corr2d(f):
                             z = f.z)
                        )
     return R_ff    
+'''
 
-def calc_corr2d(dnc):
-    # load data and stats files
+def calc_corr2d(dnc, nmax=96):
+    """
+    Calculate 2-point correlations in x and z by running
+    executable fortran routine and then converting binary file to netcdf
+    Input dnc: directory for netcdf files
+    Input nmax: maximum number of lags to calculate, default 96
+    Output netcdf file
+    """
+    # load stats file for dimensions
+    s = load_stats(dnc+"average_statistics.nc", SBL=True)
+    # grab output directory 1 up from dnc
+    dout = os.path.split(os.path.abspath(dnc))[0]+os.sep
+    # define path to fortran executable
+    fexe = "/home/bgreene/SBL_LES/fortran/executables/corr2d.exe"
+    # run fortran executable with input arguments
+    os.system(f"{fexe} {dout} {nmax}")
+    # convert output binary file into netcdf file
+    # load data from fortran program (binary file)
+    fopen = dnc+"R_uu.out"
+    print(f"Reading file: {fopen}")
+    f=open(fopen,"rb")
+    dat = np.fromfile(f,dtype="float64",count=(2*nmax+1)*(nmax+1))
+    dat = np.reshape(dat,(2*nmax+1,nmax+1),order="F")
+    f.close()
+    # determine x and z lag coordinates from nmax and dx, dz
+    xall = np.linspace(-nmax, nmax, nmax*2+1) * s.dx
+    zall = np.linspace(0., nmax, nmax+1) * s.dz
+    # construct xarray DataArray to store in dataset
+    R_uu = xr.DataArray(data=dat,
+                        dims=["x", "z"],
+                        coords=dict(x=xall,
+                                    z=zall))
+    R_uu.x.attrs["units"] = "m" # units
+    R_uu.z.attrs["units"] = "m" # units
+    # now store in Dataset
+    R_save = xr.Dataset(data_vars=None,
+                        coords=dict(x=R_uu.x,
+                                    z=R_uu.z),
+                        attrs=s.attrs)
+    # add nmax as attribute
+    R_save.attrs["nmax"] = nmax
+    # assign data
+    R_save["R_uu"] = R_uu
+    # save as netcdf
+    fsavenc = f"{dnc}R_uu.nc"
+    print(f"Saving file: {fsavenc}")
+    with ProgressBar():
+        R_save.to_netcdf(fsavenc, mode="w")
+    print("Finished!")
+
+    return
+
+def plot_corr2d(dnc, figdir):
+    # load correlation file created from calc_corr2d()
+    R = xr.load_dataset(dnc+"R_uu.nc")
+
+    # load data and stats files for dimensions
     dd, s = load_full(dnc, 1080000, 1260000, 1000, 0.02, True, True)
-    print("Calculate 2d corr for u_rot...")
-    R_uu = corr2d(dd.u_rot)
-    # find argmax in x of R_uu at each z to plot
-    xmax = R_uu.x.isel(x=R_uu.argmax("x"))/s.he
+
     # plot quicklook
-    fig, ax = plt.subplots(1, figsize=(6,5))
-    cfax = ax.contour(R_uu.x/s.he, R_uu.z/s.he, R_uu.T,
+    fig, ax = plt.subplots(1, figsize=(7.4,5))
+    cfax = ax.contour(R.x/s.he, R.z/s.he, R.R_uu.T,
                       cmap=seaborn.color_palette("cubehelix_r", as_cmap=True),
                       levels=np.linspace(0.1, 0.9, 17))
-    ax.plot(xmax, xmax.z/s.he, "ok")
+    # plot location of max delta_x at each delta_z
+    imax = R.R_uu.argmax(axis=0)
+    ax.plot(R.x[imax]/s.he, R.z/s.he, "ok")
     cb = fig.colorbar(cfax, ax=ax, location="right")
     cb.ax.set_ylabel("$R_{uu}$")
     ax.set_xlabel("$\Delta x /h$")
     ax.set_ylabel("$\Delta z /h$")
-    ax.set_xlim([-0.5, 0.5])
+    ax.set_xlim([-0.25, 0.25])
     ax.set_ylim([0, 0.25])
     fig.tight_layout()
-    fsave = "/home/bgreene/SBL_LES/figures/test/R_uu.png"
+    fsave = f"{figdir}R_uu.png"
     fig.savefig(fsave, dpi=300)
     plt.close(fig)
     return
@@ -827,9 +884,10 @@ if __name__ == "__main__":
     figdir = "/home/bgreene/SBL_LES/figures/spectrogram/"
     figdir_AM = "/home/bgreene/SBL_LES/figures/amp_mod/"
     figdir_quad = "/home/bgreene/SBL_LES/figures/quadrant/"
+    figdir_corr2d = "/home/bgreene/SBL_LES/figures/corr2d/"
     ncdirlist = []
     # loop sims A--F
-    for sim in list("A"):
+    for sim in ["A.10"]:
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}_192_interp/output/netcdf/"
         ncdirlist.append(ncdir)
@@ -839,6 +897,7 @@ if __name__ == "__main__":
         # amp_mod(ncdir)
         # calc_quadrant(ncdir)
         # plot_quadrant(ncdir, figdir_quad)
-        calc_corr2d(ncdir)
+        # calc_corr2d(ncdir)
+        plot_corr2d(ncdir, figdir_corr2d)
         print(f"---End Sim {sim}---")
     # plot_AM(ncdirlist, figdir_AM)
