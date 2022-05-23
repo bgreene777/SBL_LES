@@ -853,22 +853,35 @@ def plot_corr2d(dnc, figdir):
     # load data and stats files for dimensions
     dd, s = load_full(dnc, 1080000, 1260000, 1000, 0.02, True, True)
 
+    # calculate inclination angle for z/h <= 0.15
+    imax = R.R_uu.argmax(axis=0)
+    xmax = R.x[imax].where(R.z/s.he <= 0.15, drop=True)
+    fit = xmax.polyfit(dim="z", deg=1)
+    gamma = np.arctan2(1/fit.polyfit_coefficients[0], 1) * 180./np.pi
+    print(f"Inclination angle: {gamma.values:4.2f} deg")
+    # determine line of fit for plotting
+    zplot = np.linspace(0, xmax.size, xmax.size+1) * s.dz
+    fplot = np.poly1d(fit.polyfit_coefficients)
+    xplot = fplot(zplot)
+
     # plot quicklook
     fig, ax = plt.subplots(1, figsize=(7.4,5))
     cfax = ax.contour(R.x/s.he, R.z/s.he, R.R_uu.T,
                       cmap=seaborn.color_palette("cubehelix_r", as_cmap=True),
                       levels=np.linspace(0.1, 0.9, 17))
     # plot location of max delta_x at each delta_z
-    imax = R.R_uu.argmax(axis=0)
     ax.plot(R.x[imax]/s.he, R.z/s.he, "ok")
+    # plot best fit line
+    ax.plot(xplot/s.he.values, zplot/s.he.values, "-k")
     cb = fig.colorbar(cfax, ax=ax, location="right")
     cb.ax.set_ylabel("$R_{uu}$")
     ax.set_xlabel("$\Delta x /h$")
     ax.set_ylabel("$\Delta z /h$")
     ax.set_xlim([-0.25, 0.25])
     ax.set_ylim([0, 0.25])
+    ax.set_title(f"{s.stability} $h/L = ${(s.he/s.L).values:4.3f}, $\\gamma = ${gamma.values:4.2f} deg")
     fig.tight_layout()
-    fsave = f"{figdir}R_uu.png"
+    fsave = f"{figdir}{s.stability}_R_uu.png"
     fig.savefig(fsave, dpi=300)
     plt.close(fig)
     return
@@ -887,7 +900,7 @@ if __name__ == "__main__":
     figdir_corr2d = "/home/bgreene/SBL_LES/figures/corr2d/"
     ncdirlist = []
     # loop sims A--F
-    for sim in ["A.10"]:
+    for sim in ["A.10", "A"]:
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}_192_interp/output/netcdf/"
         ncdirlist.append(ncdir)
