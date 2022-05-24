@@ -812,22 +812,66 @@ def calc_corr2d(dnc, nmax=96):
     os.system(f"{fexe} {dout} {nmax}")
     # convert output binary file into netcdf file
     # load data from fortran program (binary file)
+    # R_uu.out
     fopen = dnc+"R_uu.out"
     print(f"Reading file: {fopen}")
     f=open(fopen,"rb")
-    dat = np.fromfile(f,dtype="float64",count=(2*nmax+1)*(nmax+1))
-    dat = np.reshape(dat,(2*nmax+1,nmax+1),order="F")
+    datuu = np.fromfile(f,dtype="float64",count=(2*nmax+1)*(nmax+1))
+    datuu = np.reshape(datuu,(2*nmax+1,nmax+1),order="F")
     f.close()
+    # R_tt.out
+    fopen = dnc+"R_tt.out"
+    print(f"Reading file: {fopen}")
+    f=open(fopen,"rb")
+    dattt = np.fromfile(f,dtype="float64",count=(2*nmax+1)*(nmax+1))
+    dattt = np.reshape(dattt,(2*nmax+1,nmax+1),order="F")
+    f.close()
+    # R_uwuw.out
+    fopen = dnc+"R_uwuw.out"
+    print(f"Reading file: {fopen}")
+    f=open(fopen,"rb")
+    datuwuw = np.fromfile(f,dtype="float64",count=(2*nmax+1)*(nmax+1))
+    datuwuw = np.reshape(datuwuw,(2*nmax+1,nmax+1),order="F")
+    f.close()    
+    # R_twtw.out
+    fopen = dnc+"R_twtw.out"
+    print(f"Reading file: {fopen}")
+    f=open(fopen,"rb")
+    dattwtw = np.fromfile(f,dtype="float64",count=(2*nmax+1)*(nmax+1))
+    dattwtw = np.reshape(dattwtw,(2*nmax+1,nmax+1),order="F")
+    f.close()    
     # determine x and z lag coordinates from nmax and dx, dz
     xall = np.linspace(-nmax, nmax, nmax*2+1) * s.dx
     zall = np.linspace(0., nmax, nmax+1) * s.dz
-    # construct xarray DataArray to store in dataset
-    R_uu = xr.DataArray(data=dat,
+    # construct xarray DataArrays to store in dataset
+    # R_uu
+    R_uu = xr.DataArray(data=datuu,
                         dims=["x", "z"],
                         coords=dict(x=xall,
                                     z=zall))
     R_uu.x.attrs["units"] = "m" # units
     R_uu.z.attrs["units"] = "m" # units
+    # R_tt
+    R_tt = xr.DataArray(data=dattt,
+                        dims=["x", "z"],
+                        coords=dict(x=xall,
+                                    z=zall))
+    R_tt.x.attrs["units"] = "m" # units
+    R_tt.z.attrs["units"] = "m" # units
+    # R_uwuw
+    R_uwuw = xr.DataArray(data=datuwuw,
+                        dims=["x", "z"],
+                        coords=dict(x=xall,
+                                    z=zall))
+    R_uwuw.x.attrs["units"] = "m" # units
+    R_uwuw.z.attrs["units"] = "m" # units
+    # R_twtw
+    R_twtw = xr.DataArray(data=dattwtw,
+                        dims=["x", "z"],
+                        coords=dict(x=xall,
+                                    z=zall))
+    R_twtw.x.attrs["units"] = "m" # units
+    R_twtw.z.attrs["units"] = "m" # units
     # now store in Dataset
     R_save = xr.Dataset(data_vars=None,
                         coords=dict(x=R_uu.x,
@@ -837,8 +881,11 @@ def calc_corr2d(dnc, nmax=96):
     R_save.attrs["nmax"] = nmax
     # assign data
     R_save["R_uu"] = R_uu
+    R_save["R_tt"] = R_tt
+    R_save["R_uwuw"] = R_uwuw
+    R_save["R_twtw"] = R_twtw
     # save as netcdf
-    fsavenc = f"{dnc}R_uu.nc"
+    fsavenc = f"{dnc}R2d_xz.nc"
     print(f"Saving file: {fsavenc}")
     with ProgressBar():
         R_save.to_netcdf(fsavenc, mode="w")
@@ -848,14 +895,17 @@ def calc_corr2d(dnc, nmax=96):
 
 def plot_corr2d(dnc, figdir):
     # load correlation file created from calc_corr2d()
-    R = xr.load_dataset(dnc+"R_uu.nc")
+    R = xr.load_dataset(dnc+"R2d_xz.nc")
 
     # load data and stats files for dimensions
     dd, s = load_full(dnc, 1080000, 1260000, 1000, 0.02, True, True)
 
+    #
+    # R_uu
+    #
     # calculate inclination angle for z/h <= 0.15
     imax = R.R_uu.argmax(axis=0)
-    xmax = R.x[imax].where(R.z/s.he <= 0.15, drop=True)
+    xmax = R.x[imax].where(R.z/s.he <= 0.1, drop=True)
     fit = xmax.polyfit(dim="z", deg=1)
     gamma = np.arctan2(1/fit.polyfit_coefficients[0], 1) * 180./np.pi
     print(f"Inclination angle: {gamma.values:4.2f} deg")
@@ -884,6 +934,113 @@ def plot_corr2d(dnc, figdir):
     fsave = f"{figdir}{s.stability}_R_uu.png"
     fig.savefig(fsave, dpi=300)
     plt.close(fig)
+
+    #
+    # R_tt
+    #
+    # calculate inclination angle for z/h <= 0.15
+    imax = R.R_tt.argmax(axis=0)
+    xmax = R.x[imax].where(R.z/s.he <= 0.1, drop=True)
+    fit = xmax.polyfit(dim="z", deg=1)
+    gamma = np.arctan2(1/fit.polyfit_coefficients[0], 1) * 180./np.pi
+    print(f"Inclination angle theta: {gamma.values:4.2f} deg")
+    # determine line of fit for plotting
+    zplot = np.linspace(0, xmax.size, xmax.size+1) * s.dz
+    fplot = np.poly1d(fit.polyfit_coefficients)
+    xplot = fplot(zplot)
+
+    # plot quicklook
+    fig, ax = plt.subplots(1, figsize=(7.4,5))
+    cfax = ax.contour(R.x/s.he, R.z/s.he, R.R_tt.T,
+                      cmap=seaborn.color_palette("cubehelix_r", as_cmap=True),
+                      levels=np.linspace(0.1, 0.9, 17))
+    # plot location of max delta_x at each delta_z
+    ax.plot(R.x[imax]/s.he, R.z/s.he, "ok")
+    # plot best fit line
+    ax.plot(xplot/s.he.values, zplot/s.he.values, "-k")
+    cb = fig.colorbar(cfax, ax=ax, location="right")
+    cb.ax.set_ylabel("$R_{\\theta \\theta}$")
+    ax.set_xlabel("$\Delta x /h$")
+    ax.set_ylabel("$\Delta z /h$")
+    ax.set_xlim([-0.25, 0.25])
+    ax.set_ylim([0, 0.25])
+    ax.set_title(f"{s.stability} $h/L = ${(s.he/s.L).values:4.3f}, $\\gamma = ${gamma.values:4.2f} deg")
+    fig.tight_layout()
+    fsave = f"{figdir}{s.stability}_R_tt.png"
+    fig.savefig(fsave, dpi=300)
+    plt.close(fig)
+
+    #
+    # R_uwuw
+    #
+    # calculate inclination angle for z/h <= 0.15
+    imax = R.R_uwuw.argmax(axis=0)
+    xmax = R.x[imax].where(R.z/s.he <= 0.1, drop=True)
+    fit = xmax.polyfit(dim="z", deg=1)
+    gamma = np.arctan2(1/fit.polyfit_coefficients[0], 1) * 180./np.pi
+    print(f"Inclination angle u'w': {gamma.values:4.2f} deg")
+    # determine line of fit for plotting
+    zplot = np.linspace(0, xmax.size, xmax.size+1) * s.dz
+    fplot = np.poly1d(fit.polyfit_coefficients)
+    xplot = fplot(zplot)
+
+    # plot quicklook
+    fig, ax = plt.subplots(1, figsize=(7.4,5))
+    cfax = ax.contour(R.x/s.he, R.z/s.he, R.R_uwuw.T,
+                      cmap=seaborn.color_palette("cubehelix_r", as_cmap=True),
+                      levels=np.linspace(0.1, 0.9, 17))
+    # plot location of max delta_x at each delta_z
+    ax.plot(R.x[imax]/s.he, R.z/s.he, "ok")
+    # plot best fit line
+    ax.plot(xplot/s.he.values, zplot/s.he.values, "-k")
+    cb = fig.colorbar(cfax, ax=ax, location="right")
+    cb.ax.set_ylabel("$R_{uwuw}$")
+    ax.set_xlabel("$\Delta x /h$")
+    ax.set_ylabel("$\Delta z /h$")
+    ax.set_xlim([-0.25, 0.25])
+    ax.set_ylim([0, 0.25])
+    ax.set_title(f"{s.stability} $h/L = ${(s.he/s.L).values:4.3f}, $\\gamma = ${gamma.values:4.2f} deg")
+    fig.tight_layout()
+    fsave = f"{figdir}{s.stability}_R_uwuw.png"
+    fig.savefig(fsave, dpi=300)
+    plt.close(fig)
+
+    #
+    # R_twtw
+    #
+    # calculate inclination angle for z/h <= 0.15
+    imax = R.R_twtw.argmax(axis=0)
+    xmax = R.x[imax].where(R.z/s.he <= 0.1, drop=True)
+    fit = xmax.polyfit(dim="z", deg=1)
+    gamma = np.arctan2(1/fit.polyfit_coefficients[0], 1) * 180./np.pi
+    print(f"Inclination angle theta'w': {gamma.values:4.2f} deg")
+    # determine line of fit for plotting
+    zplot = np.linspace(0, xmax.size, xmax.size+1) * s.dz
+    fplot = np.poly1d(fit.polyfit_coefficients)
+    xplot = fplot(zplot)
+
+    # plot quicklook
+    fig, ax = plt.subplots(1, figsize=(7.4,5))
+    cfax = ax.contour(R.x/s.he, R.z/s.he, R.R_twtw.T,
+                      cmap=seaborn.color_palette("cubehelix_r", as_cmap=True),
+                      levels=np.linspace(0.1, 0.9, 17))
+    # plot location of max delta_x at each delta_z
+    ax.plot(R.x[imax]/s.he, R.z/s.he, "ok")
+    # plot best fit line
+    ax.plot(xplot/s.he.values, zplot/s.he.values, "-k")
+    cb = fig.colorbar(cfax, ax=ax, location="right")
+    cb.ax.set_ylabel("$R_{\\theta w \\theta w}$")
+    ax.set_xlabel("$\Delta x /h$")
+    ax.set_ylabel("$\Delta z /h$")
+    ax.set_xlim([-0.25, 0.25])
+    ax.set_ylim([0, 0.25])
+    ax.set_title(f"{s.stability} $h/L = ${(s.he/s.L).values:4.3f}, $\\gamma = ${gamma.values:4.2f} deg")
+    fig.tight_layout()
+    fsave = f"{figdir}{s.stability}_R_twtw.png"
+    fig.savefig(fsave, dpi=300)
+    plt.close(fig)
+
+
     return
 
 # --------------------------------
@@ -900,7 +1057,7 @@ if __name__ == "__main__":
     figdir_corr2d = "/home/bgreene/SBL_LES/figures/corr2d/"
     ncdirlist = []
     # loop sims A--F
-    for sim in ["A.10", "A"]:
+    for sim in ["A.10", "A", "B"]:
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}_192_interp/output/netcdf/"
         ncdirlist.append(ncdir)
@@ -910,7 +1067,7 @@ if __name__ == "__main__":
         # amp_mod(ncdir)
         # calc_quadrant(ncdir)
         # plot_quadrant(ncdir, figdir_quad)
-        # calc_corr2d(ncdir)
-        plot_corr2d(ncdir, figdir_corr2d)
+        calc_corr2d(ncdir)
+        # plot_corr2d(ncdir, figdir_corr2d)
         print(f"---End Sim {sim}---")
     # plot_AM(ncdirlist, figdir_AM)
