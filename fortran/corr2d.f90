@@ -11,8 +11,8 @@ real(8) :: dx=Lx/dble(nx), dy=Ly/dble(ny), dz=Lz/dble(nz)
 real(8) :: z
 character(len=128) :: fdir
 character(len=128) :: fname, fsave
-real(8), dimension(nx, ny, nz, nt) :: u, v, w, theta, u_rot, v_rot
-real(8), dimension(nx, ny, nz) :: var_temp
+real(8), dimension(nx, ny, nz, nt) :: u, v, w, theta, u_rot, v_rot, txz, q3, uw, tw
+real(8), dimension(nx, ny) :: temp1, temp2, temp3
 real(8), dimension(nz) :: u_mean, v_mean, w_mean, theta_mean,&
                           u_mean_rot, v_mean_rot
 real(8), parameter :: U_scale = 0.4, T_scale = 300.0
@@ -21,8 +21,11 @@ real(8), parameter :: U_scale = 0.4, T_scale = 300.0
 ! 2 arguments: fdir and nmax
 integer, parameter :: k_start=1
 integer :: nmax
-real(8), dimension(:,:), allocatable :: corr2d_all, corr
-integer :: jt
+real(8), dimension(:,:), allocatable :: corr2d_uu_all, corr_uu,&
+                                        corr2d_tt_all, corr_tt,&
+                                        corr2d_uwuw_all, corr_uwuw,&
+                                        corr2d_twtw_all, corr_twtw
+integer :: jt, jz
 integer :: num_args, ix
 character(len=192), dimension(:), allocatable :: args
 
@@ -37,10 +40,16 @@ read(args(1),"(a)") fdir
 read(args(2),*) nmax
 
 ! allocate corr2d_all and corr
-allocate(corr2d_all(-nmax:nmax,0:nmax))
-allocate(corr(-nmax:nmax,0:nmax))
+allocate(corr2d_uu_all(-nmax:nmax,0:nmax))
+allocate(corr_uu(-nmax:nmax,0:nmax))
+allocate(corr2d_tt_all(-nmax:nmax,0:nmax))
+allocate(corr_tt(-nmax:nmax,0:nmax))
+allocate(corr2d_uwuw_all(-nmax:nmax,0:nmax))
+allocate(corr_uwuw(-nmax:nmax,0:nmax))
+allocate(corr2d_twtw_all(-nmax:nmax,0:nmax))
+allocate(corr_twtw(-nmax:nmax,0:nmax))
 
-print *, "Shape of corr2d_all: ", shape(corr2d_all)
+print *, "Shape of corr2d_uu_all: ", shape(corr2d_uu_all)
 print *, "nmax = ", nmax
 
 ! fdir = "/home/bgreene/simulations/A.10_192_interp/output/"
@@ -50,15 +59,19 @@ print *, "fdir: ", fdir
 ! read u, v, w, theta
 call load_data(nx,ny,nz,nt,t0,dnt,U_scale,fdir,fname,"u_",u)
 call load_data(nx,ny,nz,nt,t0,dnt,U_scale,fdir,fname,"v_",v)
-! call load_data(nx,ny,nz,nt,t0,dnt,U_scale,fdir,fname,"w_",w)
-! call load_data(nx,ny,nz,nt,t0,dnt,T_scale,fdir,fname,"theta_",theta)
+call load_data(nx,ny,nz,nt,t0,dnt,U_scale,fdir,fname,"w_",w)
+call load_data(nx,ny,nz,nt,t0,dnt,T_scale,fdir,fname,"theta_",theta)
+! read txz, q3
+call load_data(nx,ny,nz,nt,t0,dnt,U_scale*U_scale,fdir,fname,"txz_",txz)
+call load_data(nx,ny,nz,nt,t0,dnt,U_scale*T_scale,fdir,fname,"q3_",q3)
+
 
 ! calculate ubar, vbar, wbar, thetabar
 print *, "Begin calculating mean quantities..."
 call xytavg(nx, ny, nz, nt, u, u_mean)
 call xytavg(nx, ny, nz, nt, v, v_mean)
-! call xytavg(nx, ny, nz, nt, w, w_mean)
-! call xytavg(nx, ny, nz, nt, theta, theta_mean)
+call xytavg(nx, ny, nz, nt, w, w_mean)
+call xytavg(nx, ny, nz, nt, theta, theta_mean)
 
 ! rotate coords so <V> = 0; only to be used with calculating variances
 print *, "Begin rotating cordinates..."
@@ -68,26 +81,70 @@ call vel_coord_rotate(u, v, u_mean, v_mean, nx, ny, nz, nt, u_rot, v_rot)
 call xytavg(nx, ny, nz, nt, u_rot, u_mean_rot)
 call xytavg(nx, ny, nz, nt, v_rot, v_mean_rot)
 
+! calculate instantaneous u'w' and theta'w' and combine with subgrid terms
+do jt=1,nt
+do jz=1,nz
+  temp1(:,:) = theta(:,:,jz,jt) - theta_mean(jz)
+  temp2(:,:) = w(:,:,jz,jt) - w_mean(jz)
+  temp3(:,:) = u(:,:,jz,jt) - u_mean(jz)
+  uw(:,:,jz,jt) = temp3(:,:) * temp2(:,:)
+  uw(:,:,jz,jt) = uw(:,:,jz,jt) + txz(:,:,jz,jt)
+  tw(:,:,jz,jt) = temp1(:,:) * temp2(:,:)
+  tw(:,:,jz,jt) = tw(:,:,jz,jt) + q3(:,:,jz,jt)
+end do
+end do
+
 ! loop over timesteps and calculate correlations
 print *, "Begin calculating correlations..."
 do jt=1, nt
-    var_temp = u_rot(:,:,:,jt)
-    call calc_2d_corr_xz(k_start, nx, ny, nz, dx, dz, var_temp, nmax, corr)
-    corr2d_all(:,:) = corr2d_all(:,:) + corr(:,:)
+    print *, "jt=",jt,"/",nt
+    call calc_2d_corr_xz(k_start, nx, ny, nz, dx, dz, u_rot(:,:,:,jt), nmax, corr_uu)
+    corr2d_uu_all(:,:) = corr2d_uu_all(:,:) + corr_uu(:,:)
+    call calc_2d_corr_xz(k_start, nx, ny, nz, dx, dz, theta(:,:,:,jt), nmax, corr_tt)
+    corr2d_tt_all(:,:) = corr2d_tt_all(:,:) + corr_tt(:,:)
+    call calc_2d_corr_xz(k_start, nx, ny, nz, dx, dz, uw(:,:,:,jt), nmax, corr_uwuw)
+    corr2d_uwuw_all(:,:) = corr2d_uwuw_all(:,:) + corr_uwuw(:,:)
+    call calc_2d_corr_xz(k_start, nx, ny, nz, dx, dz, uw(:,:,:,jt), nmax, corr_twtw)
+    corr2d_twtw_all(:,:) = corr2d_twtw_all(:,:) + corr_twtw(:,:)
 end do
 
 ! average in time
-corr2d_all = corr2d_all / dble(nt)
+corr2d_uu_all = corr2d_uu_all / dble(nt)
+corr2d_tt_all = corr2d_tt_all / dble(nt)
+corr2d_uwuw_all = corr2d_uwuw_all / dble(nt)
+corr2d_twtw_all = corr2d_twtw_all / dble(nt)
 
-! save file
-print *, "Shape of corr2d_all: ", shape(corr2d_all)
+! save files: !R_uu
+print *, "Shape of corr2d_uu_all: ", shape(corr2d_uu_all)
 write(fsave,"(a,a,a)") TRIM(fdir), "netcdf/", "R_uu.out"
 print *, "Saving file: ", fsave
-
-!R_uu
-open(12,file=TRIM(fsave),access="direct",status="unknown",recl=8*size(corr2d_all))
-write(12,rec=1) corr2d_all
+open(12,file=TRIM(fsave),access="direct",status="unknown",recl=8*size(corr2d_uu_all))
+write(12,rec=1) corr2d_uu_all
 close(12)
+
+! save files: !R_tt
+print *, "Shape of corr2d_tt_all: ", shape(corr2d_tt_all)
+write(fsave,"(a,a,a)") TRIM(fdir), "netcdf/", "R_tt.out"
+print *, "Saving file: ", fsave
+open(13,file=TRIM(fsave),access="direct",status="unknown",recl=8*size(corr2d_tt_all))
+write(13,rec=1) corr2d_tt_all
+close(13)
+
+! save files: !R_uwuw
+print *, "Shape of corr2d_uwuw_all: ", shape(corr2d_uwuw_all)
+write(fsave,"(a,a,a)") TRIM(fdir), "netcdf/", "R_uwuw.out"
+print *, "Saving file: ", fsave
+open(14,file=TRIM(fsave),access="direct",status="unknown",recl=8*size(corr2d_uwuw_all))
+write(14,rec=1) corr2d_uwuw_all
+close(14)
+
+! save files: !R_twtw
+print *, "Shape of corr2d_twtw_all: ", shape(corr2d_twtw_all)
+write(fsave,"(a,a,a)") TRIM(fdir), "netcdf/", "R_twtw.out"
+print *, "Saving file: ", fsave
+open(15,file=TRIM(fsave),access="direct",status="unknown",recl=8*size(corr2d_twtw_all))
+write(15,rec=1) corr2d_twtw_all
+close(15)
 
 end program corr2d
 
