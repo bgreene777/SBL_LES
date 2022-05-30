@@ -12,7 +12,7 @@ import seaborn
 import cmocean
 import numpy as np
 import xarray as xr
-from scipy.signal import hilbert, fftconvolve
+from scipy.signal import hilbert
 from scipy.stats import gmean
 from dask.diagnostics import ProgressBar
 from matplotlib import pyplot as plt
@@ -29,24 +29,8 @@ def calc_spectra(dnc):
     Input dnc: string path directory for location of netcdf files
     Output netcdf file in dnc
     """
-    # load stats file
-    s = load_stats(dnc+"average_statistics.nc")
-    # load final hour of individual files into one dataset
-    # note this is specific for SBL simulations
-    timesteps = np.arange(1080000, 1260000+1, 1000, dtype=np.int32)
-    # determine files to read from timesteps
-    fall = [f"{dnc}all_{tt:07d}.nc" for tt in timesteps]
-    nf = len(fall)
-    # calculate array of times represented by each file
-    times = np.array([i*0.02*1000 for i in range(nf)])
-    # read files
-    print("Loading files...")
-    dd = xr.open_mfdataset(fall, combine="nested", concat_dim="time")
-    dd.coords["time"] = times
-    dd.time.attrs["units"] = "s"
-    # calculate rotated u, v based on alpha in stats
-    dd["u_rot"] = dd.u*np.cos(s.alpha) + dd.v*np.sin(s.alpha)
-    dd["v_rot"] =-dd.u*np.sin(s.alpha) + dd.v*np.cos(s.alpha)
+    # load data and stats files for dimensions
+    dd, s = load_full(dnc, 1080000, 1260000, 1000, 0.02, True, True)
 
     #
     # calculate power spectra
@@ -649,24 +633,8 @@ def calc_quadrant(dnc):
     Input dnc: string path directory for location of netcdf files
     Output netcdf file in dnc
     """
-    # load stats file
-    s = load_stats(dnc+"average_statistics.nc")
-    # load final hour of individual files into one dataset
-    # note this is specific for SBL simulations
-    timesteps = np.arange(1080000, 1260000+1, 1000, dtype=np.int32)
-    # determine files to read from timesteps
-    fall = [f"{dnc}all_{tt:07d}.nc" for tt in timesteps]
-    nf = len(fall)
-    # calculate array of times represented by each file
-    times = np.array([i*0.02*1000 for i in range(nf)])
-    # read files
-    print("Loading files...")
-    dd = xr.open_mfdataset(fall, combine="nested", concat_dim="time")
-    dd.coords["time"] = times
-    dd.time.attrs["units"] = "s"
-    # calculate rotated u, v based on alpha in stats
-    dd["u_rot"] = dd.u*np.cos(s.alpha) + dd.v*np.sin(s.alpha)
-    dd["v_rot"] =-dd.u*np.sin(s.alpha) + dd.v*np.cos(s.alpha)
+    # load data and stats files for dimensions
+    dd, s = load_full(dnc, 1080000, 1260000, 1000, 0.02, True, True)
 
     # get instantaneous u, w, theta perturbations
     u = dd.u_rot - s.u_mean_rot
@@ -710,9 +678,38 @@ def calc_quadrant(dnc):
     # save quad Dataset as netcdf file for plotting later
     fsave = f"{dnc}uw_tw_quadrant.nc"
     print(f"Saving file: {fsave}")
+    # with ProgressBar():
+    #     quad.to_netcdf(fsave, mode="w")
+    
+    #
+    # Additionally save out u, w, theta at various heights in 1-d arrays
+    # to plot in joint distribution 2d histograms
+    #
+    # first add z/h dimension for u, w, theta
+    zh = s.z/s.he
+    u = u.assign_coords(zh=("z",zh.values)).swap_dims({"z": "zh"})
+    w = w.assign_coords(zh=("z",zh.values)).swap_dims({"z": "zh"})
+    theta = theta.assign_coords(zh=("z",zh.values)).swap_dims({"z": "zh"})
+    # grab data at z/h = 0.10, 0.50, 0.90
+    # reshape by stacking along x, y, time
+    ulong = u.sel(zh=(0.10,0.50,0.90), method="nearest").stack(index=("x","y","time")).reset_index("index", drop=True)
+    wlong = w.sel(zh=(0.10,0.50,0.90), method="nearest").stack(index=("x","y","time")).reset_index("index", drop=True)
+    thetalong = theta.sel(zh=(0.10,0.50,0.90), method="nearest").stack(index=("x","y","time")).reset_index("index", drop=True)
+    # combine into dataset to save
+    quad2d = xr.Dataset(data_vars=None,
+                        coords=dict(zh=ulong.zh,
+                                    index=ulong.index),
+                        attrs=s.attrs)
+    quad2d["u"] = ulong
+    quad2d["w"] = wlong
+    quad2d["theta"] = thetalong
+    # save
+    fsave = f"{dnc}u_w_theta_2d_quadrant.nc"
+    print(f"Saving file: {fsave}")
     with ProgressBar():
-        quad.to_netcdf(fsave, mode="w")
+        quad2d.to_netcdf(fsave, mode="w")
     print("Finished!")
+
     return
 
 def plot_quadrant(dnc, figdir):
@@ -764,36 +761,6 @@ def plot_quadrant(dnc, figdir):
 # --------------------------------
 # Define function to calculate 2d correlations in x and z
 # --------------------------------
-'''
-def corr2d(f):
-    """
-    Input 4d parameter as xarray
-    Output DataArray of yt-averaged 2-point correlation R_ff(xlag,zlag)
-    R_ff.shape = (nx, nz)
-    Calculate along x- and z-dimesnions
-    """
-    # calculate normalized perturbations
-    temp = (f - f.mean("x")) / f.std("x")
-    # fftconvolve along axis=(1,3), i.e. x and z
-    corr_xz = fftconvolve(temp, temp[:,::-1,:,::-1]/f.x.size/f.z.size, mode="full", axes=(1,3))
-    # average along y and t
-    corr_xz_ytavg = np.mean(corr_xz, axis=(0,2))
-    # grab only z lags >= 0
-    imid = (2*f.x.size-1) // 2
-    # construct DataArray of xlag coordinates for storing in R_ff
-    xall = np.concatenate((-f.x[::-1][:-1], f.x))
-    xall = xr.DataArray(data=None, dims="x", coords=dict(x=xall))
-    xall.x.attrs["units"] = "m"
-    # store in new xarray DataArray with same coords as f and return
-    R_ff = xr.DataArray(data=corr_xz_ytavg[:,imid:],
-                        dims=["x","z"],
-                        coords=dict(
-                            x = xall.x,
-                            z = f.z)
-                       )
-    return R_ff    
-'''
-
 def calc_corr2d(dnc, nmax=96):
     """
     Calculate 2-point correlations in x and z by running
@@ -929,7 +896,7 @@ def plot_corr2d(dnc, figdir):
     ax.set_ylabel("$\Delta z /h$")
     ax.set_xlim([-0.25, 0.25])
     ax.set_ylim([0, 0.25])
-    ax.set_title(f"{s.stability} $h/L = ${(s.he/s.L).values:4.3f}, $\\gamma = ${gamma.values:4.2f} deg")
+    ax.set_title(f"{''.join(s.stability.split('_'))} $h/L = ${(s.he/s.L).values:4.3f}, $\\gamma = ${gamma.values:4.2f} deg")
     fig.tight_layout()
     fsave = f"{figdir}{s.stability}_R_uu.png"
     fig.savefig(fsave, dpi=300)
@@ -964,7 +931,7 @@ def plot_corr2d(dnc, figdir):
     ax.set_ylabel("$\Delta z /h$")
     ax.set_xlim([-0.25, 0.25])
     ax.set_ylim([0, 0.25])
-    ax.set_title(f"{s.stability} $h/L = ${(s.he/s.L).values:4.3f}, $\\gamma = ${gamma.values:4.2f} deg")
+    ax.set_title(f"{''.join(s.stability.split('_'))} $h/L = ${(s.he/s.L).values:4.3f}, $\\gamma = ${gamma.values:4.2f} deg")
     fig.tight_layout()
     fsave = f"{figdir}{s.stability}_R_tt.png"
     fig.savefig(fsave, dpi=300)
@@ -999,7 +966,7 @@ def plot_corr2d(dnc, figdir):
     ax.set_ylabel("$\Delta z /h$")
     ax.set_xlim([-0.25, 0.25])
     ax.set_ylim([0, 0.25])
-    ax.set_title(f"{s.stability} $h/L = ${(s.he/s.L).values:4.3f}, $\\gamma = ${gamma.values:4.2f} deg")
+    ax.set_title(f"{''.join(s.stability.split('_'))} $h/L = ${(s.he/s.L).values:4.3f}, $\\gamma = ${gamma.values:4.2f} deg")
     fig.tight_layout()
     fsave = f"{figdir}{s.stability}_R_uwuw.png"
     fig.savefig(fsave, dpi=300)
@@ -1034,12 +1001,11 @@ def plot_corr2d(dnc, figdir):
     ax.set_ylabel("$\Delta z /h$")
     ax.set_xlim([-0.25, 0.25])
     ax.set_ylim([0, 0.25])
-    ax.set_title(f"{s.stability} $h/L = ${(s.he/s.L).values:4.3f}, $\\gamma = ${gamma.values:4.2f} deg")
+    ax.set_title(f"{''.join(s.stability.split('_'))} $h/L = ${(s.he/s.L).values:4.3f}, $\\gamma = ${gamma.values:4.2f} deg")
     fig.tight_layout()
     fsave = f"{figdir}{s.stability}_R_twtw.png"
     fig.savefig(fsave, dpi=300)
     plt.close(fig)
-
 
     return
 
@@ -1057,17 +1023,17 @@ if __name__ == "__main__":
     figdir_corr2d = "/home/bgreene/SBL_LES/figures/corr2d/"
     ncdirlist = []
     # loop sims A--F
-    for sim in ["A.10", "A", "B"]:
+    for sim in ["0.10"]:
         print(f"---Begin Sim {sim}---")
-        ncdir = f"/home/bgreene/simulations/{sim}_192_interp/output/netcdf/"
+        ncdir = f"/home/bgreene/simulations/cr{sim}_u08_192/output/netcdf/"
         ncdirlist.append(ncdir)
         # calc_spectra(ncdir)
         # plot_spectrogram(ncdir, figdir)
         # plot_1D_spectra(ncdir, figdir)
         # amp_mod(ncdir)
-        # calc_quadrant(ncdir)
+        calc_quadrant(ncdir)
         # plot_quadrant(ncdir, figdir_quad)
-        calc_corr2d(ncdir)
+        # calc_corr2d(ncdir)
         # plot_corr2d(ncdir, figdir_corr2d)
         print(f"---End Sim {sim}---")
     # plot_AM(ncdirlist, figdir_AM)
