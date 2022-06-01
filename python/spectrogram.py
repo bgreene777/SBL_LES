@@ -678,8 +678,8 @@ def calc_quadrant(dnc):
     # save quad Dataset as netcdf file for plotting later
     fsave = f"{dnc}uw_tw_quadrant.nc"
     print(f"Saving file: {fsave}")
-    # with ProgressBar():
-    #     quad.to_netcdf(fsave, mode="w")
+    with ProgressBar():
+        quad.to_netcdf(fsave, mode="w")
     
     #
     # Additionally save out u, w, theta at various heights in 1-d arrays
@@ -713,7 +713,7 @@ def calc_quadrant(dnc):
     return
 
 def plot_quadrant(dnc, figdir):
-     # load stats file
+    # load stats file
     s = load_stats(dnc+"average_statistics.nc")
     # load quadrant file
     q = xr.load_dataset(dnc+"uw_tw_quadrant.nc")
@@ -758,6 +758,292 @@ def plot_quadrant(dnc, figdir):
     fig1.savefig(fsave1, dpi=300)
     plt.close(fig1)
 
+    #
+    # joint distributions
+    #
+    # load second dataset
+    q2 = xr.load_dataset(dnc+"u_w_theta_2d_quadrant.nc")
+    # calculate 2d histogram bins and edges
+    #
+    # u'w'
+    #
+    uw_bins = (np.arange(-3., 3.1, 0.1), np.arange(-3., 3.1, 0.1))
+    H_uw0, x_uw, y_uw = np.histogram2d(q2.u[0].values, 
+                                       q2.w[0].values, 
+                                       bins=uw_bins, density=True)
+    H_uw1, x_uw, y_uw = np.histogram2d(q2.u[1].values, 
+                                       q2.w[1].values, 
+                                       bins=uw_bins, density=True)
+    H_uw2, x_uw, y_uw = np.histogram2d(q2.u[2].values, 
+                                       q2.w[2].values, 
+                                       bins=uw_bins, density=True)                                 
+    # calculate bin centers
+    x2 = x_uw[:-1] + np.diff(x_uw)/2
+    y2 = y_uw[:-1] + np.diff(y_uw)/2
+    # normalize sum==1 by multiplying by bin area
+    # also multiply by 100% for units
+    uw_bin_area = np.diff(uw_bins[0])[0] * np.diff(uw_bins[1])[0]
+    H_uw0 *= uw_bin_area * 100.
+    H_uw1 *= uw_bin_area * 100.
+    H_uw2 *= uw_bin_area * 100.
+    # calculate cumulative percentages in each quadrant
+    ix, iy = np.where(x2 > 0.)[0][0], np.where(y2 > 0.)[0][0]
+    # level 0
+    tot_upwp_0 = H_uw0[ix:, iy:].sum() # u'>0, w'>0
+    tot_unwp_0 = H_uw0[:ix, iy:].sum() # u'<0, w'>0
+    tot_unwn_0 = H_uw0[:ix, :iy].sum() # u'<0, w'<0
+    tot_upwn_0 = H_uw0[ix:, :iy].sum() # u'>0, w'<0
+    # level 1
+    tot_upwp_1 = H_uw1[ix:, iy:].sum() # u'>0, w'>0
+    tot_unwp_1 = H_uw1[:ix, iy:].sum() # u'<0, w'>0
+    tot_unwn_1 = H_uw1[:ix, :iy].sum() # u'<0, w'<0
+    tot_upwn_1 = H_uw1[ix:, :iy].sum() # u'>0, w'<0
+
+    # plot uw quadrants
+    fig2, ax2 = plt.subplots(1, figsize=(7.4, 5))
+    # levels
+    cmax2 = np.around(np.max([H_uw0.max(), H_uw1.max()]), 1) + 0.2
+    levels2 = np.arange(0., cmax2, 0.2)
+    cax2 = ax2.contour(x2, y2, H_uw0.T,
+                       cmap=plt.get_cmap("Greys"),
+                       levels=levels2, extend="max")
+    cax2_1 = ax2.contour(x2, y2, H_uw1.T,
+                         cmap=plt.get_cmap("Blues"),
+                         levels=levels2, extend="max")
+    # cax2_2 = ax2.contour(x2, y2, H_uw2.T,
+    #                      cmap=plt.get_cmap("Reds"),
+    #                      levels=np.linspace(0.0, 3.5, 15), extend="max")
+    # legend labels and lines
+    lines = [cax2.collections[-1], cax2_1.collections[-1]]#, cax2_2.collections[-1]]
+    labels = [f"$z/h=${q2.zh[0].values:3.1f}", f"$z/h=${q2.zh[1].values:3.1f}"]#,
+            #   f"$z/h=${q2.zh[2].values:3.1f}"]
+    ax2.legend(lines, labels, fontsize=14)
+    # clean up
+    cb2 = fig2.colorbar(cax2, ax=ax2, location="right")
+    cb2.ax.set_ylabel("Frequency [\\%]")
+    ax2.set_xlabel("$u'$ [m s$^{-1}$]")
+    ax2.set_ylabel("$w'$ [m s$^{-1}$]")
+    ax2.set_xlim([-1, 1])
+    ax2.set_ylim([-1, 1])
+    ax2.axhline(0., c="k", alpha=0.7)
+    ax2.axvline(0., c="k", alpha=0.7)
+    ax2.set_title(f"{'-'.join(s.stability.split('_'))} $h/L = ${(s.he/s.L).values:4.3f}")
+    # add labels with percentages
+    # get line colors
+    # level 0
+    cuw0 = cax2.collections[-1].get_color().squeeze()
+    ax2.text(0.85,0.62,f"{tot_upwp_0:3.1f}\\%",fontsize=14, 
+             transform=ax2.transAxes, color=cuw0)
+    ax2.text(0.03,0.62,f"{tot_unwp_0:3.1f}\\%",fontsize=14, 
+             transform=ax2.transAxes, color=cuw0)
+    ax2.text(0.03,0.42,f"{tot_unwn_0:3.1f}\\%",fontsize=14, 
+             transform=ax2.transAxes, color=cuw0)
+    ax2.text(0.85,0.42,f"{tot_upwn_0:3.1f}\\%",fontsize=14, 
+             transform=ax2.transAxes, color=cuw0)
+    # level 1
+    cuw1 = cax2_1.collections[-1].get_color().squeeze()
+    ax2.text(0.85,0.55,f"{tot_upwp_1:3.1f}\\%",fontsize=14, 
+             transform=ax2.transAxes, color=cuw1)
+    ax2.text(0.03,0.55,f"{tot_unwp_1:3.1f}\\%",fontsize=14, 
+             transform=ax2.transAxes, color=cuw1)
+    ax2.text(0.03,0.36,f"{tot_unwn_1:3.1f}\\%",fontsize=14, 
+             transform=ax2.transAxes, color=cuw1)
+    ax2.text(0.85,0.36,f"{tot_upwn_1:3.1f}\\%",fontsize=14, 
+             transform=ax2.transAxes, color=cuw1)
+    
+    fig2.tight_layout()
+    fsave = f"{figdir}{s.stability}_uw_hist2d.png"
+    print(f"Saving figure {fsave}")
+    fig2.savefig(fsave, dpi=300)
+    plt.close(fig2)
+
+    #
+    # theta'w'
+    #
+    tw_bins = (np.arange(-0.4, 0.41, 0.02), np.arange(-3., 3.1, 0.1))
+    H_tw0, x_tw, y_tw = np.histogram2d(q2.theta[0].values, 
+                                       q2.w[0].values, 
+                                       bins=tw_bins, density=True)
+    H_tw1, x_tw, y_tw = np.histogram2d(q2.theta[1].values, 
+                                       q2.w[1].values, 
+                                       bins=tw_bins, density=True)
+    H_tw2, x_tw, y_tw = np.histogram2d(q2.theta[2].values, 
+                                       q2.w[2].values, 
+                                       bins=tw_bins, density=True)                                       
+    # calculate bin centers
+    x3 = x_tw[:-1] + np.diff(x_tw)/2
+    y3 = y_tw[:-1] + np.diff(y_tw)/2
+    # normalize sum==1 by multiplying by bin area
+    # also multiply by 100% for units
+    tw_bin_area = np.diff(tw_bins[0])[0] * np.diff(tw_bins[1])[0]
+    H_tw0 *= tw_bin_area * 100.
+    H_tw1 *= tw_bin_area * 100.
+    H_tw2 *= tw_bin_area * 100.
+    # calculate cumulative percentages in each quadrant
+    ix, iy = np.where(x3 > 0.)[0][0], np.where(y3 > 0.)[0][0]
+    # level 0
+    tot_tpwp_0 = H_tw0[ix:, iy:].sum() # t'>0, w'>0
+    tot_tnwp_0 = H_tw0[:ix, iy:].sum() # t'<0, w'>0
+    tot_tnwn_0 = H_tw0[:ix, :iy].sum() # t'<0, w'<0
+    tot_tpwn_0 = H_tw0[ix:, :iy].sum() # t'>0, w'<0
+    # level 1
+    tot_tpwp_1 = H_tw1[ix:, iy:].sum() # t'>0, w'>0
+    tot_tnwp_1 = H_tw1[:ix, iy:].sum() # t'<0, w'>0
+    tot_tnwn_1 = H_tw1[:ix, :iy].sum() # t'<0, w'<0
+    tot_tpwn_1 = H_tw1[ix:, :iy].sum() # t'>0, w'<0
+
+    # plot tw quadrants
+    fig3, ax3 = plt.subplots(1, figsize=(7.4, 5))
+    # contour levels
+    cmax3 = np.around(np.max([H_tw0.max(), H_tw1.max()]), 1) + 0.2
+    levels3 = np.arange(0., cmax3, 0.2)
+    cax3 = ax3.contour(x3, y3, H_tw0.T,
+                       cmap=plt.get_cmap("Greys"),
+                       levels=levels3, extend="max")
+    cax3_1 = ax3.contour(x3, y3, H_tw1.T,
+                         cmap=plt.get_cmap("Blues"),
+                         levels=levels3, extend="max")
+    # cax3_2 = ax3.contour(x3, y3, H_tw2.T,
+    #                      cmap=plt.get_cmap("Reds"),
+    #                      levels=np.linspace(0.0, 3., 13), extend="both")
+    # legend labels and lines
+    lines = [cax3.collections[-1], cax3_1.collections[-1]]#, cax3_2.collections[-1]]
+    labels = [f"$z/h=${q2.zh[0].values:3.1f}", f"$z/h=${q2.zh[1].values:3.1f}"]#,
+            #   f"$z/h=${q2.zh[2].values:3.1f}"
+    ax3.legend(lines, labels, fontsize=14)
+    # clean up
+    cb3 = fig3.colorbar(cax3, ax=ax3, location="right")
+    cb3.ax.set_ylabel("Frequency [\\%]")
+    ax3.set_xlabel("$\\theta'$ [K]")
+    ax3.set_ylabel("$w'$ [m s$^{-1}$]")
+    ax3.set_xlim([-0.2, 0.2])
+    ax3.set_ylim([-1, 1])
+    ax3.axhline(0., c="k", alpha=0.7)
+    ax3.axvline(0., c="k", alpha=0.7)
+    ax3.set_title(f"{'-'.join(s.stability.split('_'))} $h/L = ${(s.he/s.L).values:4.3f}")
+    # add labels with percentages
+    # get line colors
+    # level 0
+    ctw0 = cax3.collections[-1].get_color().squeeze()
+    ax3.text(0.85,0.62,f"{tot_tpwp_0:3.1f}\\%",fontsize=14, 
+             transform=ax3.transAxes, color=ctw0)
+    ax3.text(0.03,0.62,f"{tot_tnwp_0:3.1f}\\%",fontsize=14, 
+             transform=ax3.transAxes, color=ctw0)
+    ax3.text(0.03,0.42,f"{tot_tnwn_0:3.1f}\\%",fontsize=14, 
+             transform=ax3.transAxes, color=ctw0)
+    ax3.text(0.85,0.42,f"{tot_tpwn_0:3.1f}\\%",fontsize=14, 
+             transform=ax3.transAxes, color=ctw0)
+    # level 1
+    ctw1 = cax3_1.collections[-1].get_color().squeeze()
+    ax3.text(0.85,0.55,f"{tot_tpwp_1:3.1f}\\%",fontsize=14, 
+             transform=ax3.transAxes, color=ctw1)
+    ax3.text(0.03,0.55,f"{tot_tnwp_1:3.1f}\\%",fontsize=14, 
+             transform=ax3.transAxes, color=ctw1)
+    ax3.text(0.03,0.36,f"{tot_tnwn_1:3.1f}\\%",fontsize=14, 
+             transform=ax3.transAxes, color=ctw1)
+    ax3.text(0.85,0.36,f"{tot_tpwn_1:3.1f}\\%",fontsize=14, 
+             transform=ax3.transAxes, color=ctw1)
+    
+    fig3.tight_layout()
+    fsave = f"{figdir}{s.stability}_tw_hist2d.png"
+    print(f"Saving figure {fsave}")
+    fig3.savefig(fsave, dpi=300)
+    plt.close(fig3)
+
+    #
+    # theta'u'
+    #
+    tu_bins = (np.arange(-0.4, 0.41, 0.02), np.arange(-3., 3.1, 0.1))
+    H_tu0, x_tu, y_tu = np.histogram2d(q2.theta[0].values, 
+                                       q2.u[0].values, 
+                                       bins=tu_bins, density=True)
+    H_tu1, x_tu, y_tu = np.histogram2d(q2.theta[1].values, 
+                                       q2.u[1].values, 
+                                       bins=tu_bins, density=True)
+    H_tu2, x_tu, y_tu = np.histogram2d(q2.theta[2].values, 
+                                       q2.u[2].values, 
+                                       bins=tu_bins, density=True)                                       
+    # calculate bin centers
+    x4 = x_tu[:-1] + np.diff(x_tu)/2
+    y4 = y_tu[:-1] + np.diff(y_tu)/2
+    # normalize sum==1 by multiplying by bin area
+    # also multiply by 100% for units
+    tu_bin_area = np.diff(tu_bins[0])[0] * np.diff(tu_bins[1])[0]
+    H_tu0 *= tu_bin_area * 100.
+    H_tu1 *= tu_bin_area * 100.
+    H_tu2 *= tu_bin_area * 100.
+    # calculate cumulative percentages in each quadrant
+    ix, iy = np.where(x4 > 0.)[0][0], np.where(y4 > 0.)[0][0]
+    # level 0
+    tot_tpup_0 = H_tu0[ix:, iy:].sum() # t'>0, u'>0
+    tot_tnup_0 = H_tu0[:ix, iy:].sum() # t'<0, u'>0
+    tot_tnun_0 = H_tu0[:ix, :iy].sum() # t'<0, u'<0
+    tot_tpun_0 = H_tu0[ix:, :iy].sum() # t'>0, u'<0
+    # level 1
+    tot_tpup_1 = H_tu1[ix:, iy:].sum() # t'>0, u'>0
+    tot_tnup_1 = H_tu1[:ix, iy:].sum() # t'<0, u'>0
+    tot_tnun_1 = H_tu1[:ix, :iy].sum() # t'<0, u'<0
+    tot_tpun_1 = H_tu1[ix:, :iy].sum() # t'>0, u'<0
+
+    # plot tu quadrants
+    fig4, ax4 = plt.subplots(1, figsize=(7.4, 5))
+    # get contour levels dynamically
+    cmax4 = np.around(np.max([H_tu0.max(), H_tu1.max()]), 1) + 0.2
+    levels4 = np.arange(0., cmax4, 0.2)
+    cax4 = ax4.contour(x4, y4, H_tu0.T,
+                       cmap=plt.get_cmap("Greys"),
+                       levels=levels4, extend="max")
+    cax4_1 = ax4.contour(x4, y4, H_tu1.T,
+                         cmap=plt.get_cmap("Blues"),
+                         levels=levels4, extend="max")
+    # cax4_2 = ax4.contour(x4, y4, H_tu2.T,
+    #                      cmap=plt.get_cmap("Reds"),
+    #                      levels=np.linspace(0.0, 10., 11), extend="max")
+    # legend labels and lines
+    lines = [cax4.collections[-1], cax4_1.collections[-1]]#, cax4_2.collections[-1]]
+    labels = [f"$z/h=${q2.zh[0].values:3.1f}", f"$z/h=${q2.zh[1].values:3.1f}"]#,
+            #   f"$z/h=${q2.zh[2].values:3.1f}"]
+    ax4.legend(lines, labels, fontsize=14)
+    # clean up
+    cb4 = fig4.colorbar(cax4, ax=ax4, location="right")
+    cb4.ax.set_ylabel("Frequency [\\%]")
+    ax4.set_xlabel("$\\theta'$ [K]")
+    ax4.set_ylabel("$u'$ [m s$^{-1}$]")
+    ax4.set_xlim([-0.2, 0.2])
+    ax4.set_ylim([-1, 1])
+    ax4.axhline(0., c="k", alpha=0.7)
+    ax4.axvline(0., c="k", alpha=0.7)
+    ax4.set_title(f"{'-'.join(s.stability.split('_'))} $h/L = ${(s.he/s.L).values:4.3f}")
+    # add labels with percentages
+    # get line colors
+    # level 0
+    ctu0 = cax4.collections[-1].get_color().squeeze()
+    ax4.text(0.85,0.62,f"{tot_tpup_0:3.1f}\\%",fontsize=14, 
+             transform=ax4.transAxes, color=ctu0)
+    ax4.text(0.03,0.62,f"{tot_tnup_0:3.1f}\\%",fontsize=14, 
+             transform=ax4.transAxes, color=ctu0)
+    ax4.text(0.03,0.42,f"{tot_tnun_0:3.1f}\\%",fontsize=14, 
+             transform=ax4.transAxes, color=ctu0)
+    ax4.text(0.85,0.42,f"{tot_tpun_0:3.1f}\\%",fontsize=14, 
+             transform=ax4.transAxes, color=ctu0)
+    # level 1
+    ctu1 = cax4_1.collections[-1].get_color().squeeze()
+    ax4.text(0.85,0.55,f"{tot_tpup_1:3.1f}\\%",fontsize=14, 
+             transform=ax4.transAxes, color=ctu1)
+    ax4.text(0.03,0.55,f"{tot_tnup_1:3.1f}\\%",fontsize=14, 
+             transform=ax4.transAxes, color=ctu1)
+    ax4.text(0.03,0.36,f"{tot_tnun_1:3.1f}\\%",fontsize=14, 
+             transform=ax4.transAxes, color=ctu1)
+    ax4.text(0.85,0.36,f"{tot_tpun_1:3.1f}\\%",fontsize=14, 
+             transform=ax4.transAxes, color=ctu1)    
+    
+    fig4.tight_layout()
+    fsave = f"{figdir}{s.stability}_tu_hist2d.png"
+    print(f"Saving figure {fsave}")
+    fig4.savefig(fsave, dpi=300)
+    plt.close(fig4)
+
+    return
 # --------------------------------
 # Define function to calculate 2d correlations in x and z
 # --------------------------------
@@ -1031,8 +1317,8 @@ if __name__ == "__main__":
         # plot_spectrogram(ncdir, figdir)
         # plot_1D_spectra(ncdir, figdir)
         # amp_mod(ncdir)
-        calc_quadrant(ncdir)
-        # plot_quadrant(ncdir, figdir_quad)
+        # calc_quadrant(ncdir)
+        plot_quadrant(ncdir, figdir_quad)
         # calc_corr2d(ncdir)
         # plot_corr2d(ncdir, figdir_corr2d)
         print(f"---End Sim {sim}---")
