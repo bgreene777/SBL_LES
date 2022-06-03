@@ -1,20 +1,21 @@
 # figures directory
-figures/*
+figures
 
 # ipynb checkpoints
-ipynb/.ipynb_checkpoints/*
-python/.ipynb_checkpoints/*
-fortran/.ipynb_checkpoints/*
+ipynb/.ipynb_checkpoints
+python/.ipynb_checkpoints
+fortran/.ipynb_checkpoints
+.ipynb_checkpoints
 
 # yaml file
 python/sms.yaml
 
 # output figures
-output/*
+output
 
 # old directories
-ipynb/old/*
-python/old/*
+ipynb/old
+python/old
 
 # out files
 python/*.out
@@ -24,4 +25,4 @@ python/*.log
 python/__pycache__
 
 # fortran executables
-fortran/executables/*
+fortran/executables

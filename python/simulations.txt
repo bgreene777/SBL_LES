@@ -1,3 +1,0 @@
-simdir,fslurm,task,f90exec,interpdim
-/home/bgreene/simulations/B_192_interp/,slurm-2143.out,stats,calc_stats_B192.exe,lol
-/home/bgreene/simulations/C_192_interp/,slurm-2144.out,stats,calc_stats_C192.exe,lol
