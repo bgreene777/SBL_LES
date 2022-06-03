@@ -1309,7 +1309,7 @@ if __name__ == "__main__":
     figdir_corr2d = "/home/bgreene/SBL_LES/figures/corr2d/"
     ncdirlist = []
     # loop sims A--F
-    for sim in ["0.10"]:
+    for sim in ["0.50"]:
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/cr{sim}_u08_192/output/netcdf/"
         ncdirlist.append(ncdir)
@@ -1317,8 +1317,8 @@ if __name__ == "__main__":
         # plot_spectrogram(ncdir, figdir)
         # plot_1D_spectra(ncdir, figdir)
         # amp_mod(ncdir)
-        # calc_quadrant(ncdir)
-        plot_quadrant(ncdir, figdir_quad)
+        calc_quadrant(ncdir)
+        # plot_quadrant(ncdir, figdir_quad)
         # calc_corr2d(ncdir)
         # plot_corr2d(ncdir, figdir_corr2d)
         print(f"---End Sim {sim}---")

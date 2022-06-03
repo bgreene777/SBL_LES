@@ -15,3 +15,7 @@ output/*
 # old directories
 ipynb/old/*
 python/old/*
+
+# out files
+python/*.out
+python/*.log
