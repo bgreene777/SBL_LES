@@ -31,7 +31,7 @@ real(8) :: z_scale = Lz
 integer :: i
 logical, parameter :: calc_TKE = .true.
 
-fdir = "/home/bgreene/simulations/F_192_interp/output/"
+fdir = "/home/bgreene/simulations/E_192_interp/output/"
 if (.not. calc_TKE) then
     dissip = 0.
     dissip_mean = 0.

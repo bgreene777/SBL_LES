@@ -19,3 +19,9 @@ python/old/*
 # out files
 python/*.out
 python/*.log
+
+# pycache
+python/__pycache__
+
+# fortran executables
+fortran/executables/*
