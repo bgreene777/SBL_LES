@@ -11,3 +11,7 @@ python/sms.yaml
 
 # output figures
 output/*
+
+# old directories
+ipynb/old/*
+python/old/*
