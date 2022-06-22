@@ -314,13 +314,28 @@ def load_stats(fstats, SBL=True, display=False):
     # grab ustar0 and calc tstar0 for normalizing in plotting
     dd["ustar0"] = dd.ustar.isel(z=0)
     dd["tstar0"] = -dd.tw_cov_tot.isel(z=0)/dd.ustar0
+    # local thetastar
+    dd["tstar"] = -dd.tw_cov_tot / dd.ustar
     # calculate TKE
     dd["e"] = 0.5 * (dd.u_var + dd.v_var + dd.w_var)
     # calculate Obukhov length L
     dd["L"] = -(dd.ustar0**3) * dd.theta_mean.isel(z=0) / (0.4 * 9.81 * dd.tw_cov_tot.isel(z=0))
+    # calculate uh and wdir
+    dd["uh"] = np.sqrt(dd.u_mean**2. + dd.v_mean**2.)
+    dd["wdir"] = np.arctan2(-dd.u_mean, -dd.v_mean) * 180./np.pi
+    dd["wdir"] = dd.wdir.where(dd.wdir < 0.) + 360.
+    # calculate mean lapse rate between lowest grid point and z=h
+    delta_T = dd.theta_mean.sel(z=dd.h, method="nearest") - dd.theta_mean[0]
+    delta_z = dd.z.sel(z=dd.h, method="nearest") - dd.z[0]
+    dd["dT_dz"] = delta_T / delta_z
+    # calculate eddy turnover time TL
+    dd["TL"] = dd.h / dd.ustar0
+    dd["nTL"] = 3600. / dd.TL
     if SBL:
         # calculate TKE-based sbl depth
         dd["he"] = dd.z.where(dd.e <= 0.05*dd.e[0], drop=True)[0]
+        # calculate h/L as global stability parameter
+        dd["hL"] = dd.he / dd.L
         # calculate Richardson numbers
         # sqrt((du_dz**2) + (dv_dz**2))
         dd["du_dz"] = np.sqrt(dd.u_mean.differentiate("z", 2)**2. + dd.v_mean.differentiate("z", 2)**2.)
@@ -340,17 +355,10 @@ def load_stats(fstats, SBL=True, display=False):
         dd["Ls"] = kz / (1 + (kz/l0) + (kz/l1))
         dd["Us"] = dd.Ls * np.sqrt(dd.N2)
         dd["Ts"] = dd.Ls * dd.theta_mean.differentiate("z", 2)
-    # calculate uh and wdir
-    dd["uh"] = np.sqrt(dd.u_mean**2. + dd.v_mean**2.)
-    dd["wdir"] = np.arctan2(-dd.u_mean, -dd.v_mean) * 180./np.pi
-    dd["wdir"] = dd.wdir.where(dd.wdir < 0.) + 360.
-    # calculate mean lapse rate between lowest grid point and z=h
-    delta_T = dd.theta_mean.sel(z=dd.h, method="nearest") - dd.theta_mean[0]
-    delta_z = dd.z.sel(z=dd.h, method="nearest") - dd.z[0]
-    dd["dT_dz"] = delta_T / delta_z
-    # calculate eddy turnover time TL
-    dd["TL"] = dd.h / dd.ustar0
-    dd["nTL"] = 3600. / dd.TL
+        # calculate local Obukhov length Lambda
+        dd["LL"] = -(dd.ustar**3.) * dd.theta_mean / (0.4 * 9.81 * dd.tw_cov_tot)
+        # calculate level of LLJ: zj
+        dd["zj"] = dd.z.isel(z=dd.uh.argmax())
     # print table statistics
     if display:
         print(f"---{dd.stability}---")
