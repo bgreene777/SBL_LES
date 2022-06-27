@@ -12,6 +12,7 @@ import os
 import yaml
 import numpy as np
 import xarray as xr
+from scipy.signal import detrend
 from dask.diagnostics import ProgressBar
 from matplotlib.colors import Normalize
 from RFMnc import print_both
@@ -198,6 +199,7 @@ def calc_stats():
     dd_stat = xr.Dataset()
     # list of base variables
     base = ["u", "v", "w", "theta"]
+    base1 = ["u", "v", "w", "theta"] # use for looping over vars in case dissip not used
     # check for dissip
     if config["use_dissip"]:
         base.append("dissip")
@@ -215,8 +217,12 @@ def calc_stats():
     dd_stat["tw_cov_res"] = xr.cov(dd.theta, dd.w, dim=("time", "x", "y"))
     dd_stat["tw_cov_tot"] = dd_stat.tw_cov_res + dd.q3.mean(dim=("time","x","y"))
     # calculate vars
-    for s in base[:-1]:
-        dd_stat[f"{s}_var"] = dd[s].var(dim=("time", "x", "y"))
+    for s in base1:
+        if config["detrend_stats"]:
+            vv = np.var(detrend(dd[s], axis=0, type="linear"), axis=(0,1,2))
+            dd_stat[f"{s}_var"] = xr.DataArray(vv, dims=("z"), coords=dict(z=dd.z))
+        else:
+            dd_stat[f"{s}_var"] = dd[s].var(dim=("time", "x", "y"))
     # rotate u_mean and v_mean so <v> = 0
     angle = np.arctan2(dd_stat.v_mean, dd_stat.u_mean)
     dd_stat["alpha"] = angle
@@ -226,8 +232,14 @@ def calc_stats():
     u_rot = dd.u*np.cos(angle) + dd.v*np.sin(angle)
     v_rot =-dd.u*np.sin(angle) + dd.v*np.cos(angle)
     # recalculate u_var_rot, v_var_rot
-    dd_stat["u_var_rot"] = u_rot.var(dim=("time", "x", "y"))
-    dd_stat["v_var_rot"] = v_rot.var(dim=("time", "x", "y"))
+    if config["detrend_stats"]:
+        uvar_rot = np.var(detrend(u_rot, axis=0, type="linear"), axis=(0,1,2))
+        dd_stat["u_var_rot"] = xr.DataArray(uvar_rot, dims=("z"), coords=dict(z=dd.z))
+        vvar_rot = np.var(detrend(v_rot, axis=0, type="linear"), axis=(0,1,2))
+        dd_stat["v_var_rot"] = xr.DataArray(vvar_rot, dims=("z"), coords=dict(z=dd.z))
+    else:
+        dd_stat["u_var_rot"] = u_rot.var(dim=("time", "x", "y"))
+        dd_stat["v_var_rot"] = v_rot.var(dim=("time", "x", "y"))
     # --------------------------------
     # Add attributes
     # --------------------------------
