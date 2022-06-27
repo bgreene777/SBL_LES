@@ -75,7 +75,12 @@ def sim2netcdf():
     nt = len(timesteps)
     # dimensions
     x, y = np.linspace(0., Lx, nx), np.linspace(0, Ly, ny)
-    z = np.linspace(dz, Lz-dz, nz)
+    # u- and w-nodes are staggered
+    # zw = 0:Lz:nz
+    # zu = dz/2:Lz-dz/2:nz-1
+    # interpolate w, txz, tyz, q3 to u grid
+    zw = np.linspace(0., Lz, nz)
+    zu = np.linspace(dz/2., Lz+dz/2., nz)
     # --------------------------------
     # Loop over timesteps to load and save new files
     # --------------------------------
@@ -95,30 +100,44 @@ def sim2netcdf():
         tyz_in = read_f90_bin(f6,nx,ny,nz,8) * u_scale * u_scale
         f7 = f"{dout}q3_{timesteps[i]:07d}.out"
         q3_in = read_f90_bin(f7,nx,ny,nz,8) * u_scale * theta_scale
-        # construct dictionary of data to save
+        # interpolate w, txz, tyz, q3 to u grid
+        # create DataArrays
+        w_da = xr.DataArray(w_in, dims=("x", "y", "z"), coords=dict(x=x, y=y, z=zw))
+        txz_da = xr.DataArray(txz_in, dims=("x", "y", "z"), coords=dict(x=x, y=y, z=zw))
+        tyz_da = xr.DataArray(tyz_in, dims=("x", "y", "z"), coords=dict(x=x, y=y, z=zw))
+        q3_da = xr.DataArray(q3_in, dims=("x", "y", "z"), coords=dict(x=x, y=y, z=zw))
+        # perform interpolation
+        w_interp = w_da.interp(z=zu, method="linear", 
+                               kwargs={"fill_value": "extrapolate"})
+        txz_interp = txz_da.interp(z=zu, method="linear", 
+                                   kwargs={"fill_value": "extrapolate"})
+        tyz_interp = tyz_da.interp(z=zu, method="linear", 
+                                   kwargs={"fill_value": "extrapolate"})
+        q3_interp = q3_da.interp(z=zu, method="linear", 
+                                 kwargs={"fill_value": "extrapolate"})
+        # construct dictionary of data to save -- u-node variables only!
         data_save = {
                         "u": (["x","y","z"], u_in),
                         "v": (["x","y","z"], v_in),
-                        "w": (["x","y","z"], w_in),
                         "theta": (["x","y","z"], theta_in),
-                        "txz": (["x","y","z"], txz_in),
-                        "tyz": (["x","y","z"], tyz_in),
-                        "q3": (["x","y","z"], q3_in)
                     }
         # check fo using dissipation files
         if config["use_dissip"]:
             # read binary file
             f8 = f"{dout}dissip_{timesteps[i]:07d}.out"
             diss_in = read_f90_bin(f8,nx,ny,nz,8) * u_scale * u_scale * u_scale / Lz
-            # add to data_save
-            data_save["dissip"] = (["x","y","z"], diss_in)
+            # interpolate to u-nodes
+            diss_da = xr.DataArray(diss_in, dims=("x", "y", "z"), 
+                                   coords=dict(x=x, y=y, z=zw))
+            diss_interp = diss_da.interp(z=zu, method="linear", 
+                                         kwargs={"fill_value": "extrapolate"})
         # construct dataset from these variables
         ds = xr.Dataset(
             data_save,
             coords={
                 "x": x,
                 "y": y,
-                "z": z
+                "z": zu
             },
             attrs={
                 "nx": nx,
@@ -132,6 +151,13 @@ def sim2netcdf():
                 "dz": dz,
                 "stability": config["stab"]
             })
+        # now assign interpolated arrays that were on w-nodes
+        ds["w"] = w_interp
+        ds["txz"] = txz_interp
+        ds["tyz"] = tyz_interp
+        ds["q3"] = q3_interp
+        if config["use_dissip"]:
+            ds["dissip"] = diss_interp
         # loop and assign attributes
         for var in list(data_save.keys())+["x", "y", "z"]:
             ds[var].attrs["units"] = config["var_attrs"][var]["units"]
