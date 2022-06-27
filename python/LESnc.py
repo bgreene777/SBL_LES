@@ -257,7 +257,12 @@ def timeseries2netcdf():
     Lz = config["Lz"]
     dz = Lz/nz
     # define z array
-    z = np.linspace(dz, Lz-dz, nz, dtype=np.float64)  # meters
+    # u- and w-nodes are staggered
+    # zw = 0:Lz:nz
+    # zu = dz/2:Lz-dz/2:nz-1
+    # interpolate w, txz, tyz, q3 to u grid
+    zw = np.linspace(0., Lz, nz)
+    zu = np.linspace(dz/2., Lz+dz/2., nz)
     # only load last hour of simulation
     nt_tot = config["tf"]
     # 1 hour is 3600/delta_t
@@ -270,9 +275,14 @@ def timeseries2netcdf():
     print_both(f"Begin loading simulation {config['stab']}", fprint)   
     # define DataArrays for u, v, w, theta, txz, tyz, q3
     # shape(nt,nz)
-    u_ts, v_ts, w_ts, theta_ts, txz_ts, tyz_ts, q3_ts =\
+    # u, v, theta
+    u_ts, v_ts, theta_ts =\
     (xr.DataArray(np.zeros((nt, nz), dtype=np.float64),
-                  dims=("t", "z"), coords=dict(t=time, z=z)) for _ in range(7))
+                  dims=("t", "z"), coords=dict(t=time, z=zu)) for _ in range(3))
+    # w, txz, tyz, q3
+    w_ts, txz_ts, tyz_ts, q3_ts =\
+    (xr.DataArray(np.zeros((nt, nz), dtype=np.float64),
+                  dims=("t", "z"), coords=dict(t=time, z=zw)) for _ in range(4))
     # now loop through each file (one for each jz)
     for jz in range(nz):
         print_both(f"Loading timeseries data, jz={jz}", fprint)
@@ -302,15 +312,19 @@ def timeseries2netcdf():
     attrs = {"stability": config["stab"], "dt": delta_t, "nt": nt, "nz": nz, "total_time": config["tavg"]}
     # combine DataArrays into Dataset and save as netcdf
     # initialize empty Dataset
-    ts_all = xr.Dataset(data_vars=None, coords=dict(t=time, z=z), attrs=attrs)
+    ts_all = xr.Dataset(data_vars=None, coords=dict(t=time, z=zu), attrs=attrs)
     # now store
     ts_all["u"] = u_ts
     ts_all["v"] = v_ts
-    ts_all["w"] = w_ts
+    ts_all["w"] = w_ts.interp(z=zu, method="linear", 
+                              kwargs={"fill_value": "extrapolate"})
     ts_all["theta"] = theta_ts
-    ts_all["txz"] = txz_ts
-    ts_all["tyz"] = tyz_ts
-    ts_all["q3"] = q3_ts
+    ts_all["txz"] = txz_ts.interp(z=zu, method="linear", 
+                                  kwargs={"fill_value": "extrapolate"})
+    ts_all["tyz"] = tyz_ts.interp(z=zu, method="linear", 
+                                  kwargs={"fill_value": "extrapolate"})
+    ts_all["q3"] = q3_ts.interp(z=zu, method="linear", 
+                                kwargs={"fill_value": "extrapolate"})
     # save to netcdf
     fsave_ts = f"{dnc}{config['fts']}"
     with ProgressBar():
