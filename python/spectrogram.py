@@ -947,11 +947,11 @@ def plot_corr2d(dnc, figdir):
 def LCS(dnc):
     """
     Calculate linear coherence spectra in streamwise dimension
-    for data at *same height*
+    against reference height of lowest grid point
     and average along spanwise and time dimensions
     Input dnc: directory for netcdf files
     Output netcdf file
-    G2(z,lx) = |<F_u(z,lx) F_u*(z,lx)>|**2 / <|F_u(z,lx)|**2><|F_u(z,lx)|**2>
+    G2(z,zr;lx) = |<F_u(z,lx) F_u*(zr,lx)>|**2 / <|F_u(z,lx)|**2><|F_u(zr,lx)|**2>
     """
     # load data
     dd, s = load_full(dnc, 1080000, 1260000, 1000, 0.02, True, True) 
@@ -961,17 +961,17 @@ def LCS(dnc):
     F_tt = xrft.fft(dd.theta, dim="x", true_phase=True, true_amplitude=True)
     # calculate G2
     # u
-    G2u = np.absolute((F_uu * F_uu.conj()).mean(dim=("y","time"))) ** 2. /\
+    G2u = np.absolute((F_uu * F_uu.isel(z=0).conj()).mean(dim=("y","time"))) ** 2. /\
           ((np.absolute(F_uu)**2.).mean(dim=("y","time")) *\
-           (np.absolute(F_uu)**2.).mean(dim=("y","time")))
+           (np.absolute(F_uu.isel(z=0))**2.).mean(dim=("y","time")))
     # w
-    G2w = np.absolute((F_ww * F_ww.conj()).mean(dim=("y","time"))) ** 2. /\
+    G2w = np.absolute((F_ww * F_ww.isel(z=0).conj()).mean(dim=("y","time"))) ** 2. /\
           ((np.absolute(F_ww)**2.).mean(dim=("y","time")) *\
-           (np.absolute(F_ww)**2.).mean(dim=("y","time")))
+           (np.absolute(F_ww.isel(z=0))**2.).mean(dim=("y","time")))
     # theta
-    G2t = np.absolute((F_tt * F_tt.conj()).mean(dim=("y","time"))) ** 2. /\
+    G2t = np.absolute((F_tt * F_tt.isel(z=0).conj()).mean(dim=("y","time"))) ** 2. /\
           ((np.absolute(F_tt)**2.).mean(dim=("y","time")) *\
-           (np.absolute(F_tt)**2.).mean(dim=("y","time")))
+           (np.absolute(F_tt.isel(z=0))**2.).mean(dim=("y","time")))
     # combine Gs into dataset to save as netcdf
     Gsave = xr.Dataset(data_vars=None,
                        coords=dict(z=G2u.z, freq_x=G2u.freq_x),
@@ -979,6 +979,10 @@ def LCS(dnc):
     Gsave["u"] = G2u
     Gsave["w"] = G2w
     Gsave["theta"] = G2t
+    # add attr for reference height
+    Gsave.attrs["zr"] = dd.z.isel(z=0).values
+    # only keep freqs > 0
+    Gsave = Gsave.where(Gsave.freq_x > 0., drop=True)
     # save file
     fsavenc = f"{dnc}G2.nc"
     print(f"Saving file: {fsavenc}")
@@ -1002,7 +1006,7 @@ if __name__ == "__main__":
     figdir_corr2d = "/home/bgreene/SBL_LES/figures/corr2d/"
     ncdirlist = []
     # loop sims A--F
-    for sim in ["cr0.10_u08_192"]:
+    for sim in ["cr0.10_u08_192", "cr0.25_u08_192", "cr0.33_u08_192"]:
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}/output/netcdf/"
         ncdirlist.append(ncdir)
