@@ -90,132 +90,6 @@ def calc_spectra(dnc):
     return
 
 # --------------------------------
-# Define function to read output files and plot
-# --------------------------------
-
-def plot_spectrogram(dnc, figdir):
-    """
-    Multi-panel plot from single simulation of all premultiplied spectra
-    Input dnc: directory with nc files for given sim
-    Input figdir: directory to save output figures
-    Output: saved figures in figdir
-    """
-    # configure plots
-    nlevel = 36
-    cmap = seaborn.color_palette("cubehelix", as_cmap=True)
-    cmap_r = seaborn.color_palette("cubehelix_r", as_cmap=True)
-    # cmap2 = seaborn.color_palette("vlag", as_cmap=True)
-    cmap2 = cmocean.cm.balance
-    # load stats file
-    s = load_stats(dnc+"average_statistics.nc")
-    # test similarity scale for plotting
-    # height where Ls is maximum
-    s["zLs"] = s.z.isel(z=s.Ls.argmax())
-    # load spectra file
-    E = xr.load_dataset(dnc+"spectrogram.nc")
-
-    # Fig 1: E_uu, E_ww, E_tt
-    print("Begin plotting Fig 1")
-    fig1, ax1 = plt.subplots(nrows=1, ncols=3, sharey=True, sharex=True, 
-                             figsize=(14, 5), constrained_layout=True)
-    # cax1 = ax1.contour(E_uu_nondim.z/sA.h, 1/E_uu_nondim.freq_x/sA.h,
-    #                    E_uu_nondim, levels=np.linspace(0.0, 0.75, 26),
-    #                    extend="max")
-    # cax1 = ax1.contour(E_uu_nondim.z, 1/E_uu_nondim.freq_x,
-    #                    E_uu_nondim, levels=np.linspace(0.0, 0.75, 26),
-    #                    extend="max")
-    # cax1 = ax1.contour(E_uu_nondim.z/sA.Lo.max(), 1/E_uu_nondim.freq_x/sA.Lo.max(),
-    #                 E_uu_nondim, levels=np.linspace(0.0, 0.75, 26),
-    #                 extend="max")
-    # cax1 = ax1.contour(E_uu_nondim.z/sA.Ls.isel(z=0), 1/E_uu_nondim.freq_x/sA.Ls.isel(z=0),
-    #                    E_uu_nondim, levels=np.linspace(0.0, 0.75, 26),
-    #                    extend="max")
-    # Euu
-    cax1_0 = ax1[0].contour(E.z/s.h, 1/E.freq_x/s.h, E.freq_x*E.uu/s.ustar0/s.ustar0,
-                            levels=np.linspace(0.0, 0.8, nlevel), extend="max", cmap=cmap)
-    # Eww
-    cax1_1 = ax1[1].contour(E.z/s.h, 1/E.freq_x/s.h, E.freq_x*E.ww/s.ustar0/s.ustar0,
-                            levels=np.linspace(0.0, 0.8, nlevel), extend="max", cmap=cmap)
-    # Ett
-    cax1_2 = ax1[2].contour(E.z/s.h, 1/E.freq_x/s.h, E.freq_x*E.tt/s.tstar0/s.tstar0,
-                            levels=np.linspace(0.0, 0.5, nlevel), extend="max", cmap=cmap)
-    # clean up
-    ax1[0].set_xlabel("$z/h$")
-    ax1[0].set_ylabel("$\\lambda_x/h$")
-    ax1[0].set_xscale("log")
-    ax1[0].set_yscale("log")
-    ax1[1].set_xlabel("$z/h$")
-    ax1[2].set_xlabel("$z/h$")
-    # ax1.set_xlim([0.01, 1])
-    # ax1.set_ylim([0.05, 10])
-    cb1_0 = fig1.colorbar(cax1_0, ax=ax1[0], location="bottom", 
-                          ticks=MultipleLocator(0.2), shrink=0.8)
-    cb1_1 = fig1.colorbar(cax1_1, ax=ax1[1], location="bottom", 
-                          ticks=MultipleLocator(0.2), shrink=0.8)
-    cb1_2 = fig1.colorbar(cax1_2, ax=ax1[2], location="bottom", 
-                          ticks=MultipleLocator(0.1), shrink=0.8)
-
-    cb1_0.ax.set_xlabel("$k_x \\Phi_{uu} / u_*^2$")
-    cb1_1.ax.set_xlabel("$k_x \\Phi_{ww} / u_*^2$")
-    cb1_2.ax.set_xlabel("$k_x \\Phi_{\\theta\\theta} / \\theta_*^2$")
-
-    # for iax in ax1.flatten():
-    #     iax.axhline(s.zLs/s.h, c="k", lw=2)
-    # ax1.axvline(1, c="k", lw=2)
-
-    # save
-    fsave1 = f"{figdir}{E.stability}_uu_ww_tt.png"
-    print(f"Saving figure {fsave1}")
-    fig1.savefig(fsave1, dpi=300)
-    plt.close(fig1)
-
-    # Fig 2: E_uw, E_tw
-    print("Begin plotting Fig 2...")
-    fig2, ax2 = plt.subplots(nrows=1, ncols=3, sharey=True, sharex=True,
-                             figsize=(14, 5), constrained_layout=True)
-    # Euw
-    cax2_0 = ax2[0].contour(E.z/s.h, 1/E.freq_x/s.h, E.freq_x*E.uw/s.ustar0/s.ustar0,
-                            levels=np.linspace(-0.2, 0.0, nlevel), extend="both", cmap=cmap_r)
-    # Etw
-    cax2_1 = ax2[1].contour(E.z/s.h, 1/E.freq_x/s.h, E.freq_x*E.tw/s.ustar0/s.tstar0,
-                            levels=np.linspace(-0.2, 0.0, nlevel), extend="both", cmap=cmap_r)
-    # Etu
-    norm=MidPointNormalize(midpoint=0.0)
-    cax2_2 = ax2[2].contour(E.z/s.h, 1/E.freq_x/s.h, E.freq_x*E.tu/s.ustar0/s.tstar0,
-                            levels=np.linspace(-0.2, 0.4, nlevel), extend="both", cmap=cmap2, norm=norm)
-    # clean up
-    ax2[0].set_xlabel("$z/h$")
-    ax2[0].set_ylabel("$\\lambda_x/h$")
-    ax2[0].set_xscale("log")
-    ax2[0].set_yscale("log")
-    ax2[1].set_xlabel("$z/h$")
-    ax2[2].set_xlabel("$z/h$")
-    # ax1.set_xlim([0.01, 1])
-    # ax1.set_ylim([0.05, 10])
-    cb2_0 = fig2.colorbar(cax2_0, ax=ax2[0], location="bottom",
-                          ticks=MultipleLocator(0.1), shrink=0.8)
-    cb2_1 = fig2.colorbar(cax2_1, ax=ax2[1], location="bottom",
-                          ticks=MultipleLocator(0.1), shrink=0.8)
-    cb2_2 = fig2.colorbar(cax2_2, ax=ax2[2], location="bottom",
-                          ticks=MultipleLocator(0.1), shrink=0.8)
-
-    cb2_0.ax.set_xlabel("$k_x \\Phi_{uw} / u_*^2$")
-    cb2_1.ax.set_xlabel("$k_x \\Phi_{\\theta w} / u_* \\theta_*$")
-    cb2_2.ax.set_xlabel("$k_x \\Phi_{\\theta u} / u_* \\theta_*$")
-
-    # for iax in ax2.flatten():
-    #     iax.axhline(s.zLs/s.h, c="k", lw=2)
-    # ax1.axvline(1, c="k", lw=2)
-    # print(f"zLs/h = {(s.zLs/s.h).values:3.2f}")
-    # save
-    fsave2 = f"{figdir}{E.stability}_uw_tw_tu.png"
-    print(f"Saving figure {fsave2}")
-    fig2.savefig(fsave2, dpi=300)
-    plt.close(fig2)
-
-    return
-
-# --------------------------------
 # Define function to read output files and plot 1D spectra
 # --------------------------------
 
@@ -959,19 +833,21 @@ def LCS(dnc):
     F_uu = xrft.fft(dd.u_rot, dim="x", true_phase=True, true_amplitude=True)
     F_ww = xrft.fft(dd.w, dim="x", true_phase=True, true_amplitude=True)
     F_tt = xrft.fft(dd.theta, dim="x", true_phase=True, true_amplitude=True)
+    # use zr = zj as reference
+    izr = s.uh.argmax()
     # calculate G2
     # u
-    G2u = np.absolute((F_uu * F_uu.isel(z=0).conj()).mean(dim=("y","time"))) ** 2. /\
+    G2u = np.absolute((F_uu * F_uu.isel(z=izr).conj()).mean(dim=("y","time"))) ** 2. /\
           ((np.absolute(F_uu)**2.).mean(dim=("y","time")) *\
-           (np.absolute(F_uu.isel(z=0))**2.).mean(dim=("y","time")))
+           (np.absolute(F_uu.isel(z=izr))**2.).mean(dim=("y","time")))
     # w
-    G2w = np.absolute((F_ww * F_ww.isel(z=0).conj()).mean(dim=("y","time"))) ** 2. /\
+    G2w = np.absolute((F_ww * F_ww.isel(z=izr).conj()).mean(dim=("y","time"))) ** 2. /\
           ((np.absolute(F_ww)**2.).mean(dim=("y","time")) *\
-           (np.absolute(F_ww.isel(z=0))**2.).mean(dim=("y","time")))
+           (np.absolute(F_ww.isel(z=izr))**2.).mean(dim=("y","time")))
     # theta
-    G2t = np.absolute((F_tt * F_tt.isel(z=0).conj()).mean(dim=("y","time"))) ** 2. /\
+    G2t = np.absolute((F_tt * F_tt.isel(z=izr).conj()).mean(dim=("y","time"))) ** 2. /\
           ((np.absolute(F_tt)**2.).mean(dim=("y","time")) *\
-           (np.absolute(F_tt.isel(z=0))**2.).mean(dim=("y","time")))
+           (np.absolute(F_tt.isel(z=izr))**2.).mean(dim=("y","time")))
     # combine Gs into dataset to save as netcdf
     Gsave = xr.Dataset(data_vars=None,
                        coords=dict(z=G2u.z, freq_x=G2u.freq_x),
@@ -980,7 +856,7 @@ def LCS(dnc):
     Gsave["w"] = G2w
     Gsave["theta"] = G2t
     # add attr for reference height
-    Gsave.attrs["zr"] = dd.z.isel(z=0).values
+    Gsave.attrs["zr"] = dd.z.isel(z=izr).values
     # only keep freqs > 0
     Gsave = Gsave.where(Gsave.freq_x > 0., drop=True)
     # save file
@@ -1006,12 +882,11 @@ if __name__ == "__main__":
     figdir_corr2d = "/home/bgreene/SBL_LES/figures/corr2d/"
     ncdirlist = []
     # loop sims A--F
-    for sim in ["cr0.10_u08_192", "cr0.25_u08_192", "cr0.33_u08_192"]:
+    for sim in ["cr0.50_u08_192"]:
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}/output/netcdf/"
         ncdirlist.append(ncdir)
         # calc_spectra(ncdir)
-        # plot_spectrogram(ncdir, figdir)
         # plot_1D_spectra(ncdir, figdir)
         # amp_mod(ncdir)
         # calc_quadrant(ncdir)
