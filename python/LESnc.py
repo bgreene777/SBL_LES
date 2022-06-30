@@ -10,6 +10,7 @@
 # --------------------------------
 import os
 import yaml
+import xrft
 import numpy as np
 import xarray as xr
 from scipy.signal import detrend
@@ -462,6 +463,50 @@ def load_full(dnc, t0, t1, dt, delta_t, use_stats, SBL):
         return dd, s
     # just return dd if no SBL
     return dd
+# ---------------------------------------------
+def load_timeseries(dnc, detrend=True):
+    """
+    Reading function for timeseries files created from timseries2netcdf()
+    Load netcdf files using xarray and calculate numerous relevant parameters
+    input dnc: path to netcdf directory for simulation
+    input detrend: detrend timeseries for calculating variances, default=True
+    return d: xarray dataset
+    """
+    # load timeseries_all.nc
+    d = xr.open_dataset(dnc+"timeseries_all.nc")
+    # calculate means
+    for v in ["u", "v", "w", "theta"]:
+        d[f"{v}_mean"] = d[v].mean("t") # average in time
+    # rotate coords so <v> = 0
+    angle = np.arctan2(d.v_mean, d.u_mean)
+    d["u_mean_rot"] = d.u_mean*np.cos(angle) + d.v_mean*np.sin(angle)
+    d["v_mean_rot"] =-d.u_mean*np.sin(angle) + d.v_mean*np.cos(angle)
+    # rotate instantaneous u and v
+    d["u_rot"] = d.u*np.cos(angle) + d.v*np.sin(angle)
+    d["v_rot"] =-d.u*np.sin(angle) + d.v*np.cos(angle)
+    # calculate "inst" covars
+    # covars not affected by detrend
+    d["uw"] = (d.u - d.u_mean) * (d.w - d.w_mean) + d.txz
+    d["vw"] = (d.v - d.v_mean) * (d.w - d.w_mean) + d.tyz
+    d["tw"] = (d.theta - d.theta_mean) * (d.w - d.w_mean) + d.q3
+    # calculate "inst" vars
+    if detrend:
+        ud = xrft.detrend(d.u_rot, dim="t", detrend_type="linear")
+        vd = xrft.detrend(d.v_rot, dim="t", detrend_type="linear")
+        wd = xrft.detrend(d.w, dim="t", detrend_type="linear")
+        td = xrft.detrend(d.theta, dim="t", detrend_type="linear")
+        d["uu"] = ud * ud
+        d["vv"] = vd * vd
+        d["ww"] = wd * wd
+        d["tt"] = td * td
+    else:
+        d["uu"] = (d.u - d.u_mean) * (d.u - d.u_mean)
+        d["vv"] = (d.v - d.v_mean) * (d.v - d.v_mean)
+        d["ww"] = (d.w - d.w_mean) * (d.w - d.w_mean)
+        d["tt"] = (d.theta - d.theta_mean) * (d.theta - d.theta_mean)
+    
+    return d
+
 # --------------------------------
 # Run script if desired
 # --------------------------------

@@ -18,7 +18,7 @@ from dask.diagnostics import ProgressBar
 from matplotlib import pyplot as plt
 from matplotlib import rc
 from matplotlib.ticker import MultipleLocator
-from LESnc import load_stats, load_full, MidPointNormalize
+from LESnc import load_stats, load_full, load_timeseries
 # --------------------------------
 # Define function to calculate spectra
 # --------------------------------
@@ -168,27 +168,7 @@ def amp_mod(dnc):
     """
     # TODO: write load_timeseries() function in LESnc
     # load timeseries file
-    d = xr.open_dataset(dnc+"timeseries_all.nc")
-    # pre-processing ------------------------------------------------
-    # calculate means
-    for v in ["u", "v", "w", "theta", "txz", "tyz", "q3"]:
-        d[f"{v}_mean"] = d[v].mean("t") # average in time
-    # rotate coords so <v> = 0
-    angle = np.arctan2(d.v_mean, d.u_mean)
-    d["u_mean_rot"] = d.u_mean*np.cos(angle) + d.v_mean*np.sin(angle)
-    d["v_mean_rot"] =-d.u_mean*np.sin(angle) + d.v_mean*np.cos(angle)
-    # rotate instantaneous u and v
-    d["u_rot"] = d.u*np.cos(angle) + d.v*np.sin(angle)
-    d["v_rot"] =-d.u*np.sin(angle) + d.v*np.cos(angle)
-    # calculate "inst" covars
-    d["uw"] = (d.u - d.u_mean) * (d.w - d.w_mean) + d.txz
-    d["vw"] = (d.v - d.v_mean) * (d.w - d.w_mean) + d.tyz
-    d["tw"] = (d.theta - d.theta_mean) * (d.w - d.w_mean) + d.q3
-    # calculate "inst" vars
-    d["uu"] = (d.u - d.u_mean) * (d.u - d.u_mean)
-    d["vv"] = (d.v - d.v_mean) * (d.v - d.v_mean)
-    d["ww"] = (d.w - d.w_mean) * (d.w - d.w_mean)
-    d["tt"] = (d.theta - d.theta_mean) * (d.theta - d.theta_mean)
+    d = load_timeseries(dnc, detrend=True)
     # filtering ------------------------------------------------
     print("Begin calculating amplitude modulation coefficients")
     # lengthscale of filter to separate large and small scales
@@ -197,10 +177,10 @@ def amp_mod(dnc):
     # cutoff frequency from Taylor hypothesis - use same for all heights
     f_c = 1./(delta/d.u_mean_rot)
     # calculate FFT of u, v, w, theta, uw, tw
-    f_u = xrft.fft(d.u_rot, dim="t", true_phase=True, true_amplitude=True)
-    f_v = xrft.fft(d.v_rot, dim="t", true_phase=True, true_amplitude=True)
-    f_w = xrft.fft(d.w, dim="t", true_phase=True, true_amplitude=True)
-    f_t = xrft.fft(d.theta, dim="t", true_phase=True, true_amplitude=True)
+    f_u = xrft.fft(d.u_rot, dim="t", true_phase=True, true_amplitude=True, detrend="linear")
+    f_v = xrft.fft(d.v_rot, dim="t", true_phase=True, true_amplitude=True, detrend="linear")
+    f_w = xrft.fft(d.w, dim="t", true_phase=True, true_amplitude=True, detrend="linear")
+    f_t = xrft.fft(d.theta, dim="t", true_phase=True, true_amplitude=True, detrend="linear")
     f_uw = xrft.fft(d.uw, dim="t", true_phase=True, true_amplitude=True)
     f_tw = xrft.fft(d.tw, dim="t", true_phase=True, true_amplitude=True)
     # loop over heights and lowpass filter
@@ -882,16 +862,16 @@ if __name__ == "__main__":
     figdir_corr2d = "/home/bgreene/SBL_LES/figures/corr2d/"
     ncdirlist = []
     # loop sims A--F
-    for sim in ["cr0.50_u08_192"]:
+    for sim in ["cr0.10_u08_192", "cr0.25_u08_192", "cr0.33_u08_192"]:
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}/output/netcdf/"
         ncdirlist.append(ncdir)
         # calc_spectra(ncdir)
         # plot_1D_spectra(ncdir, figdir)
-        # amp_mod(ncdir)
+        amp_mod(ncdir)
         # calc_quadrant(ncdir)
         # calc_corr2d(ncdir)
         # plot_corr2d(ncdir, figdir_corr2d)
-        LCS(ncdir)
+        # LCS(ncdir)
         print(f"---End Sim {sim}---")
-    # plot_AM(ncdirlist, figdir_AM)
+    plot_AM(ncdirlist, figdir_AM)

@@ -7,21 +7,21 @@
 # sim2netcdf.yaml and calc_stats.yaml
 # --------------------------------
 # flag to run sim2netcdf when running LESnc as script
-run_sim2netcdf: True
+run_sim2netcdf: False
 # flag to run calc_stats when running LESnc as script
-run_calc_stats: True
+run_calc_stats: False
 # flag for detrending u, v, w, theta in calc_stats
 detrend_stats: True
 # flag to run timeseries2netcdf when running LESnc as script
-run_timeseries: False
+run_timeseries: True
 # simulation resolution
 res: 192
 # string to label stability
-stab: "cr0.33_u08_192"
+stab: "cr0.50_u08_192"
 # directory for individual simulation output
-dout: "/home/bgreene/simulations/cr0.33_u08_192/output/"
+dout: "/home/bgreene/simulations/A_192_interp/output/"
 # directory for netcdf files to be saved or read
-dnc: "/home/bgreene/simulations/cr0.33_u08_192/output/netcdf/"
+dnc: "/home/bgreene/simulations/cr0.50_u08_192/output/netcdf/"
 # name of stats file to be saved
 fstats: "average_statistics.nc"
 # name of timeseries file to be saved
