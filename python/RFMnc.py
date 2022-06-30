@@ -995,9 +995,9 @@ if __name__ == "__main__":
     with open("/home/bgreene/SBL_LES/python/RFMnc.yaml") as f:
         config = yaml.safe_load(f)
     stability = config["stability"]
-    fdir = f"/home/bgreene/simulations/{stability}_192_interp/output/netcdf/"
+    fdir = f"/home/bgreene/simulations/{stability}/output/netcdf/"
     # text file to save print statements
-    fprint = f"/home/bgreene/SBL_LES/output/Print/RFMnc_{stability}192.txt"
+    fprint = f"/home/bgreene/SBL_LES/output/Print/RFMnc_{stability}.txt"
     dt0 = datetime.utcnow()
     main()
     main2(plot_MSE=config["plot_MSE"])

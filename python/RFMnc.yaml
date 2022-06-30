@@ -7,7 +7,7 @@
 # relaxed filtering method (RFM) from Dias et al. 2018
 # --------------------------------
 
-stability: "F"
+stability: "cr0.10_u08_192"
 fstat: "average_statistics.nc"
 # figure save directory
 figdir: "/home/bgreene/SBL_LES/figures/RFMnc/"
