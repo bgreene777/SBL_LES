@@ -166,14 +166,15 @@ def amp_mod(dnc):
     Input dnc: string path directory for location of netcdf files
     Output netcdf file in dnc
     """
-    # TODO: write load_timeseries() function in LESnc
+    # load stats file to get zj
+    s = load_stats(dnc+"average_statistics.nc")
     # load timeseries file
     d = load_timeseries(dnc, detrend=True)
     # filtering ------------------------------------------------
     print("Begin calculating amplitude modulation coefficients")
     # lengthscale of filter to separate large and small scales
-    # for now will hardcode value for sim A
-    delta = 60. # m
+    # choose value of delta=zj/2
+    delta =  s.zj.values/2 # m
     # cutoff frequency from Taylor hypothesis - use same for all heights
     f_c = 1./(delta/d.u_mean_rot)
     # calculate FFT of u, v, w, theta, uw, tw
@@ -348,16 +349,17 @@ def plot_AM(dnclist, figdir):
         R = xr.open_dataset(dnc+"AM_coefficients.nc")
         # add z/h as coordinate and swap with z
         # define array of z/h
-        zh = R.z / stat.he
+        # NOTE: using z/zj now, kept variable names for ease
+        zh = R.z / stat.zj
         # assign coupled with z
         R = R.assign_coords(zh=("z",zh.values))
         # swap
         R = R.swap_dims({"z": "zh"})
         # define new array of z/h logspace for bin averaging
-        zhbin = np.logspace(-2, 0, 21)
+        zhbin = np.logspace(-2, 0.2, 25)
         # from this, also need len(zhbin)-1 with midpoints of bins for plotting
         zhnew = [] # define empty array
-        for iz in range(20):
+        for iz in range(24):
             zhnew.append(gmean([zhbin[iz], zhbin[iz+1]]))
         zhnew = np.array(zhnew)
         # group by zh bins and calculate mean in one line
@@ -381,7 +383,7 @@ def plot_AM(dnclist, figdir):
         # row 5 - modulation of small-scale tw by large-scale u&w&t
         # (a) R_ul_Eu
         ax1[0,0].plot(Rbin.zh, Rbin.ul_Eu, ls="-", c=colors[isim], lw=2,
-                      label=f"$h/L=${hL:3.1f}")
+                      label=f"$h/L={{{hL:3.1f}}}$")
         # (b) R_wl_Eu
         ax1[0,1].plot(Rbin.zh, Rbin.wl_Eu, ls="-", c=colors[isim], lw=2)
         # (c) R_tl_Eu
@@ -413,21 +415,21 @@ def plot_AM(dnclist, figdir):
 
     # OUTSIDE LOOP
     # clean up fig 1
-    ax1[4,0].set_xlabel("$z/h$")
-    ax1[4,0].set_xlim([1e-2, 1e0])
+    ax1[4,0].set_xlabel("$z/z_j$")
+    ax1[4,0].set_xlim([1e-2, 1.5e0])
     ax1[0,0].set_ylim([-0.5, 0.5])
     ax1[0,0].yaxis.set_major_locator(MultipleLocator(0.2))
     ax1[0,0].yaxis.set_minor_locator(MultipleLocator(0.05))
     ax1[0,0].set_xscale("log")
-    ax1[4,1].set_xlabel("$z/h$")
-    ax1[4,2].set_xlabel("$z/h$")
+    ax1[4,1].set_xlabel("$z/z_j$")
+    ax1[4,2].set_xlabel("$z/z_j$")
     ax1[0,0].legend(loc="lower left", labelspacing=0.10, 
                     handletextpad=0.4, handlelength=0.75,
                     fontsize=14)
     # plot ref lines
     for iax in ax1.flatten():
         iax.axhline(0, c="k", ls="-", alpha=0.5)
-        iax.axvline(R.cutoff/stat.he, c="k", ls="-", alpha=0.5)
+        iax.axvline(0.5, c="k", ls="-", alpha=0.5)
     # y-axis labels
     for iax in ax1[:,0]:
         iax.set_ylabel("$R$")
@@ -862,13 +864,13 @@ if __name__ == "__main__":
     figdir_corr2d = "/home/bgreene/SBL_LES/figures/corr2d/"
     ncdirlist = []
     # loop sims A--F
-    for sim in ["cr0.10_u08_192", "cr0.25_u08_192", "cr0.33_u08_192"]:
+    for sim in ["cr0.10_u08_192","cr0.25_u08_192","cr0.33_u08_192","cr0.50_u08_192"]:
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}/output/netcdf/"
         ncdirlist.append(ncdir)
         # calc_spectra(ncdir)
         # plot_1D_spectra(ncdir, figdir)
-        amp_mod(ncdir)
+        # amp_mod(ncdir)
         # calc_quadrant(ncdir)
         # calc_corr2d(ncdir)
         # plot_corr2d(ncdir, figdir_corr2d)
