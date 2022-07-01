@@ -202,17 +202,24 @@ def main():
     dd["tw_cov_res"] = (dd.theta - stat.theta_mean) * (dd.w - stat.w_mean)
     dd["tw_cov_tot"] = dd.tw_cov_res + dd.q3
     # u'u' UNROTATED
-    dd["uu_var"] = (dd.u - stat.u_mean) * (dd.u - stat.u_mean)
+    # recalc planar averages so resulting instantaneous vars are detrended
+    umean_det = dd.u.mean(dim=("x","y"))
+    dd["uu_var"] = (dd.u - umean_det) * (dd.u - umean_det)
     # u'u' ROTATED
-    dd["uu_var_rot"] = (dd.u_rot - stat.u_mean_rot) * (dd.u_rot - stat.u_mean_rot)
+    umean_rot_det = dd.u_rot.mean(dim=("x","y"))
+    dd["uu_var_rot"] = (dd.u_rot - umean_rot_det) * (dd.u_rot - umean_rot_det)
     # v'v' UNROTATED
-    dd["vv_var"] = (dd.v - stat.v_mean) * (dd.v - stat.v_mean)
+    vmean_det = dd.v.mean(dim=("x","y"))
+    dd["vv_var"] = (dd.v - vmean_det) * (dd.v - vmean_det)
     # v'v' ROTATED
-    dd["vv_var_rot"] = (dd.v_rot - stat.v_mean_rot) * (dd.v_rot - stat.v_mean_rot)
+    vmean_rot_det = dd.v_rot.mean(dim=("x","y"))
+    dd["vv_var_rot"] = (dd.v_rot - vmean_rot_det) * (dd.v_rot - vmean_rot_det)
     # w'w'
-    dd["ww_var"] = (dd.w - stat.w_mean) * (dd.w - stat.w_mean)
+    wmean_det = dd.w.mean(dim=("x","y"))
+    dd["ww_var"] = (dd.w - wmean_det) * (dd.w - wmean_det)
     # t't'
-    dd["tt_var"] = (dd.theta - stat.theta_mean) * (dd.theta - stat.theta_mean)
+    tmean_det = dd.theta.mean(dim=("x","y"))
+    dd["tt_var"] = (dd.theta - tmean_det) * (dd.theta - tmean_det)
 
     #
     # Use "instantaneous" vars and covars to calculate 4th order variances
