@@ -757,7 +757,7 @@ def main3(reprocess):
     L = xr.Dataset(data_vars=None,
                      coords=dict(z=C.z),
                      attrs=C.attrs)
-    for v in (param_RFM1+param_RFM2+param_RFM3):
+    for v in (param_RFM1+param_RFM2+param_RFM3+["w"]):
         # start with zero array for each parameter
         L[v] = xr.DataArray(np.zeros(C.z.size, np.float64),
                             dims="z",

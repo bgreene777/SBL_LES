@@ -7,7 +7,7 @@
 # relaxed filtering method (RFM) from Dias et al. 2018
 # --------------------------------
 
-stability: "cr0.10_u08_192"
+stability: "cr0.50_u08_192"
 fstat: "average_statistics.nc"
 # figure save directory
 figdir: "/home/bgreene/SBL_LES/figures/RFMnc/"
@@ -38,7 +38,7 @@ T_sample_cov: 1800.0
 # plot MSE figures in main2()
 plot_MSE: False
 # toggle recalculate errors from new sample time and save file
-reprocess: False
+reprocess: True
 # parameters for recalculating error with np.arange()
 recalc_lo: 0.1
 recalc_hi: 15.1
