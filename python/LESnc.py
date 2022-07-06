@@ -357,6 +357,8 @@ def load_stats(fstats, SBL=True, display=False):
     """
     print(f"Reading file: {fstats}")
     dd = xr.load_dataset(fstats)
+    # define new label attr that removes "_"
+    dd.attrs["label"] = "-".join(dd.stability.split("_"))
     # calculate ustar and h
     dd["ustar"] = ((dd.uw_cov_tot**2.) + (dd.vw_cov_tot**2.)) ** 0.25
     dd["ustar2"] = dd.ustar ** 2.
