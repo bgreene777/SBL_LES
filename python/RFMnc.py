@@ -20,26 +20,9 @@ from scipy.optimize import curve_fit
 from datetime import datetime, timedelta
 from matplotlib import pyplot as plt
 from dask.diagnostics import ProgressBar
-from LESnc import load_stats
+from LESnc import load_stats, print_both
 # --------------------------------
 # Define Functions
-# --------------------------------
-def print_both(s, fsave):
-    """
-    Print statements to both the command line (sys.stdout) and to a
-    text file (fsave) for future reference on running time
-    -input-
-    s: string to print
-    fsave: text file to append text
-    """
-    with open(fsave, "a") as f:
-        # print to command line
-        print(s, file=sys.stdout)
-        # print to file with a UTC timestamp
-        print(datetime.utcnow(), file=f)
-        print(s, file=f)
-    return
-
 # --------------------------------
 def autocorrelation(f):
     # input 4d parameter, e.g. u(x,y,z,t)

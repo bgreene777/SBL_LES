@@ -9,14 +9,15 @@
 # 3) reading functions for binary and netcdf files
 # --------------------------------
 import os
+import sys
 import yaml
 import xrft
 import numpy as np
 import xarray as xr
+from datetime import datetime
 from scipy.signal import detrend
 from dask.diagnostics import ProgressBar
 from matplotlib.colors import Normalize
-from RFMnc import print_both
 # --------------------------------
 # Define plotting class for custom diverging colorbars
 # --------------------------------
@@ -52,6 +53,22 @@ def read_f90_bin(path,nx,ny,nz,precision):
     dat=np.reshape(dat,(nx,ny,nz),order='F')
     f.close()
     return dat
+# ---------------------------------------------
+def print_both(s, fsave):
+    """
+    Print statements to both the command line (sys.stdout) and to a
+    text file (fsave) for future reference on running time
+    -input-
+    s: string to print
+    fsave: text file to append text
+    """
+    with open(fsave, "a") as f:
+        # print to command line
+        print(s, file=sys.stdout)
+        # print to file with a UTC timestamp
+        print(datetime.utcnow(), file=f)
+        print(s, file=f)
+    return
 # ---------------------------------------------
 def sim2netcdf():
     """
