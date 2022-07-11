@@ -833,6 +833,10 @@ def recalc_err(stability, Tnew, Tnew_ec=None):
     fdir = f"/home/bgreene/simulations/{stability}/output/netcdf/"
     # load stat file to convert Tnew to Xnew and to renormalize new errors
     stat = load_stats(fdir+"average_statistics.nc")
+    # calculate wind angle alpha (NOTE: THE ALPHA STORED IN STAT IS *NOT* WDIR)
+    stat["alpha"] = np.arctan2(-stat.u_mean, -stat.v_mean)
+    ineg = np.where(stat.alpha < 0)
+    stat["alpha"][ineg] += 2.*np.pi  # alpha in radians already
     # z indices within sbl
     isbl = np.where(stat.z <= stat.h)[0]
     # load 4th order variances
