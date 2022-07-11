@@ -18,6 +18,7 @@ from matplotlib import pyplot as plt
 from matplotlib import rc
 from matplotlib.ticker import MultipleLocator
 from RFMnc import recalc_err
+from LESnc import load_stats, load_timeseries
 # --------------------------------
 # Define Functions
 # --------------------------------
@@ -192,12 +193,12 @@ def ec(df, h, time_average=1800.0, time_start=0.0, quicklook=False):
     # initialize empty dataset to hold everything
     ec_ = xr.Dataset(data_vars=None, coords=dict(z=df.z, Tsample_ec=time_average))
     # loop through variable names to initialize empty DataArrays
-    for v in ["uw_cov_res", "uw_cov_tot", "vw_cov_res", "vw_cov_tot", 
-                "tw_cov_res", "tw_cov_tot", "ustar2", "u_var", "v_var", 
-                "w_var", "theta_var", "u_var_rot", "v_var_rot", "e"]:
-                ec_[v] = xr.DataArray(data=np.zeros((len(df.z), len(time_average)), 
-                                                    dtype=np.float64),
-                                    coords=dict(z=df.z, Tsample_ec=time_average))
+    for v in ["uw_cov_tot","vw_cov_tot", "tw_cov_tot", "ustar2", 
+              "u_var", "v_var", "w_var", "theta_var",
+              "u_var_rot", "v_var_rot", "e"]:
+        ec_[v] = xr.DataArray(data=np.zeros((len(df.z), len(time_average)), 
+                                            dtype=np.float64),
+                              coords=dict(z=df.z, Tsample_ec=time_average))
     # loop over time_average to calculate ec stats
     for jt, iT in enumerate(time_average):
         # first find the index in df.t that corresponds to time_start
@@ -207,26 +208,22 @@ def ec(df, h, time_average=1800.0, time_start=0.0, quicklook=False):
         # create array of indices to use
         iuse = np.linspace(istart, istart+nuse-1, nuse, dtype=np.int32)
         # begin calculating statistics
+        # use the detrended stats from load_timeseries
         # u'w'
-        ec_["uw_cov_res"][:,jt] = xr.cov(df.u.isel(t=iuse), df.w.isel(t=iuse), dim=("t"))
-        ec_["uw_cov_tot"][:,jt] = ec_.uw_cov_res[:,jt] + df.txz.isel(t=iuse).mean("t")
+        ec_["uw_cov_tot"][:,jt] = df.uw.isel(t=iuse).mean("t")
         # v'w'
-        ec_["vw_cov_res"][:,jt] = xr.cov(df.v.isel(t=iuse), df.w.isel(t=iuse), dim=("t"))
-        ec_["vw_cov_tot"][:,jt] = ec_.vw_cov_res[:,jt] + df.tyz.isel(t=iuse).mean("t")
+        ec_["vw_cov_tot"][:,jt] = df.vw.isel(t=iuse).mean("t")
         # theta'w'
-        ec_["tw_cov_res"][:,jt] = xr.cov(df.theta.isel(t=iuse), df.w.isel(t=iuse), dim=("t"))
-        ec_["tw_cov_tot"][:,jt] = ec_.tw_cov_res[:,jt] + df.q3.isel(t=iuse).mean("t")
+        ec_["tw_cov_tot"][:,jt] = df.tw.isel(t=iuse).mean("t")
         # ustar^2 = sqrt(u'w'^2 + v'w'^2)
         ec_["ustar2"][:,jt] = ((ec_.uw_cov_tot[:,jt]**2.) + (ec_.vw_cov_tot[:,jt]**2.)) ** 0.5
         # variances
-        for v in ["u", "v", "w", "theta"]:
-            ec_[f"{v}_var"][:,jt] = df[v].isel(t=iuse).var("t")
-        # rotate u and v
-        angle = np.arctan2(df.v.isel(t=iuse).mean("t"), df.u.isel(t=iuse).mean("t"))
-        u_rot = df.u.isel(t=iuse)*np.cos(angle) + df.v.isel(t=iuse)*np.sin(angle)
-        v_rot =-df.u.isel(t=iuse)*np.sin(angle) + df.v.isel(t=iuse)*np.cos(angle)
-        ec_["u_var_rot"][:,jt] = u_rot.var("t")
-        ec_["v_var_rot"][:,jt] = v_rot.var("t")
+        ec_["u_var"] = df.uu.isel(t=iuse).mean("t")
+        ec_["u_var_rot"] = df.uur.isel(t=iuse).mean("t")
+        ec_["v_var"] = df.vv.isel(t=iuse).mean("t")
+        ec_["v_var_rot"] = df.vvr.isel(t=iuse).mean("t")
+        ec_["w_var"] = df.ww.isel(t=iuse).mean("t")
+        ec_["theta_var"] = df.tt.isel(t=iuse).mean("t")
         # calculate TKE
         ec_["e"][:,jt] = 0.5 * (ec_.u_var.isel(Tsample_ec=jt) +\
                                 ec_.v_var.isel(Tsample_ec=jt) +\
@@ -263,45 +260,19 @@ with open("/home/bgreene/SBL_LES/python/UASnc.yaml") as f:
 # Load average stats and timeseries files
 # --------------------------------
 # load 1hr stats files
-fstatA = f"{fsim}A_192_interp/output/netcdf/average_statistics.nc"
-Astat = xr.load_dataset(fstatA)
-fstatF = f"{fsim}F_192_interp/output/netcdf/average_statistics.nc"
-Fstat = xr.load_dataset(fstatF)
+fstatA = f"{fsim}cr0.25_u08_192/output/netcdf/average_statistics.nc"
+Astat = load_stats(fstatA)
+Astat.attrs["color"] = colorAF[0]
+fstatF = f"{fsim}cr2.50_u08_192/output/netcdf/average_statistics.nc"
+Fstat = load_stats(fstatF)
+Fstat.attrs["color"] = colorAF[1]
 stat_all = [Astat, Fstat]
-# calculate ustar and h for each
-for s in [Astat, Fstat]:
-    # assign plotting color
-    if s.stability == "A":
-        s.attrs["color"] = colorAF[0]
-    else:
-        s.attrs["color"] = colorAF[1]
-    # ustar
-    s["ustar"] = ((s.uw_cov_tot ** 2.) + (s.vw_cov_tot ** 2.)) ** 0.25
-    s["ustar2"] = s.ustar ** 2.
-    # ustar0 at lowest z
-    s["ustar0"] = s.ustar.isel(z=0)
-    # calculate thetastar0 at lowest level
-    s["tstar0"] = -s.tw_cov_tot.isel(z=0)/s.ustar0
-    # SBL height
-    s["h"] = s.z.where(s.ustar2 <= 0.05*s.ustar2[0], drop=True)[0]/0.95
-    # z indices within sbl
-    s["isbl"] = np.where(s.z <= s.h)[0]
-    s["nz_sbl"] = len(s.isbl)
-    s["z_sbl"] = s.z.isel(z=s.isbl)
-    # uh
-    s["uh"] = ((s.u_mean**2.) + (s.v_mean**2.)) ** 0.5
-    # alpha
-    wdir = np.arctan2(-s.u_mean, -s.v_mean) * 180./np.pi
-    wdir[wdir < 0.] += 360.
-    s["wd"] = wdir
-    # calculate TKE
-    s["e"] = 0.5 * (s.u_var + s.v_var + s.w_var)
 
 # load timeseries files
-ftsA = f"{fsim}A_192_interp/output/netcdf/timeseries_all.nc"
-Ats = xr.load_dataset(ftsA)
-ftsF = f"{fsim}F_192_interp/output/netcdf/timeseries_all.nc"
-Fts = xr.load_dataset(ftsF)
+ftsA = f"{fsim}cr0.25_u08_192/output/netcdf/timeseries_all.nc"
+Ats = load_timeseries(ftsA)
+ftsF = f"{fsim}cr2.50_u08_192/output/netcdf/timeseries_all.nc"
+Fts = load_timeseries(ftsF)
 
 # load error profile files
 # ferrA = f"{fsim}A_192_interp/output/netcdf/err.nc"
@@ -310,8 +281,8 @@ Fts = xr.load_dataset(ftsF)
 # Ferr = xr.load_dataset(ferrF)
 
 # calc error based on config file
-Aerr = recalc_err("A", config["Tavg_uv"], config["Tavg_ec"])
-Ferr = recalc_err("F", config["Tavg_uv"], config["Tavg_ec"])
+Aerr = recalc_err("cr0.25_u08_192", config["Tavg_uv"], config["Tavg_ec"])
+Ferr = recalc_err("cr2.50_u08_192", config["Tavg_uv"], config["Tavg_ec"])
 err_all = [Aerr, Ferr]
 
 # --------------------------------
