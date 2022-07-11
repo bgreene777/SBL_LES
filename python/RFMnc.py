@@ -20,6 +20,7 @@ from scipy.optimize import curve_fit
 from datetime import datetime, timedelta
 from matplotlib import pyplot as plt
 from dask.diagnostics import ProgressBar
+from LESnc import load_stats
 # --------------------------------
 # Define Functions
 # --------------------------------
@@ -846,21 +847,9 @@ def recalc_err(stability, Tnew, Tnew_ec=None):
     # return xr.Dataset with new errors
     # new Dataset will have dimension of Tnew
     # define directories based on stability
-    fdir = f"/home/bgreene/simulations/{stability}_192_interp/output/netcdf/"
+    fdir = f"/home/bgreene/simulations/{stability}/output/netcdf/"
     # load stat file to convert Tnew to Xnew and to renormalize new errors
-    stat = xr.load_dataset(f"{fdir}average_statistics.nc")
-    # calculate important parameters
-    # ustar
-    stat["ustar"] = ((stat.uw_cov_tot ** 2.) + (stat.vw_cov_tot ** 2.)) ** 0.25
-    stat["ustar2"] = stat.ustar ** 2.
-    # SBL height
-    stat["h"] = stat.z.where(stat.ustar2 <= 0.05*stat.ustar2[0], drop=True)[0]/0.95
-    # calculate wind angle alpha (NOTE: THE ALPHA STORED IN STAT IS *NOT* WDIR)
-    stat["alpha"] = np.arctan2(-stat.u_mean, -stat.v_mean)
-    ineg = np.where(stat.alpha < 0)
-    stat["alpha"][ineg] += 2.*np.pi  # alpha in radians already
-    # calculate TKE
-    stat["e"] = 0.5 * (stat.u_var + stat.v_var + stat.w_var)
+    stat = load_stats(fdir+"average_statistics.nc")
     # z indices within sbl
     isbl = np.where(stat.z <= stat.h)[0]
     # load 4th order variances
