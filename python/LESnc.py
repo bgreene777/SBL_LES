@@ -493,17 +493,23 @@ def load_timeseries(dnc, detrend=True):
     d["tw"] = (d.theta - d.theta_mean) * (d.w - d.w_mean) + d.q3
     # calculate "inst" vars
     if detrend:
-        ud = xrft.detrend(d.u_rot, dim="t", detrend_type="linear")
-        vd = xrft.detrend(d.v_rot, dim="t", detrend_type="linear")
+        ud = xrft.detrend(d.u, dim="t", detrend_type="linear")
+        udr = xrft.detrend(d.u_rot, dim="t", detrend_type="linear")
+        vd = xrft.detrend(d.v, dim="t", detrend_type="linear")
+        vdr = xrft.detrend(d.v_rot, dim="t", detrend_type="linear")
         wd = xrft.detrend(d.w, dim="t", detrend_type="linear")
         td = xrft.detrend(d.theta, dim="t", detrend_type="linear")
         d["uu"] = ud * ud
+        d["uur"] = udr * udr
         d["vv"] = vd * vd
+        d["vvr"] = vdr * vdr
         d["ww"] = wd * wd
         d["tt"] = td * td
     else:
         d["uu"] = (d.u - d.u_mean) * (d.u - d.u_mean)
+        d["uur"] = (d.u_rot - d.u_mean_rot) * (d.u_rot - d.u_mean_rot)
         d["vv"] = (d.v - d.v_mean) * (d.v - d.v_mean)
+        d["vvr"] = (d.v_rot - d.v_mean_rot) * (d.v_rot - d.v_mean_rot)
         d["ww"] = (d.w - d.w_mean) * (d.w - d.w_mean)
         d["tt"] = (d.theta - d.theta_mean) * (d.theta - d.theta_mean)
     
