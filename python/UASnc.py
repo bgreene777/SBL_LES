@@ -218,12 +218,12 @@ def ec(df, h, time_average=1800.0, time_start=0.0, quicklook=False):
         # ustar^2 = sqrt(u'w'^2 + v'w'^2)
         ec_["ustar2"][:,jt] = ((ec_.uw_cov_tot[:,jt]**2.) + (ec_.vw_cov_tot[:,jt]**2.)) ** 0.5
         # variances
-        ec_["u_var"] = df.uu.isel(t=iuse).mean("t")
-        ec_["u_var_rot"] = df.uur.isel(t=iuse).mean("t")
-        ec_["v_var"] = df.vv.isel(t=iuse).mean("t")
-        ec_["v_var_rot"] = df.vvr.isel(t=iuse).mean("t")
-        ec_["w_var"] = df.ww.isel(t=iuse).mean("t")
-        ec_["theta_var"] = df.tt.isel(t=iuse).mean("t")
+        ec_["u_var"][:,jt] = df.uu.isel(t=iuse).mean("t")
+        ec_["u_var_rot"][:,jt] = df.uur.isel(t=iuse).mean("t")
+        ec_["v_var"][:,jt] = df.vv.isel(t=iuse).mean("t")
+        ec_["v_var_rot"][:,jt] = df.vvr.isel(t=iuse).mean("t")
+        ec_["w_var"][:,jt] = df.ww.isel(t=iuse).mean("t")
+        ec_["theta_var"][:,jt] = df.tt.isel(t=iuse).mean("t")
         # calculate TKE
         ec_["e"][:,jt] = 0.5 * (ec_.u_var.isel(Tsample_ec=jt) +\
                                 ec_.v_var.isel(Tsample_ec=jt) +\
@@ -269,9 +269,9 @@ Fstat.attrs["color"] = colorAF[1]
 stat_all = [Astat, Fstat]
 
 # load timeseries files
-ftsA = f"{fsim}cr0.25_u08_192/output/netcdf/timeseries_all.nc"
+ftsA = f"{fsim}cr0.25_u08_192/output/netcdf/"
 Ats = load_timeseries(ftsA)
-ftsF = f"{fsim}cr2.50_u08_192/output/netcdf/timeseries_all.nc"
+ftsF = f"{fsim}cr2.50_u08_192/output/netcdf/"
 Fts = load_timeseries(ftsF)
 
 # load error profile files
@@ -385,6 +385,8 @@ for s, err, stat in zip(ec_all, err_all, stat_all):
 #
 fig1, ax1 = plt.subplots(nrows=2, ncols=3, sharey=True, figsize=(14.8, 10))
 for s, stat, irow in zip(uas_all, stat_all, [0,1]):
+    isbl = np.where(stat.z <= stat.h)[0]
+    stat.attrs["isbl"] = isbl
     # uh
     ax1[irow,0].plot(stat.uh.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h, 
                      c="k", ls="-", lw=2, label="$\\langle u_h \\rangle$")
@@ -395,7 +397,7 @@ for s, stat, irow in zip(uas_all, stat_all, [0,1]):
     ax1[irow,0].fill_betweenx(s.z/stat.h, s.err_uh_lo3, s.err_uh_hi3, alpha=0.1,
                               color=stat.color)
     # alpha
-    ax1[irow,1].plot(stat.wd.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h,
+    ax1[irow,1].plot(stat.wdir.isel(z=stat.isbl), stat.z.isel(z=stat.isbl)/stat.h,
                      c="k", ls="-", lw=2, label="$\\langle \\alpha \\rangle$")
     ax1[irow,1].plot(s.alpha, s.z/stat.h, c=stat.color, ls="-", lw=2, label="UAS")
     # shade errors
@@ -704,8 +706,8 @@ Tnew1 = config["recalc_hi"]
 Tnewdt = config["recalc_dt"]
 Tnew = np.arange(Tnew0, Tnew1, Tnewdt, dtype=np.float64)
 # recalc errors within this range for cases A and F
-Aasc = recalc_err("A", Tnew)
-Fasc = recalc_err("F", Tnew)
+Aasc = recalc_err("cr0.25_u08_192", Tnew)
+Fasc = recalc_err("cr2.50_u08_192", Tnew)
 # grab error ranges for comparison
 err_range = config["err_range"]
 ne = len(err_range)
@@ -844,8 +846,8 @@ Tnew1ec = config["recalc_hi_ec"]
 Tnewdtec = config["recalc_dt_ec"]
 Tnew_ec = np.arange(Tnew0ec, Tnew1ec, Tnewdtec, dtype=np.float64)
 # recalc errors within this range for cases A and F
-Aecavg = recalc_err("A", config["Tavg_uv"], Tnew_ec)
-Fecavg = recalc_err("F", config["Tavg_uv"], Tnew_ec)
+Aecavg = recalc_err("cr0.25_u08_192", config["Tavg_uv"], Tnew_ec)
+Fecavg = recalc_err("cr2.50_u08_192", config["Tavg_uv"], Tnew_ec)
 # grab err_range_ec
 err_range_ec = config["err_range_ec"]
 
