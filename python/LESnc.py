@@ -12,8 +12,9 @@ import os
 import sys
 import yaml
 import xrft
-import numpy as np
 import xarray as xr
+import numpy as np
+from numpy.fft import fft, ifft
 from datetime import datetime
 from scipy.signal import detrend
 from dask.diagnostics import ProgressBar
@@ -516,6 +517,14 @@ def load_timeseries(dnc, detrend=True):
         vdr = xrft.detrend(d.v_rot, dim="t", detrend_type="linear")
         wd = xrft.detrend(d.w, dim="t", detrend_type="linear")
         td = xrft.detrend(d.theta, dim="t", detrend_type="linear")
+        # store these detrended variables
+        d["ud"] = ud
+        d["udr"] = udr
+        d["vd"] = vd
+        d["vdr"] = vdr
+        d["wd"] = wd
+        d["td"] = td
+        # now calculate vars
         d["uu"] = ud * ud
         d["uur"] = udr * udr
         d["vv"] = vd * vd
@@ -531,6 +540,89 @@ def load_timeseries(dnc, detrend=True):
         d["tt"] = (d.theta - d.theta_mean) * (d.theta - d.theta_mean)
     
     return d
+# ---------------------------------------------
+def autocorr_from_timeseries(dnc, savenc=True):
+    """
+    Calculate autocorrelation and corresponding integral length/timescales
+    for first- (TODO: and second-order) parameters based on timeseries data
+    input dnc: directory where netcdf data stored
+    input savenc: flag to save netcdf files of output data
+    output R: xarray Dataset of autocorrelation versus z and t (lag)
+    output L: xarray Dataset of integral lengthscales versus z
+    """
+    # filename for print_both function
+    fprint = f"/home/bgreene/SBL_LES/output/Print/autocorr_ts_{config['stab']}.txt"
+    # begin by loading timeseries data
+    print_both("Begin loading timeseries data", fprint)
+    ts = load_timeseries(dnc, detrend=True)
+    # grab important parameters
+    nz = ts.nz
+    nt = ts.nt
+    # define list of first-order parameters to calculate
+    param1 = ["udr", "vdr", "wd", "td"] # u_rot, v_rot, w, theta
+    var1 = ["uur", "vvr", "ww", "tt"] # corresponding instantaneous variances
+    name1 = ["u", "v", "w", "t"] # names for saving variables
+    # define empty Dataset R to hold autocorrs
+    R = xr.Dataset(data_vars=None, coords=dict(t=ts.t, z=ts.z), attrs=ts.attrs)
+    # loop over variables and calculate autocorrelation
+    for s, svar, sname in zip(param1, var1, name1):
+        print_both(f"Begin calculating autocorr for {sname}", fprint)
+        # grab data
+        x = ts[s]
+        xvar = ts[svar]
+        # forward FFT in time
+        f = fft(x, axis=0)
+        # calculate PSD
+        PSD = np.zeros((nt, nz), dtype=np.float64)
+        for jt in range(1, nt//2):
+            for jz in range(nz):
+                PSD[jt,jz] = np.real( f[jt,jz] * np.conj(f[jt,jz]) )
+                PSD[nt-jt,jz] = np.real( f[nt-jt,jz] * np.conj(f[nt-jt,jz]) )
+        # normalize by variance
+        for jz in range(nz):
+            PSD[:,jz] /= xvar[jz].values
+        # ifft to get autocorrelation
+        # normalize by length of timeseries
+        r = np.real( ifft(PSD, axis=0) ) / nt
+        # convert to DataArray and assign to R
+        R[sname] = xr.DataArray(r, dims=("t", "z"), coords=dict(t=ts.t, z=ts.z))
+    print_both("Finished calculating all autocorrelations!", fprint)
+    # now calculate integral scales
+    # define empty Dataset T to hold timescales
+    T = xr.Dataset(data_vars=None, coords=dict(z=R.z), attrs=R.attrs)
+    # define empty Dataset L to hold lengthscales
+    L = xr.Dataset(data_vars=None, coords=dict(z=R.z), attrs=R.attrs)
+    # loop over parameters
+    for sname in name1:
+        print_both(f"Calculate integral scales for {sname}", fprint)
+        T[sname] = xr.DataArray(np.zeros(R.z.size, np.float64), dims="z", coords=dict(z=R.z))
+        L[sname] = xr.DataArray(np.zeros(R.z.size, np.float64), dims="z", coords=dict(z=R.z))
+        # loop over heights
+        for jz in range(nz):
+            # integrate R up to first zero crossing
+            izero = np.where(R[sname].isel(z=jz) < 0.)[0]
+            # make sure this isnt empty
+            if len(izero) > 0:
+                izero = izero[0]
+            else:
+                izero = 1
+            # integrate from index 0 to izero
+            T[sname][jz] = R[sname].isel(z=jz,t=range(izero)).integrate("t")
+            # calculate lengthscales using Taylor's hypothesis
+            L[sname][jz] = T[sname][jz] * ts.u_mean_rot.isel(z=jz)
+    # now optionally save out netcdf files
+    if savenc:
+        fsaveR = f"{dnc}R_ts.nc"
+        print_both(f"Saving file: {fsaveR}", fprint)
+        with ProgressBar():
+            R.to_netcdf(fsaveR, mode="w")
+        fsaveL = f"{dnc}L_ts.nc"
+        print_both(f"Saving file: {fsaveL}")
+        with ProgressBar():
+            L.to_netcdf(fsaveL, mode="w")
+    
+    print_both("Finshed with all calculations! Returning [R, L]...")
+    return [R, L]
 
 # --------------------------------
 # Run script if desired
@@ -549,3 +641,6 @@ if __name__ == "__main__":
     # run timeseries2netcdf
     if config["run_timeseries"]:
         timeseries2netcdf()
+    # run autocorr_from_timeseries
+    if config["run_autocorr"]:
+        autocorr_from_timeseries(config["dnc"])
