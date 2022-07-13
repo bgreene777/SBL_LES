@@ -561,7 +561,7 @@ def autocorr_from_timeseries(dnc, savenc=True):
     # define list of first-order parameters to calculate
     param1 = ["udr", "vdr", "wd", "td"] # u_rot, v_rot, w, theta
     var1 = ["uur", "vvr", "ww", "tt"] # corresponding instantaneous variances
-    name1 = ["u", "v", "w", "t"] # names for saving variables
+    name1 = ["u", "v", "w", "theta"] # names for saving variables
     # define empty Dataset R to hold autocorrs
     R = xr.Dataset(data_vars=None, coords=dict(t=ts.t, z=ts.z), attrs=ts.attrs)
     # loop over variables and calculate autocorrelation
@@ -569,7 +569,7 @@ def autocorr_from_timeseries(dnc, savenc=True):
         print_both(f"Begin calculating autocorr for {sname}", fprint)
         # grab data
         x = ts[s]
-        xvar = ts[svar]
+        xvar = ts[svar].mean("t")
         # forward FFT in time
         f = fft(x, axis=0)
         # calculate PSD
@@ -617,11 +617,11 @@ def autocorr_from_timeseries(dnc, savenc=True):
         with ProgressBar():
             R.to_netcdf(fsaveR, mode="w")
         fsaveL = f"{dnc}L_ts.nc"
-        print_both(f"Saving file: {fsaveL}")
+        print_both(f"Saving file: {fsaveL}", fprint)
         with ProgressBar():
             L.to_netcdf(fsaveL, mode="w")
     
-    print_both("Finshed with all calculations! Returning [R, L]...")
+    print_both("Finshed with all calculations! Returning [R, L]...", fprint)
     return [R, L]
 
 # --------------------------------

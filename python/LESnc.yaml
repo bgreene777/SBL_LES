@@ -19,11 +19,11 @@ run_autocorr: True
 # simulation resolution
 res: 192
 # string to label stability
-stab: "cr0.25_u08_192"
+stab: "cr2.50_u08_192"
 # directory for individual simulation output
-dout: "/home/bgreene/simulations/cr0.25_u08_192/output/"
+dout: "/home/bgreene/simulations/cr2.50_u08_192/output/"
 # directory for netcdf files to be saved or read
-dnc: "/home/bgreene/simulations/cr0.25_u08_192/output/netcdf/"
+dnc: "/home/bgreene/simulations/cr2.50_u08_192/output/netcdf/"
 # name of stats file to be saved
 fstats: "average_statistics.nc"
 # name of timeseries file to be saved
