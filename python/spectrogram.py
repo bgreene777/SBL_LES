@@ -815,30 +815,60 @@ def LCS(dnc):
     F_uu = xrft.fft(dd.u_rot, dim="x", true_phase=True, true_amplitude=True)
     F_ww = xrft.fft(dd.w, dim="x", true_phase=True, true_amplitude=True)
     F_tt = xrft.fft(dd.theta, dim="x", true_phase=True, true_amplitude=True)
+    # first use z = z[0] as reference
+    # u
+    G2u0 = np.absolute((F_uu * F_uu.isel(z=0).conj()).mean(dim=("y","time"))) ** 2. /\
+          ((np.absolute(F_uu)**2.).mean(dim=("y","time")) *\
+           (np.absolute(F_uu.isel(z=0))**2.).mean(dim=("y","time")))
+    # w
+    G2w0 = np.absolute((F_ww * F_ww.isel(z=0).conj()).mean(dim=("y","time"))) ** 2. /\
+          ((np.absolute(F_ww)**2.).mean(dim=("y","time")) *\
+           (np.absolute(F_ww.isel(z=0))**2.).mean(dim=("y","time")))
+    # theta
+    G2t0 = np.absolute((F_tt * F_tt.isel(z=0).conj()).mean(dim=("y","time"))) ** 2. /\
+          ((np.absolute(F_tt)**2.).mean(dim=("y","time")) *\
+           (np.absolute(F_tt.isel(z=0))**2.).mean(dim=("y","time")))
     # use zr = zj as reference
     izr = s.uh.argmax()
     # calculate G2
     # u
-    G2u = np.absolute((F_uu * F_uu.isel(z=izr).conj()).mean(dim=("y","time"))) ** 2. /\
+    G2u1 = np.absolute((F_uu * F_uu.isel(z=izr).conj()).mean(dim=("y","time"))) ** 2. /\
           ((np.absolute(F_uu)**2.).mean(dim=("y","time")) *\
            (np.absolute(F_uu.isel(z=izr))**2.).mean(dim=("y","time")))
     # w
-    G2w = np.absolute((F_ww * F_ww.isel(z=izr).conj()).mean(dim=("y","time"))) ** 2. /\
+    G2w1 = np.absolute((F_ww * F_ww.isel(z=izr).conj()).mean(dim=("y","time"))) ** 2. /\
           ((np.absolute(F_ww)**2.).mean(dim=("y","time")) *\
            (np.absolute(F_ww.isel(z=izr))**2.).mean(dim=("y","time")))
     # theta
-    G2t = np.absolute((F_tt * F_tt.isel(z=izr).conj()).mean(dim=("y","time"))) ** 2. /\
+    G2t1 = np.absolute((F_tt * F_tt.isel(z=izr).conj()).mean(dim=("y","time"))) ** 2. /\
           ((np.absolute(F_tt)**2.).mean(dim=("y","time")) *\
            (np.absolute(F_tt.isel(z=izr))**2.).mean(dim=("y","time")))
     # combine Gs into dataset to save as netcdf
     Gsave = xr.Dataset(data_vars=None,
-                       coords=dict(z=G2u.z, freq_x=G2u.freq_x),
+                       coords=dict(z=G2u0.z, freq_x=G2u0.freq_x),
                        attrs=s.attrs)
-    Gsave["u"] = G2u
-    Gsave["w"] = G2w
-    Gsave["theta"] = G2t
-    # add attr for reference height
-    Gsave.attrs["zr"] = dd.z.isel(z=izr).values
+    Gsave["u0"] = G2u0
+    Gsave["w0"] = G2w0
+    Gsave["theta0"] = G2t0
+    Gsave["u1"] = G2u1
+    Gsave["w1"] = G2w1
+    Gsave["theta1"] = G2t1
+    # add attr for reference heights
+    Gsave.attrs["zr0"] = dd.z.isel(z=0).values
+    Gsave.attrs["zr1"] = dd.z.isel(z=izr).values
+
+    # calculate G2 for different variables at *same* height
+    # uw
+    G2uw = np.absolute((F_uu * F_ww.conj()).mean(dim=("y","time"))) ** 2. /\
+           ((np.absolute(F_uu)**2.).mean(dim=("y","time")) *\
+            (np.absolute(F_ww)**2.).mean(dim=("y","time")))    
+    # tw
+    G2tw = np.absolute((F_tt * F_ww.conj()).mean(dim=("y","time"))) ** 2. /\
+           ((np.absolute(F_tt)**2.).mean(dim=("y","time")) *\
+            (np.absolute(F_ww)**2.).mean(dim=("y","time")))    
+    # store in Gsave
+    Gsave["uw"] = G2uw
+    Gsave["tw"] = G2tw
     # only keep freqs > 0
     Gsave = Gsave.where(Gsave.freq_x > 0., drop=True)
     # save file
@@ -864,7 +894,8 @@ if __name__ == "__main__":
     figdir_corr2d = "/home/bgreene/SBL_LES/figures/corr2d/"
     ncdirlist = []
     # loop sims A--F
-    for sim in ["cr0.10_u08_192","cr0.25_u08_192","cr0.33_u08_192","cr0.50_u08_192"]:
+    for sim in ["cr0.10_u08_192","cr0.25_u08_192","cr0.33_u08_192","cr0.50_u08_192",
+                "cr1.00_u08_192","cr1.50_u08_192","cr2.00_u08_192","cr2.50_u08_192"]:
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}/output/netcdf/"
         ncdirlist.append(ncdir)
@@ -874,6 +905,6 @@ if __name__ == "__main__":
         # calc_quadrant(ncdir)
         # calc_corr2d(ncdir)
         # plot_corr2d(ncdir, figdir_corr2d)
-        # LCS(ncdir)
+        LCS(ncdir)
         print(f"---End Sim {sim}---")
-    plot_AM(ncdirlist, figdir_AM)
+    # plot_AM(ncdirlist, figdir_AM)
