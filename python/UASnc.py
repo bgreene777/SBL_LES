@@ -110,69 +110,84 @@ def profile(df, err, ascent_rate=1.0, time_average=3.0, time_start=0.0,
     uas_mean["uh_err"] = err.uh.interp(z=uas_mean.z)
     uas_mean["alpha_err"] = err.alpha.interp(z=uas_mean.z)
     uas_mean["theta_err"] = err.theta.interp(z=uas_mean.z)
-    
-    # quicklook plot
-    if quicklook:
-        fig, ax = plt.subplots(nrows=1, ncols=3, sharey=True, figsize=(14.8, 5))
-        # u
-        ax[0].plot(uas_raw.u, uas_raw.z/h, "-k", label="raw")
-        ax[0].plot(uas_mean.u, uas_mean.z/h, "-xb", label="mean")
-        # v
-        ax[1].plot(uas_raw.v, uas_raw.z/h, "-k", label="raw")
-        ax[1].plot(uas_mean.v, uas_mean.z/h, "-xb", label="mean")
-        # theta
-        ax[2].plot(uas_raw.theta, uas_raw.z/h, "-k", label="raw")
-        ax[2].plot(uas_mean.theta, uas_mean.z/h, "-xb", label="mean")
-        # clean up
-        ax[0].set_ylim([0, 1])
-        ax[0].set_ylabel("$z/h$")
-        ax[0].set_xlabel("$u$")
-        ax[0].legend()
-        ax[1].set_xlabel("$v$")
-        ax[2].set_xlabel("$\\theta$")
-        fig.tight_layout()
-        # save and close
-        fsave = f"{fdir_save}{err.stability}_u_v_theta_raw_mean.png"
-        print(f"Saving figure: {fsave}")
-        fig.savefig(fsave, dpi=300)
-        plt.close(fig)
-    # time-height plot
-    if timeheight:
-        fig, ax = plt.subplots(1, figsize=(7.4, 2.5), constrained_layout=True)
-        # contourf u
-        cfax = ax.contourf(df.t/60., df.z/err.h, df.u.T, cmap=cm.tempo,
-                           levels=np.arange(0., 12.1, 0.25))
-        # instantaneous vertical profile
-        ax.axvline(time_start/60., c="k", ls="-", lw=2)
-        # UAS profile
-        t_total = err.h/ascent_rate
-        t_uas = np.array([time_start, time_start+t_total])/60. # minutes
-        z_uas = np.array([0., 1.])
-        ax.plot(t_uas, z_uas, ls="-", c="r", lw=2)
-        # ticks
-        ax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
-        ax.tick_params(which="major", length=6, width=0.5)
-        ax.tick_params(which="minor", length=3, width=0.5)
-        # colorbar
-        cb = fig.colorbar(cfax, ax=ax, location="right", 
-                          ticks=MultipleLocator(4), pad=0, aspect=15)
-        cb.ax.set_ylabel("$u$ [m s$^{-1}$]", fontsize=16)
-        cb.ax.tick_params(labelsize=16)
-        # labels
-        ax.set_xlabel("Time [min]")
-        ax.set_xlim([0, 60])
-        ax.xaxis.set_major_locator(MultipleLocator(10))
-        ax.xaxis.set_minor_locator(MultipleLocator(1))
-        ax.set_ylabel("$z/h$")
-        ax.set_ylim([0, 1])
-        ax.yaxis.set_major_locator(MultipleLocator(0.5))
-        ax.yaxis.set_minor_locator(MultipleLocator(0.1))
-        # save and close
-        fsave = f"{fdir_save}{err.stability}_profile_timeheight.png"
-        print(f"Saving figure: {fsave}")
-        fig.savefig(fsave, dpi=600)
-        plt.close(fig)
-        
+
+    #
+    # Plot 3-panel conceptual diagram of how UAS data is emulated and processed
+    #
+    props=dict(boxstyle="square",facecolor="white",edgecolor="white",alpha=0.0)
+    fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(14.8, 5), 
+                           constrained_layout=True)
+    # (a) time-height of u first 20 min
+    # get index of t=20min
+    jt20 = np.where(df.t.values <= 20.*60.)[0]
+    # contourf u
+    cfax = ax[0].contourf(df.t[jt20], df.z/err.h, df.u[jt20,:].T, 
+                          cmap=cm.tempo, levels=np.arange(0., 12.1, 0.25))
+    # instantaneous vertical profile
+    ax[0].axvline(time_start, c="k", ls="--", lw=2)
+    # UAS profile
+    t_total = err.h/ascent_rate
+    t_uas = np.array([time_start, time_start+t_total]) # minutes
+    z_uas = np.array([0., 1.])
+    ax[0].plot(t_uas, z_uas, ls="-", c="k", lw=2)
+    # ticks
+    ax[0].tick_params(which="both", direction="in", top=True, right=True, pad=8)
+    ax[0].tick_params(which="major", length=6, width=0.5)
+    ax[0].tick_params(which="minor", length=3, width=0.5)
+    # colorbar
+    cb = fig.colorbar(cfax, ax=ax[0], location="left", 
+                      ticks=MultipleLocator(4), pad=0.05, aspect=15)
+    cb.ax.set_ylabel("$u$ [m s$^{-1}$]", fontsize=16)
+    cb.ax.tick_params(labelsize=16)
+    # labels
+    ax[0].set_xlabel("Time [s]")
+    ax[0].set_xlim([0, 20*60])
+    ax[0].xaxis.set_major_locator(MultipleLocator(180))
+    ax[0].xaxis.set_minor_locator(MultipleLocator(30))
+    ax[0].set_ylabel("$z/h$")
+    ax[0].set_ylim([0, 1])
+    ax[0].yaxis.set_major_locator(MultipleLocator(0.5))
+    ax[0].yaxis.set_minor_locator(MultipleLocator(0.1))
+    # (b) timeseries of uraw
+    ax[1].plot(df.t[iuse], uas_raw.u, c="k", ls="-", lw=2)
+    # labels
+    ax[1].set_xlabel("Time [s]")
+    ax[1].set_xlim([10*60, 15*60])
+    ax[1].xaxis.set_major_locator(MultipleLocator(60))
+    ax[1].xaxis.set_minor_locator(MultipleLocator(15))
+    ax[1].set_ylabel("$u$ [m s$^{-1}$]")
+    ax[1].set_ylim([0, 10])
+    ax[1].yaxis.set_major_locator(MultipleLocator(2))
+    ax[1].yaxis.set_minor_locator(MultipleLocator(0.5))
+    # ticks
+    ax[1].tick_params(which="both", direction="in", top=True, right=True, pad=8)
+    # (c) vertical profiles of uraw and umean
+    ax[2].plot(uas_raw.u, uas_raw.z/h, c="k", ls="-", lw=2, label="Raw")
+    ax[2].plot(uas_mean.u, uas_mean.z/h, "--xr", lw=2, label="Mean")
+    # labels
+    ax[2].set_xlabel("$u$ [m s$^{-1}$]")
+    ax[2].set_xlim([0, 10])
+    ax[2].xaxis.set_major_locator(MultipleLocator(2))
+    ax[2].xaxis.set_minor_locator(MultipleLocator(0.5))
+    ax[2].set_ylabel("$z/h$")
+    ax[2].set_ylim([0, 1])
+    ax[2].yaxis.set_major_locator(MultipleLocator(0.5))
+    ax[2].yaxis.set_minor_locator(MultipleLocator(0.1))
+    # legend
+    ax[2].legend(loc=0, labelspacing=0.10, handlelength=1,
+                 handletextpad=0.4, shadow=True)
+    # ticks
+    ax[2].tick_params(which="both", direction="in", top=True, right=True, pad=8)
+    # subplot labels
+    for iax, p in zip(ax.flatten(), list("abc")):
+        iax.text(0.88,0.05,f"$\\textbf{{({p})}}$",fontsize=16,bbox=props,
+                    transform=iax.transAxes)
+    # save and close
+    fsave = f"{fdir_save}{err.stability}_UAS_example.png"
+    print(f"Saving figure: {fsave}")
+    fig.savefig(fsave, dpi=900)
+    plt.close(fig)
+
     return uas_mean
 # --------------------------------
 def ec(df, h, time_average=1800.0, time_start=0.0, quicklook=False):
