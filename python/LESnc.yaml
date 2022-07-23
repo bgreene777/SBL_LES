@@ -15,7 +15,7 @@ detrend_stats: True
 # flag to run timeseries2netcdf when running LESnc as script
 run_timeseries: False
 # flag to run autocorr_from_timeseries when running LESnc as script
-run_autocorr: False
+run_autocorr: True
 # simulation resolution
 res: 192
 # string to label stability
@@ -25,13 +25,13 @@ dout: "/home/bgreene/simulations/cr2.50_u08_192/output/"
 # directory for netcdf files to be saved or read
 dnc: "/home/bgreene/simulations/cr2.50_u08_192/output/netcdf/"
 # name of stats file to be saved
-fstats: "average_statistics_2hr.nc"
+fstats: "average_statistics_1hr.nc"
 # name of timeseries file to be saved
 fts: "timeseries_all.nc"
 # name of text file for saving print statements
 fprint: "/home/bgreene/SBL_LES/output/Print/timeseries_nc.txt"
 # start and end timesteps to read
-t0: 900000
+t0: 1080000
 t1: 1260000
 # final timestep for timeseries NOTE: != t1
 tf: 720000
@@ -40,7 +40,7 @@ dt: 1000
 # dimensional timestep in seconds
 delta_t: 0.02
 # total physical averaging time
-tavg: "2h"
+tavg: "1h"
 # simulation domain sizes in meters
 Lx: 800.0
 Ly: 800.0

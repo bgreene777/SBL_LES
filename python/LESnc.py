@@ -18,6 +18,7 @@ import numpy as np
 from numpy.fft import fft, ifft
 from datetime import datetime
 from scipy.signal import detrend
+from scipy.optimize import curve_fit
 from dask.diagnostics import ProgressBar
 from matplotlib.colors import Normalize
 # --------------------------------
@@ -545,12 +546,16 @@ def load_timeseries(dnc, detrend=True):
 def autocorr_from_timeseries(dnc, savenc=True):
     """
     Calculate autocorrelation and corresponding integral length/timescales
-    for first- (TODO: and second-order) parameters based on timeseries data
+    for first- and second-order parameters based on timeseries data
     input dnc: directory where netcdf data stored
     input savenc: flag to save netcdf files of output data
     output R: xarray Dataset of autocorrelation versus z and t (lag)
     output L: xarray Dataset of integral lengthscales versus z
     """
+    # define exponential autocorrelation function for curve fitting
+    def acf(time, Tint):
+        return np.exp(-np.abs(time) / Tint)
+
     # filename for print_both function
     fprint = f"/home/bgreene/SBL_LES/output/Print/autocorr_ts_{config['stab']}.txt"
     # begin by loading timeseries data
@@ -640,21 +645,19 @@ def autocorr_from_timeseries(dnc, savenc=True):
     # loop over parameters
     for sname in name1+name2+name2c:
         print_both(f"Calculate integral scales for {sname}", fprint)
-        T[sname] = xr.DataArray(np.zeros(R.z.size, np.float64), dims="z", coords=dict(z=R.z))
-        L[sname] = xr.DataArray(np.zeros(R.z.size, np.float64), dims="z", coords=dict(z=R.z))
+        T_sname = np.zeros(R.z.size, np.float64)
         # loop over heights
         for jz in range(nz):
-            # integrate R up to first zero crossing
-            izero = np.where(R[sname].isel(z=jz) < 0.)[0]
-            # make sure this isnt empty
-            if len(izero) > 0:
-                izero = izero[0]
-            else:
-                izero = 1
-            # integrate from index 0 to izero
-            T[sname][jz] = R[sname].isel(z=jz,t=range(izero)).integrate("t")
-            # calculate lengthscales using Taylor's hypothesis
-            L[sname][jz] = T[sname][jz] * ts.u_mean_rot.isel(z=jz)
+            # fit autocorr function to form R = exp(-t/Tint)
+            # store in T_sname
+            T_sname[jz], _ = curve_fit(f=acf, xdata=R.t[:R.t.size//2], 
+                              ydata=R[sname].isel(z=jz,t=range(R.t.size//2)))
+        # add to T dataset
+        T[sname] = xr.DataArray(T_sname, dims="z", coords=dict(z=R.z))
+        # calculate lengthscales using Taylor's hypothesis
+        L_sname = T[sname] * ts.u_mean_rot
+        # add to L dataset
+        L[sname] = xr.DataArray(L_sname, dims="z", coords=dict(z=R.z))
     # now optionally save out netcdf files
     if savenc:
         fsaveR = f"{dnc}R_ts.nc"
