@@ -1,3 +1,4 @@
+#!/home/bgreene/anaconda3/bin/python
 # --------------------------------
 # Name: LESnc.py
 # Author: Brian R. Greene
@@ -570,6 +571,8 @@ def autocorr_from_timeseries(dnc, savenc=True):
         # grab data
         x = ts[s]
         xvar = ts[svar].mean("t")
+        # store this variance
+        ts[svar+"var1"] = xvar
         # forward FFT in time
         f = fft(x, axis=0)
         # calculate PSD
@@ -586,14 +589,56 @@ def autocorr_from_timeseries(dnc, savenc=True):
         r = np.real( ifft(PSD, axis=0) ) / nt
         # convert to DataArray and assign to R
         R[sname] = xr.DataArray(r, dims=("t", "z"), coords=dict(t=ts.t, z=ts.z))
-    print_both("Finished calculating all autocorrelations!", fprint)
+    print_both("Finished calculating 1st-order autocorrelations!", fprint)
+    # calculate autocorr for 2nd-order: variances
+    param2 = ["uur", "vvr", "ww", "tt"] # instantaneous variances
+    var2 = ["uurvar4", "vvrvar4", "wwvar4", "ttvar4"] # corresponding 4th-order variances
+    name2 = ["uuvar2", "vvvar2", "wwvar2", "ttvar2"] # names for saving autocorr variables
+    # need to calculate 4th-order variances (var{var{x}}) for normalization
+    print_both("Calculate 4th-order variances", fprint)
+    for s, svar in zip(param2, var2):
+        xvar = ts[s+"var1"] # grab variances
+        xvar4 = (ts[s] - xvar) * (ts[s] - xvar) # calculate inst variance of variances
+        ts[svar] = xvar4.mean("t") # save mean value
+    # calculate autocorr for 2nd-order: covariances
+    param2c = ["uw", "vw", "tw"] # instantaneous covariances
+    var2c = ["uwvar4", "vwvar4", "twvar4"] # corresponding 4th-order variances
+    name2c = ["uwcov2", "vwcov2", "twcov2"] # names for saving autocorr variables
+    # need to calculate 4th-order variances of covar (var{cov{x}}) for normalization
+    for s, svar in zip(param2c, var2c):
+        xcov = ts[s].mean("t") # grab inst covar and average to get mean cov
+        xvar4 = (ts[s] - xcov) * (ts[s] - xcov) # calculate inst variance of variances
+        ts[svar] = xvar4.mean("t") # save mean value
+    # now can calculate autocorr
+    for s, svar, sname in zip(param2+param2c, var2+var2c, name2+name2c):
+        print_both(f"Begin calculating autocorr for {sname}", fprint)
+        # grab data
+        x = ts[s] # inst variances/covar
+        xvar = ts[svar] # variance of variance/covar (4th order)
+        # forward FFT in time
+        f = fft(x, axis=0)
+        # calculate PSD
+        PSD = np.zeros((nt, nz), dtype=np.float64)
+        for jt in range(1, nt//2):
+            for jz in range(nz):
+                PSD[jt,jz] = np.real( f[jt,jz] * np.conj(f[jt,jz]) )
+                PSD[nt-jt,jz] = np.real( f[nt-jt,jz] * np.conj(f[nt-jt,jz]) )
+        # normalize by variance
+        for jz in range(nz):
+            PSD[:,jz] /= xvar[jz].values
+        # ifft to get autocorrelation
+        # normalize by length of timeseries
+        r = np.real( ifft(PSD, axis=0) ) / nt
+        # convert to DataArray and assign to R
+        R[sname] = xr.DataArray(r, dims=("t", "z"), coords=dict(t=ts.t, z=ts.z))        
+
     # now calculate integral scales
     # define empty Dataset T to hold timescales
     T = xr.Dataset(data_vars=None, coords=dict(z=R.z), attrs=R.attrs)
     # define empty Dataset L to hold lengthscales
     L = xr.Dataset(data_vars=None, coords=dict(z=R.z), attrs=R.attrs)
     # loop over parameters
-    for sname in name1:
+    for sname in name1+name2+name2c:
         print_both(f"Calculate integral scales for {sname}", fprint)
         T[sname] = xr.DataArray(np.zeros(R.z.size, np.float64), dims="z", coords=dict(z=R.z))
         L[sname] = xr.DataArray(np.zeros(R.z.size, np.float64), dims="z", coords=dict(z=R.z))
