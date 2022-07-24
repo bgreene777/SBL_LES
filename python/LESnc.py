@@ -543,12 +543,13 @@ def load_timeseries(dnc, detrend=True):
     
     return d
 # ---------------------------------------------
-def autocorr_from_timeseries(dnc, savenc=True):
+def autocorr_from_timeseries(dnc, savenc=True, nblock=2):
     """
     Calculate autocorrelation and corresponding integral length/timescales
     for first- and second-order parameters based on timeseries data
     input dnc: directory where netcdf data stored
     input savenc: flag to save netcdf files of output data
+    input nblock: number of blocks to segment timeseries data for averaging
     output R: xarray Dataset of autocorrelation versus z and t (lag)
     output L: xarray Dataset of integral lengthscales versus z
     """
@@ -563,79 +564,92 @@ def autocorr_from_timeseries(dnc, savenc=True):
     ts = load_timeseries(dnc, detrend=True)
     # grab important parameters
     nz = ts.nz
-    nt = ts.nt
+    nt_tot = ts.nt
+    nt = nt_tot // nblock
     # define list of first-order parameters to calculate
     param1 = ["udr", "vdr", "wd", "td"] # u_rot, v_rot, w, theta
     var1 = ["uur", "vvr", "ww", "tt"] # corresponding instantaneous variances
     name1 = ["u", "v", "w", "theta"] # names for saving variables
-    # define empty Dataset R to hold autocorrs
-    R = xr.Dataset(data_vars=None, coords=dict(t=ts.t, z=ts.z), attrs=ts.attrs)
-    # loop over variables and calculate autocorrelation
-    for s, svar, sname in zip(param1, var1, name1):
-        print_both(f"Begin calculating autocorr for {sname}", fprint)
-        # grab data
-        x = ts[s]
-        xvar = ts[svar].mean("t")
-        # store this variance
-        ts[svar+"var1"] = xvar
-        # forward FFT in time
-        f = fft(x, axis=0)
-        # calculate PSD
-        PSD = np.zeros((nt, nz), dtype=np.float64)
-        for jt in range(1, nt//2):
+    # define empty list to hold all R
+    R_all = []
+    # begin looping over blocks
+    for ib in range(nblock):
+        print_both(f"Block {ib}", fprint)
+        # define indices for block
+        jt0 = ib * nt
+        jt1 = nt + jt0
+        jts = np.arange(jt0, jt1, 1, dtype=np.int32)
+        xt = ts.t.isel(t=jts)
+        # define empty Dataset R to hold autocorrs
+        R = xr.Dataset(data_vars=None, coords=dict(t=xt, z=ts.z), attrs=ts.attrs)
+        # loop over variables and calculate autocorrelation
+        for s, svar, sname in zip(param1, var1, name1):
+            print_both(f"Begin calculating autocorr for {sname}", fprint)
+            # grab data
+            x = ts[s].isel(t=jts)
+            xvar = ts[svar].isel(t=jts).mean(dim="t")
+            # store this variance
+            # ts[svar+"var1"] = xvar
+            # forward FFT in time
+            f = fft(x, axis=0)
+            # calculate PSD
+            PSD = np.zeros((nt, nz), dtype=np.float64)
+            for jt in range(1, nt//2):
+                for jz in range(nz):
+                    PSD[jt,jz] = np.real( f[jt,jz] * np.conj(f[jt,jz]) )
+                    PSD[nt-jt,jz] = np.real( f[nt-jt,jz] * np.conj(f[nt-jt,jz]) )
+            # normalize by variance
             for jz in range(nz):
-                PSD[jt,jz] = np.real( f[jt,jz] * np.conj(f[jt,jz]) )
-                PSD[nt-jt,jz] = np.real( f[nt-jt,jz] * np.conj(f[nt-jt,jz]) )
-        # normalize by variance
-        for jz in range(nz):
-            PSD[:,jz] /= xvar[jz].values
-        # ifft to get autocorrelation
-        # normalize by length of timeseries
-        r = np.real( ifft(PSD, axis=0) ) / nt
-        # convert to DataArray and assign to R
-        R[sname] = xr.DataArray(r, dims=("t", "z"), coords=dict(t=ts.t, z=ts.z))
-    print_both("Finished calculating 1st-order autocorrelations!", fprint)
-    # calculate autocorr for 2nd-order: variances
-    param2 = ["uur", "vvr", "ww", "tt"] # instantaneous variances
-    var2 = ["uurvar4", "vvrvar4", "wwvar4", "ttvar4"] # corresponding 4th-order variances
-    name2 = ["uuvar2", "vvvar2", "wwvar2", "ttvar2"] # names for saving autocorr variables
-    # need to calculate 4th-order variances (var{var{x}}) for normalization
-    print_both("Calculate 4th-order variances", fprint)
-    for s, svar in zip(param2, var2):
-        xvar = ts[s+"var1"] # grab variances
-        xvar4 = (ts[s] - xvar) * (ts[s] - xvar) # calculate inst variance of variances
-        ts[svar] = xvar4.mean("t") # save mean value
-    # calculate autocorr for 2nd-order: covariances
-    param2c = ["uw", "vw", "tw"] # instantaneous covariances
-    var2c = ["uwvar4", "vwvar4", "twvar4"] # corresponding 4th-order variances
-    name2c = ["uwcov2", "vwcov2", "twcov2"] # names for saving autocorr variables
-    # need to calculate 4th-order variances of covar (var{cov{x}}) for normalization
-    for s, svar in zip(param2c, var2c):
-        xcov = ts[s].mean("t") # grab inst covar and average to get mean cov
-        xvar4 = (ts[s] - xcov) * (ts[s] - xcov) # calculate inst variance of variances
-        ts[svar] = xvar4.mean("t") # save mean value
-    # now can calculate autocorr
-    for s, svar, sname in zip(param2+param2c, var2+var2c, name2+name2c):
-        print_both(f"Begin calculating autocorr for {sname}", fprint)
-        # grab data
-        x = ts[s] # inst variances/covar
-        xvar = ts[svar] # variance of variance/covar (4th order)
-        # forward FFT in time
-        f = fft(x, axis=0)
-        # calculate PSD
-        PSD = np.zeros((nt, nz), dtype=np.float64)
-        for jt in range(1, nt//2):
-            for jz in range(nz):
-                PSD[jt,jz] = np.real( f[jt,jz] * np.conj(f[jt,jz]) )
-                PSD[nt-jt,jz] = np.real( f[nt-jt,jz] * np.conj(f[nt-jt,jz]) )
-        # normalize by variance
-        for jz in range(nz):
-            PSD[:,jz] /= xvar[jz].values
-        # ifft to get autocorrelation
-        # normalize by length of timeseries
-        r = np.real( ifft(PSD, axis=0) ) / nt
-        # convert to DataArray and assign to R
-        R[sname] = xr.DataArray(r, dims=("t", "z"), coords=dict(t=ts.t, z=ts.z))        
+                PSD[:,jz] /= xvar[jz].values
+            # ifft to get autocorrelation
+            # normalize by length of timeseries
+            r = np.real( ifft(PSD, axis=0) ) / nt
+            # convert to DataArray and assign to R
+            R[sname] = xr.DataArray(r, dims=("t", "z"), coords=dict(t=xt, z=ts.z))
+        # append R to R_all
+        R_all.append(R)
+    # print_both("Finished calculating 1st-order autocorrelations!", fprint)
+    # # calculate autocorr for 2nd-order: variances
+    # param2 = ["uur", "vvr", "ww", "tt"] # instantaneous variances
+    # var2 = ["uurvar4", "vvrvar4", "wwvar4", "ttvar4"] # corresponding 4th-order variances
+    # name2 = ["uuvar2", "vvvar2", "wwvar2", "ttvar2"] # names for saving autocorr variables
+    # # need to calculate 4th-order variances (var{var{x}}) for normalization
+    # print_both("Calculate 4th-order variances", fprint)
+    # for s, svar in zip(param2, var2):
+    #     xvar = ts[s+"var1"] # grab variances
+    #     xvar4 = (ts[s] - xvar) * (ts[s] - xvar) # calculate inst variance of variances
+    #     ts[svar] = xvar4.mean("t") # save mean value
+    # # calculate autocorr for 2nd-order: covariances
+    # param2c = ["uw", "vw", "tw"] # instantaneous covariances
+    # var2c = ["uwvar4", "vwvar4", "twvar4"] # corresponding 4th-order variances
+    # name2c = ["uwcov2", "vwcov2", "twcov2"] # names for saving autocorr variables
+    # # need to calculate 4th-order variances of covar (var{cov{x}}) for normalization
+    # for s, svar in zip(param2c, var2c):
+    #     xcov = ts[s].mean("t") # grab inst covar and average to get mean cov
+    #     xvar4 = (ts[s] - xcov) * (ts[s] - xcov) # calculate inst variance of variances
+    #     ts[svar] = xvar4.mean("t") # save mean value
+    # # now can calculate autocorr
+    # for s, svar, sname in zip(param2+param2c, var2+var2c, name2+name2c):
+    #     print_both(f"Begin calculating autocorr for {sname}", fprint)
+    #     # grab data
+    #     x = ts[s] # inst variances/covar
+    #     xvar = ts[svar] # variance of variance/covar (4th order)
+    #     # forward FFT in time
+    #     f = fft(x, axis=0)
+    #     # calculate PSD
+    #     PSD = np.zeros((nt, nz), dtype=np.float64)
+    #     for jt in range(1, nt//2):
+    #         for jz in range(nz):
+    #             PSD[jt,jz] = np.real( f[jt,jz] * np.conj(f[jt,jz]) )
+    #             PSD[nt-jt,jz] = np.real( f[nt-jt,jz] * np.conj(f[nt-jt,jz]) )
+    #     # normalize by variance
+    #     for jz in range(nz):
+    #         PSD[:,jz] /= xvar[jz].values
+    #     # ifft to get autocorrelation
+    #     # normalize by length of timeseries
+    #     r = np.real( ifft(PSD, axis=0) ) / nt
+    #     # convert to DataArray and assign to R
+    #     R[sname] = xr.DataArray(r, dims=("t", "z"), coords=dict(t=ts.t, z=ts.z))        
 
     # now calculate integral scales
     # define empty Dataset T to hold timescales
@@ -643,28 +657,35 @@ def autocorr_from_timeseries(dnc, savenc=True):
     # define empty Dataset L to hold lengthscales
     L = xr.Dataset(data_vars=None, coords=dict(z=R.z), attrs=R.attrs)
     # loop over parameters
-    for sname in name1+name2+name2c:
+    for sname in name1:#+name2+name2c:
         print_both(f"Calculate integral scales for {sname}", fprint)
         T_sname = np.zeros(R.z.size, np.float64)
         # loop over heights
         for jz in range(nz):
-            # fit autocorr function to form R = exp(-t/Tint)
-            # store in T_sname
-            T_sname[jz], _ = curve_fit(f=acf, xdata=R.t[:R.t.size//2], 
-                              ydata=R[sname].isel(z=jz,t=range(R.t.size//2)))
+            # loop over blocks
+            TT_count = 0.
+            for R in R_all:
+                # fit autocorr function to form R = exp(-t/Tint)
+                # store in T_sname
+                TT, _ = curve_fit(f=acf, xdata=R.t[:nt//2], 
+                                  ydata=R[sname].isel(z=jz,t=range(nt//2)))
+                TT_count += TT
+            T_sname[jz] = TT_count / nblock
+        
         # add to T dataset
         T[sname] = xr.DataArray(T_sname, dims="z", coords=dict(z=R.z))
         # calculate lengthscales using Taylor's hypothesis
         L_sname = T[sname] * ts.u_mean_rot
         # add to L dataset
         L[sname] = xr.DataArray(L_sname, dims="z", coords=dict(z=R.z))
+
     # now optionally save out netcdf files
     if savenc:
-        fsaveR = f"{dnc}R_ts.nc"
+        fsaveR = f"{dnc}R_ts_{nblock}.nc"
         print_both(f"Saving file: {fsaveR}", fprint)
         with ProgressBar():
             R.to_netcdf(fsaveR, mode="w")
-        fsaveL = f"{dnc}L_ts.nc"
+        fsaveL = f"{dnc}L_ts_{nblock}.nc"
         print_both(f"Saving file: {fsaveL}", fprint)
         with ProgressBar():
             L.to_netcdf(fsaveL, mode="w")
