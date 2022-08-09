@@ -298,8 +298,10 @@ def timeseries2netcdf():
     zu = np.linspace(dz/2., Lz+dz/2., nz)
     # only load last hour of simulation
     nt_tot = config["tf"]
-    # 1 hour is 3600/delta_t
-    nt = int(3600./delta_t)
+    # determine number of hours to process from tavg
+    tavg = config["tavg"]
+    nhr = float(tavg.split("h")[0])
+    nt = int(nhr*3600./delta_t)
     istart = nt_tot - nt
     # define array of time in seconds
     time = np.linspace(0., 3600.-delta_t, nt, dtype=np.float64)
@@ -486,16 +488,22 @@ def load_full(dnc, t0, t1, dt, delta_t, use_stats, SBL):
     # just return dd if no SBL
     return dd
 # ---------------------------------------------
-def load_timeseries(dnc, detrend=True):
+def load_timeseries(dnc, detrend=True, tavg="1h"):
     """
     Reading function for timeseries files created from timseries2netcdf()
     Load netcdf files using xarray and calculate numerous relevant parameters
     input dnc: path to netcdf directory for simulation
     input detrend: detrend timeseries for calculating variances, default=True
+    input tavg: select which timeseries file to use in hours, default="1h"
     return d: xarray dataset
     """
     # load timeseries_all.nc
-    d = xr.open_dataset(dnc+"timeseries_all.nc")
+    if tavg == "1h":
+        fts = "timeseries_all.nc"
+    else:
+        fts = f"timeseries_all_{tavg}r.nc"
+
+    d = xr.open_dataset(dnc+fts)
     # calculate means
     for v in ["u", "v", "w", "theta"]:
         d[f"{v}_mean"] = d[v].mean("t") # average in time
@@ -561,7 +569,7 @@ def autocorr_from_timeseries(dnc, savenc=True, nblock=2):
     fprint = f"/home/bgreene/SBL_LES/output/Print/autocorr_ts_{config['stab']}.txt"
     # begin by loading timeseries data
     print_both("Begin loading timeseries data", fprint)
-    ts = load_timeseries(dnc, detrend=True)
+    ts = load_timeseries(dnc, detrend=True, tavg=config['tavg'])
     # grab important parameters
     nz = ts.nz
     nt_tot = ts.nt
@@ -712,4 +720,5 @@ if __name__ == "__main__":
         timeseries2netcdf()
     # run autocorr_from_timeseries
     if config["run_autocorr"]:
-        autocorr_from_timeseries(config["dnc"])
+        autocorr_from_timeseries(config["dnc"], 
+                                 nblock=config["nblock_ac"])
