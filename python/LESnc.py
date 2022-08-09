@@ -304,8 +304,8 @@ def timeseries2netcdf():
     nt = int(nhr*3600./delta_t)
     istart = nt_tot - nt
     # define array of time in seconds
-    time = np.linspace(0., 3600.-delta_t, nt, dtype=np.float64)
-
+    time = np.linspace(0., nhr*3600.-delta_t, nt, dtype=np.float64)
+    print_both(f"Loading {nt} timesteps = {tavg}", fprint)
     # begin looping over heights
     print_both(f"Begin loading simulation {config['stab']}", fprint)   
     # define DataArrays for u, v, w, theta, txz, tyz, q3

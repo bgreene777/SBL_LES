@@ -13,7 +13,7 @@ run_calc_stats: False
 # flag for detrending u, v, w, theta in calc_stats
 detrend_stats: True
 # flag to run timeseries2netcdf when running LESnc as script
-run_timeseries: False
+run_timeseries: True
 # flag to run autocorr_from_timeseries when running LESnc as script
 run_autocorr: True
 # number of blocks to use for autocorr
