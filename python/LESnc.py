@@ -436,6 +436,8 @@ def load_stats(fstats, SBL=True, display=False):
         dd["LL"] = -(dd.ustar**3.) * dd.theta_mean / (0.4 * 9.81 * dd.tw_cov_tot)
         # calculate level of LLJ: zj
         dd["zj"] = dd.z.isel(z=dd.uh.argmax())
+        # save number of points within sbl
+        dd.attrs["nzsbl"] = dd.z.where(dd.z <= dd.he, drop=True).size
     # print table statistics
     if display:
         print(f"---{dd.stability}---")
@@ -700,6 +702,77 @@ def autocorr_from_timeseries(dnc, savenc=True, nblock=2):
     
     print_both("Finshed with all calculations! Returning [R, L]...", fprint)
     return [R, L]
+# ---------------------------------------------
+def autocorr_from_volume():
+    # define print file
+    fprint = f"/home/bgreene/SBL_LES/output/Print/autocorr_vol_{config['stab']}.txt"
+    # grab parameters from yaml file
+    dnc = config["dnc"]
+    t0 = config["t0"]
+    t1 = config["t1"]
+    dt = config["dt"]
+    delta_t = config["delta_t"]
+    # load volume data
+    dd, s = load_full(dnc, t0, t1, dt, delta_t, True, True)
+    # define exponential autocorrelation function for curve fitting
+    def acf(xx, Lint):
+        return np.exp(-np.abs(xx) / Lint)
+    # calculate atocorrelation function along x-dimension as pencils
+    # integrate to calc length scale then average in y and t
+    # initialize empty dataset for storing integral scales
+    L = xr.Dataset(data_vars=None, coords=dict(z=s.z[range(s.nzsbl)]), 
+                   attrs=dd.attrs)
+    print_both("Begin looping over all variables...", fprint)
+    ## BIG LOOP OVER VARIABLES HERE
+    vall = ["u", "v", "w", "theta"]
+    for v in vall:
+        print_both(f"Begin {v}", fprint)
+        # empty array to store values into before converting to DataArray
+        Lz = np.zeros(s.nzsbl, dtype=np.float64)
+        # loop over z - only within SBL
+        for jz in range(s.nzsbl):
+            print_both(f"jz={jz}/{s.nzsbl-1}", fprint)
+            # initialize empty PSD arrays
+            PSD = np.zeros(dd.nx, dtype=np.float64)
+            # initialize empty lengthscale == 0 to append and average later
+            Lall = 0
+            # loop over y
+            for jy in range(s.ny):
+                # loop over time
+                for jt in range(dd.time.size):
+                    # grab data
+                    d = dd[v].isel(time=jt, y=jy, z=jz).values
+                    # detrend data linearly
+                    dat = detrend(d, axis=0, type="linear")
+                    # fft
+                    f = fft(dat, axis=0)
+                    # calculate PSD
+                    for jx in range(1, dd.nx//2):
+                        PSD[jx] = np.real( f[jx] * np.conj(f[jx]) )
+                        PSD[dd.nx-jx] = np.real( f[dd.nx-jx] * np.conj(f[dd.nx-jx]) )
+                    # normalize by variance
+                    PSD /= np.var(dat)
+                    # ifft to get autocorrelation and norm by nx
+                    R = np.real( ifft(PSD, axis=0) ) / dd.nx
+                    # fit exponential to autocorrelation to get integral scale
+                    LL, _ = curve_fit(f=acf, 
+                                    xdata=dd.x[:dd.nx//2],
+                                    ydata=R[:dd.nx//2])
+                    Lall += LL
+            # after looping over y and t, divide Lall to average
+            Lall /= (s.ny * dd.time.size)
+            # store in Lz array
+            Lz[jz] = Lall
+        # convert Lz into DataArray to store within L
+        L[v] = xr.DataArray(data=Lz, dims="z", coords=dict(z=L.z))
+    # save L and return
+    fsaveL = f"{dnc}L_vol.nc"
+    print_both(f"Saving file: {fsaveL}", fprint)
+    with ProgressBar():
+        L.to_netcdf(fsaveL, mode="w")    
+    print_both("Finshed with all processes!", fprint)
+
+    return
 
 # --------------------------------
 # Run script if desired
@@ -719,6 +792,9 @@ if __name__ == "__main__":
     if config["run_timeseries"]:
         timeseries2netcdf()
     # run autocorr_from_timeseries
+    # if config["run_autocorr"]:
+    #     autocorr_from_timeseries(config["dnc"], 
+    #                              nblock=config["nblock_ac"])
+    # run autocorr_from_volume
     if config["run_autocorr"]:
-        autocorr_from_timeseries(config["dnc"], 
-                                 nblock=config["nblock_ac"])
+        autocorr_from_volume()
