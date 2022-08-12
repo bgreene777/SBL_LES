@@ -117,9 +117,9 @@ def profile(df, err, ascent_rate=1.0, time_average=3.0, time_start=0.0,
     props=dict(boxstyle="square",facecolor="white",edgecolor="white",alpha=0.0)
     fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(14.8, 5), 
                            constrained_layout=True)
-    # (a) time-height of u first 20 min
-    # get index of t=20min
-    jt20 = np.where(df.t.values <= 20.*60.)[0]
+    # (a) time-height of u middle 20 min
+    # get index of 20min <= t <= 40min
+    jt20 = np.where((df.t.values >= 20.*60.) & (df.t.values <= 40.*60.))[0]
     # contourf u
     cfax = ax[0].contourf(df.t[jt20], df.z/err.h, df.u[jt20,:].T, 
                           cmap=cm.tempo, levels=np.arange(0., 12.1, 0.25))
@@ -141,8 +141,8 @@ def profile(df, err, ascent_rate=1.0, time_average=3.0, time_start=0.0,
     cb.ax.tick_params(labelsize=16)
     # labels
     ax[0].set_xlabel("Time [s]")
-    ax[0].set_xlim([0, 20*60])
-    ax[0].xaxis.set_major_locator(MultipleLocator(180))
+    ax[0].set_xlim([20*60, 40*60])
+    ax[0].xaxis.set_major_locator(MultipleLocator(300))
     ax[0].xaxis.set_minor_locator(MultipleLocator(30))
     ax[0].set_ylabel("$z/h$")
     ax[0].set_ylim([0, 1])
@@ -152,7 +152,7 @@ def profile(df, err, ascent_rate=1.0, time_average=3.0, time_start=0.0,
     ax[1].plot(df.t[iuse], uas_raw.u, c="k", ls="-", lw=2)
     # labels
     ax[1].set_xlabel("Time [s]")
-    ax[1].set_xlim([10*60, 15*60])
+    ax[1].set_xlim([30*60, 35*60])
     ax[1].xaxis.set_major_locator(MultipleLocator(60))
     ax[1].xaxis.set_minor_locator(MultipleLocator(15))
     ax[1].set_ylabel("$u$ [m s$^{-1}$]")
