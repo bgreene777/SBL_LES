@@ -190,7 +190,7 @@ def profile(df, err, ascent_rate=1.0, time_average=3.0, time_start=0.0,
 
     return uas_mean
 # --------------------------------
-def ec(df, h, time_average=1800.0, time_start=0.0, quicklook=False):
+def ec_tow(df, h, time_average=1800.0, time_start=0.0, quicklook=False):
     """Emulate a tower extending throughout SBL with EC system at each vertical
     gridpoint and calculate variances and covariances
     :param xr.Dataset df: dataset with virtual tower data to construct UAS prof
@@ -310,10 +310,10 @@ Fuas = profile(Fts, Ferr, time_start=config["tstart"], timeheight=False)
 uas_all = [Auas.isel(Tsample=0), Fuas.isel(Tsample=0)]
 
 # run ec for each sim
-Aec = ec(Ats, Astat.h, time_average=config["Tavg_ec"], 
-         time_start=config["T0_ec"], quicklook=True)
-Fec = ec(Fts, Fstat.h, time_average=config["Tavg_ec"], 
-         time_start=config["T0_ec"], quicklook=True)
+Aec = ec_tow(Ats, Astat.h, time_average=config["Tavg_ec"], 
+             time_start=config["T0_ec"], quicklook=True)
+Fec = ec_tow(Fts, Fstat.h, time_average=config["Tavg_ec"], 
+             time_start=config["T0_ec"], quicklook=True)
 ec_all = [Aec, Fec]
 
 # calculate error bounds 
@@ -468,17 +468,18 @@ plt.close(fig1)
 # Figure 2: covariances + variances
 # ustar^2 and theta'w', normalized with ustar0 and thetastar0
 # u'u', w'w', normalized with ustar0
+# theta'theta' normalized with tstar0
 # sims A and F, 2 averaging times
-# total of 4x4=16 subpanels
+# total of 4x5=20 subpanels
 #
-fig2, ax2 = plt.subplots(nrows=4, ncols=4, sharey=True, sharex="col", figsize=(14.8, 20))
+fig2, ax2 = plt.subplots(nrows=4, ncols=5, sharey=True, sharex="col", figsize=(14.8, 20))
 # column 1: ustar^2
 # row 1: A, 1800s
 ax2[0,0].plot(Astat.ustar2.isel(z=Astat.isbl)/Astat.ustar0/Astat.ustar0,
               Astat.z.isel(z=Astat.isbl)/Astat.h, 
               c="k", ls="-", lw=2, label="$u_{*}^2$")
 ax2[0,0].plot(Aec.ustar2[:,1]/Astat.ustar0/Astat.ustar0,
-              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="UAS")
+              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="EC")
 # shade errors
 ax2[0,0].fill_betweenx(Aec.z/Astat.h, Aec.err_ustar2_lo[:,1], Aec.err_ustar2_hi[:,1], alpha=0.3,
                        color=Astat.color, label="$\\epsilon_{u_{*}^2}$")
@@ -489,7 +490,7 @@ ax2[1,0].plot(Astat.ustar2.isel(z=Astat.isbl)/Astat.ustar0/Astat.ustar0,
               Astat.z.isel(z=Astat.isbl)/Astat.h, 
               c="k", ls="-", lw=2, label="$u_{*}^2$")
 ax2[1,0].plot(Aec.ustar2[:,0]/Astat.ustar0/Astat.ustar0,
-              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="UAS")
+              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="EC")
 # shade errors
 ax2[1,0].fill_betweenx(Aec.z/Astat.h, Aec.err_ustar2_lo[:,0], Aec.err_ustar2_hi[:,0], alpha=0.3,
                        color=Astat.color, label="$\\epsilon_{u_{*}^2}$")
@@ -500,7 +501,7 @@ ax2[2,0].plot(Fstat.ustar2.isel(z=Fstat.isbl)/Fstat.ustar0/Fstat.ustar0,
               Fstat.z.isel(z=Fstat.isbl)/Fstat.h, 
               c="k", ls="-", lw=2, label="$u_{*}^2$")
 ax2[2,0].plot(Fec.ustar2[:,1]/Fstat.ustar0/Fstat.ustar0,
-              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="UAS")
+              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="EC")
 # shade errors
 ax2[2,0].fill_betweenx(Fec.z/Fstat.h, Fec.err_ustar2_lo[:,1], Fec.err_ustar2_hi[:,1], alpha=0.3,
                        color=Fstat.color, label="$\\epsilon_{u_{*}^2}$")
@@ -511,7 +512,7 @@ ax2[3,0].plot(Fstat.ustar2.isel(z=Fstat.isbl)/Fstat.ustar0/Fstat.ustar0,
               Fstat.z.isel(z=Fstat.isbl)/Fstat.h, 
               c="k", ls="-", lw=2, label="$u_{*}^2$")
 ax2[3,0].plot(Fec.ustar2[:,0]/Fstat.ustar0/Fstat.ustar0,
-              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="UAS")
+              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="EC")
 # shade errors
 ax2[3,0].fill_betweenx(Fec.z/Fstat.h, Fec.err_ustar2_lo[:,0], Fec.err_ustar2_hi[:,0], alpha=0.3,
                        color=Fstat.color, label="$\\epsilon_{u_{*}^2}$")
@@ -523,7 +524,7 @@ ax2[0,1].plot(Astat.tw_cov_tot.isel(z=Astat.isbl)/Astat.ustar0/Astat.tstar0,
               Astat.z.isel(z=Astat.isbl)/Astat.h, 
               c="k", ls="-", lw=2, label="$\\langle \\theta'w' \\rangle$")
 ax2[0,1].plot(Aec.tw_cov_tot[:,1]/Astat.ustar0/Astat.tstar0,
-              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="UAS")
+              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="EC")
 # shade errors
 ax2[0,1].fill_betweenx(Aec.z/Astat.h, Aec.err_tw_lo[:,1], Aec.err_tw_hi[:,1], alpha=0.3,
                        color=Astat.color, label="$\\epsilon_{\\overline{\\theta'w'}}$")
@@ -534,7 +535,7 @@ ax2[1,1].plot(Astat.tw_cov_tot.isel(z=Astat.isbl)/Astat.ustar0/Astat.tstar0,
               Astat.z.isel(z=Astat.isbl)/Astat.h, 
               c="k", ls="-", lw=2, label="$\\langle \\theta'w' \\rangle$")
 ax2[1,1].plot(Aec.tw_cov_tot[:,0]/Astat.ustar0/Astat.tstar0,
-              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="UAS")
+              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="EC")
 # shade errors
 ax2[1,1].fill_betweenx(Aec.z/Astat.h, Aec.err_tw_lo[:,0], Aec.err_tw_hi[:,0], alpha=0.3,
                        color=Astat.color, label="$\\epsilon_{\\overline{\\theta'w'}}$")
@@ -545,7 +546,7 @@ ax2[2,1].plot(Fstat.tw_cov_tot.isel(z=Fstat.isbl)/Fstat.ustar0/Fstat.tstar0,
               Fstat.z.isel(z=Fstat.isbl)/Fstat.h, 
               c="k", ls="-", lw=2, label="$\\langle \\theta'w' \\rangle$")
 ax2[2,1].plot(Fec.tw_cov_tot[:,1]/Fstat.ustar0/Fstat.tstar0,
-              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="UAS")
+              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="EC")
 # shade errors
 ax2[2,1].fill_betweenx(Fec.z/Fstat.h, Fec.err_tw_lo[:,1], Fec.err_tw_hi[:,1], alpha=0.3,
                        color=Fstat.color, label="$\\epsilon_{\\overline{\\theta'w'}}$")
@@ -556,7 +557,7 @@ ax2[3,1].plot(Fstat.tw_cov_tot.isel(z=Fstat.isbl)/Fstat.ustar0/Fstat.tstar0,
               Fstat.z.isel(z=Fstat.isbl)/Fstat.h, 
               c="k", ls="-", lw=2, label="$\\langle \\theta'w' \\rangle$")
 ax2[3,1].plot(Fec.tw_cov_tot[:,0]/Fstat.ustar0/Fstat.tstar0,
-              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="UAS")
+              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="EC")
 # shade errors
 ax2[3,1].fill_betweenx(Fec.z/Fstat.h, Fec.err_tw_lo[:,0], Fec.err_tw_hi[:,0], alpha=0.3,
                        color=Fstat.color, label="$\\epsilon_{\\overline{\\theta'w'}}$")
@@ -568,7 +569,7 @@ ax2[0,2].plot(Astat.u_var_rot.isel(z=Astat.isbl)/Astat.ustar0/Astat.ustar0,
               Astat.z.isel(z=Astat.isbl)/Astat.h, 
               c="k", ls="-", lw=2, label="$\\langle u'u' \\rangle$")
 ax2[0,2].plot(Aec.u_var_rot[:,1]/Astat.ustar0/Astat.ustar0,
-              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="UAS")
+              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="EC")
 # shade errors
 ax2[0,2].fill_betweenx(Aec.z/Astat.h, Aec.err_uu_rot_lo[:,1], Aec.err_uu_rot_hi[:,1], alpha=0.3,
                        color=Astat.color, label="$\\epsilon_{\\overline{u'u'}}$")
@@ -579,7 +580,7 @@ ax2[1,2].plot(Astat.u_var_rot.isel(z=Astat.isbl)/Astat.ustar0/Astat.ustar0,
               Astat.z.isel(z=Astat.isbl)/Astat.h, 
               c="k", ls="-", lw=2, label="$\\langle u'u' \\rangle$")
 ax2[1,2].plot(Aec.u_var_rot[:,0]/Astat.ustar0/Astat.ustar0,
-              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="UAS")
+              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="EC")
 # shade errors
 ax2[1,2].fill_betweenx(Aec.z/Astat.h, Aec.err_uu_rot_lo[:,0], Aec.err_uu_rot_hi[:,0], alpha=0.3,
                        color=Astat.color, label="$\\epsilon_{\\overline{u'u'}}$")
@@ -590,7 +591,7 @@ ax2[2,2].plot(Fstat.u_var_rot.isel(z=Fstat.isbl)/Fstat.ustar0/Fstat.ustar0,
               Fstat.z.isel(z=Fstat.isbl)/Fstat.h, 
               c="k", ls="-", lw=2, label="$\\langle u'u' \\rangle$")
 ax2[2,2].plot(Fec.u_var_rot[:,1]/Fstat.ustar0/Fstat.ustar0,
-              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="UAS")
+              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="EC")
 # shade errors
 ax2[2,2].fill_betweenx(Fec.z/Fstat.h, Fec.err_uu_rot_lo[:,1], Fec.err_uu_rot_hi[:,1], alpha=0.3,
                        color=Fstat.color, label="$\\epsilon_{\\overline{u'u'}}$")
@@ -601,7 +602,7 @@ ax2[3,2].plot(Fstat.u_var_rot.isel(z=Fstat.isbl)/Fstat.ustar0/Fstat.ustar0,
               Fstat.z.isel(z=Fstat.isbl)/Fstat.h, 
               c="k", ls="-", lw=2, label="$\\langle u'u' \\rangle$")
 ax2[3,2].plot(Fec.u_var_rot[:,0]/Fstat.ustar0/Fstat.ustar0,
-              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="UAS")
+              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="EC")
 # shade errors
 ax2[3,2].fill_betweenx(Fec.z/Fstat.h, Fec.err_uu_rot_lo[:,0], Fec.err_uu_rot_hi[:,0], alpha=0.3,
                        color=Fstat.color, label="$\\epsilon_{\\overline{u'u'}}$")
@@ -614,7 +615,7 @@ ax2[0,3].plot(Astat.w_var.isel(z=Astat.isbl)/Astat.ustar0/Astat.ustar0,
               Astat.z.isel(z=Astat.isbl)/Astat.h, 
               c="k", ls="-", lw=2, label="$\\langle w'w' \\rangle$")
 ax2[0,3].plot(Aec.w_var[:,1]/Astat.ustar0/Astat.ustar0,
-              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="UAS")
+              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="EC")
 # shade errors
 ax2[0,3].fill_betweenx(Aec.z/Astat.h, Aec.err_ww_lo[:,1], Aec.err_ww_hi[:,1], alpha=0.3,
                        color=Astat.color, label="$\\epsilon_{\\overline{w'w'}}$")
@@ -625,7 +626,7 @@ ax2[1,3].plot(Astat.w_var.isel(z=Astat.isbl)/Astat.ustar0/Astat.ustar0,
               Astat.z.isel(z=Astat.isbl)/Astat.h, 
               c="k", ls="-", lw=2, label="$\\langle w'w' \\rangle$")
 ax2[1,3].plot(Aec.w_var[:,0]/Astat.ustar0/Astat.ustar0,
-              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="UAS")
+              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="EC")
 # shade errors
 ax2[1,3].fill_betweenx(Aec.z/Astat.h, Aec.err_ww_lo[:,0], Aec.err_ww_hi[:,0], alpha=0.3,
                        color=Astat.color, label="$\\epsilon_{\\overline{w'w'}}$")
@@ -636,7 +637,7 @@ ax2[2,3].plot(Fstat.w_var.isel(z=Fstat.isbl)/Fstat.ustar0/Fstat.ustar0,
               Fstat.z.isel(z=Fstat.isbl)/Fstat.h, 
               c="k", ls="-", lw=2, label="$\\langle w'w' \\rangle$")
 ax2[2,3].plot(Fec.w_var[:,1]/Fstat.ustar0/Fstat.ustar0,
-              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="UAS")
+              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="EC")
 # shade errors
 ax2[2,3].fill_betweenx(Fec.z/Fstat.h, Fec.err_ww_lo[:,1], Fec.err_ww_hi[:,1], alpha=0.3,
                        color=Fstat.color, label="$\\epsilon_{\\overline{w'w'}}$")
@@ -647,25 +648,70 @@ ax2[3,3].plot(Fstat.w_var.isel(z=Fstat.isbl)/Fstat.ustar0/Fstat.ustar0,
               Fstat.z.isel(z=Fstat.isbl)/Fstat.h, 
               c="k", ls="-", lw=2, label="$\\langle w'w' \\rangle$")
 ax2[3,3].plot(Fec.w_var[:,0]/Fstat.ustar0/Fstat.ustar0,
-              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="UAS")
+              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="EC")
 # shade errors
 ax2[3,3].fill_betweenx(Fec.z/Fstat.h, Fec.err_ww_lo[:,0], Fec.err_ww_hi[:,0], alpha=0.3,
                        color=Fstat.color, label="$\\epsilon_{\\overline{w'w'}}$")
 ax2[3,3].fill_betweenx(Fec.z/Fstat.h, Fec.err_ww_lo3[:,0], Fec.err_ww_hi3[:,0], alpha=0.1,
                        color=Fstat.color)
 
+# column 5: theta'theta'
+# row 1: A, 1800s
+ax2[0,4].plot(Astat.theta_var.isel(z=Astat.isbl)/Astat.tstar0/Astat.tstar0,
+              Astat.z.isel(z=Astat.isbl)/Astat.h, 
+              c="k", ls="-", lw=2, label="$\\langle \\theta'\\theta' \\rangle$")
+ax2[0,4].plot(Aec.theta_var[:,1]/Astat.tstar0/Astat.tstar0,
+              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="EC")
+# shade errors
+ax2[0,4].fill_betweenx(Aec.z/Astat.h, Aec.err_tt_lo[:,1], Aec.err_tt_hi[:,1], alpha=0.3,
+                       color=Astat.color, label="$\\epsilon_{\\overline{\\theta'\\theta'}}$")
+ax2[0,4].fill_betweenx(Aec.z/Astat.h, Aec.err_tt_lo3[:,1], Aec.err_tt_hi3[:,1], alpha=0.1,
+                       color=Astat.color)
+# row 2: A, 60s
+ax2[1,4].plot(Astat.theta_var.isel(z=Astat.isbl)/Astat.tstar0/Astat.tstar0,
+              Astat.z.isel(z=Astat.isbl)/Astat.h, 
+              c="k", ls="-", lw=2, label="$\\langle w'w' \\rangle$")
+ax2[1,4].plot(Aec.theta_var[:,0]/Astat.tstar0/Astat.tstar0,
+              Aec.z/Astat.h, c=Astat.color, ls="-", lw=2, label="EC")
+# shade errors
+ax2[1,4].fill_betweenx(Aec.z/Astat.h, Aec.err_tt_lo[:,0], Aec.err_tt_hi[:,0], alpha=0.3,
+                       color=Astat.color, label="$\\epsilon_{\\overline{\\theta'\\theta'}}$")
+ax2[1,4].fill_betweenx(Aec.z/Astat.h, Aec.err_tt_lo3[:,0], Aec.err_tt_hi3[:,0], alpha=0.1,
+                       color=Astat.color)
+# row 3: F, 1800s
+ax2[2,4].plot(Fstat.theta_var.isel(z=Fstat.isbl)/Fstat.tstar0/Fstat.tstar0,
+              Fstat.z.isel(z=Fstat.isbl)/Fstat.h, 
+              c="k", ls="-", lw=2, label="$\\langle \\theta'\\theta' \\rangle$")
+ax2[2,4].plot(Fec.theta_var[:,1]/Fstat.tstar0/Fstat.tstar0,
+              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="EC")
+# shade errors
+ax2[2,4].fill_betweenx(Fec.z/Fstat.h, Fec.err_tt_lo[:,1], Fec.err_tt_hi[:,1], alpha=0.3,
+                       color=Fstat.color, label="$\\epsilon_{\\overline{\\theta'\\theta'}}$")
+ax2[2,4].fill_betweenx(Fec.z/Fstat.h, Fec.err_tt_lo3[:,1], Fec.err_tt_hi3[:,1], alpha=0.1,
+                       color=Fstat.color)
+# row 4: F, 60s
+ax2[3,4].plot(Fstat.theta_var.isel(z=Fstat.isbl)/Fstat.tstar0/Fstat.tstar0,
+              Fstat.z.isel(z=Fstat.isbl)/Fstat.h, 
+              c="k", ls="-", lw=2, label="$\\langle \\theta'\\theta' \\rangle$")
+ax2[3,4].plot(Fec.theta_var[:,0]/Fstat.tstar0/Fstat.tstar0,
+              Fec.z/Fstat.h, c=Fstat.color, ls="-", lw=2, label="EC")
+# shade errors
+ax2[3,4].fill_betweenx(Fec.z/Fstat.h, Fec.err_tt_lo[:,0], Fec.err_tt_hi[:,0], alpha=0.3,
+                       color=Fstat.color, label="$\\epsilon_{\\overline{\\theta'\\theta'}}$")
+ax2[3,4].fill_betweenx(Fec.z/Fstat.h, Fec.err_tt_lo3[:,0], Fec.err_tt_hi3[:,0], alpha=0.1,
+                       color=Fstat.color)
 #
 # clean up
 #
 # legends: upper right for cols 0,2,3, upper left for col 1
-for icol in range(4):
+for icol in range(5):
     for irow in range(4):
         if icol==1:
             ax2[irow,icol].legend(loc="upper left", labelspacing=0.10, 
-                handletextpad=0.4, shadow=True)
+                                  handletextpad=0.4, shadow=True, handlelength=0.75)
         else:
             ax2[irow,icol].legend(loc="upper right", labelspacing=0.10, 
-            handletextpad=0.4, shadow=True)
+                                  handletextpad=0.4, shadow=True, handlelength=0.75)
 # yaxis ticks and labels
 for irow in range(4):
     ax2[irow,0].set_ylabel("$z/h$")
@@ -693,12 +739,17 @@ ax2[3,3].set_xlabel("$\\overline{w'w'}/u_{*0}^2$")
 ax2[3,3].set_xlim(config["A"]["xlim"]["ax3_2"])
 ax2[3,3].xaxis.set_major_locator(MultipleLocator(config["A"]["xmaj"]["ax3_2"]))
 ax2[3,3].xaxis.set_minor_locator(MultipleLocator(config["A"]["xmin"]["ax3_2"]))
+# col 4
+ax2[3,4].set_xlabel("$\\overline{\\theta'\\theta'}/\\theta_{*0}^2$")
+ax2[3,4].set_xlim(config["A"]["xlim"]["ax3_3"])
+ax2[3,4].xaxis.set_major_locator(MultipleLocator(config["A"]["xmaj"]["ax3_3"]))
+ax2[3,4].xaxis.set_minor_locator(MultipleLocator(config["A"]["xmin"]["ax3_3"]))
 # edit tick style and add subplot labels
 for iax in ax2.flatten():
     iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
-for iax, p, jax in zip(ax2.flatten(), list("abcdefghijklmnop"), range(16)):
-    if jax in [1, 5, 9, 13]:
-        iax.text(0.84,0.05,f"$\\textbf{{({p})}}$",fontsize=20,
+for iax, p, jax in zip(ax2.flatten(), list("abcdefghijklmnopqrst"), range(20)):
+    if jax in [1, 4, 6, 9, 11, 14, 17, 19]:
+        iax.text(0.8,0.05,f"$\\textbf{{({p})}}$",fontsize=20,
                 transform=iax.transAxes)
     else:
         iax.text(0.03,0.05,f"$\\textbf{{({p})}}$",fontsize=20,
@@ -714,6 +765,7 @@ plt.close(fig2)
 # --------------------------------
 # Calculate optimal ascent rates and plot
 # --------------------------------
+
 print("Begin optimal UAS ascent rate calculations")
 # construct range of recalculated errors
 Tnew0 = config["recalc_lo"]
@@ -871,17 +923,17 @@ err_range_ec = config["err_range_ec"]
 for ec in [Aecavg, Fecavg]:
     # create empty dataarrays within the datasets for storing
     ec["t_ustar2"] = xr.DataArray(np.zeros((ec.z.size, ne), dtype=np.float64),
-                              coords=dict(z=ec.z, err=err_range_ec))
+                                  coords=dict(z=ec.z, err=err_range_ec))
     ec["t_tw_cov_tot"] = xr.DataArray(np.zeros((ec.z.size, ne), dtype=np.float64),
-                                 coords=dict(z=ec.z, err=err_range_ec))
+                                      coords=dict(z=ec.z, err=err_range_ec))
     ec["t_uu_var_rot"] = xr.DataArray(np.zeros((ec.z.size, ne), dtype=np.float64),
                                       coords=dict(z=ec.z, err=err_range_ec))
     ec["t_vv_var_rot"] = xr.DataArray(np.zeros((ec.z.size, ne), dtype=np.float64),
                                       coords=dict(z=ec.z, err=err_range_ec))
     ec["t_ww_var"] = xr.DataArray(np.zeros((ec.z.size, ne), dtype=np.float64),
                                   coords=dict(z=ec.z, err=err_range_ec))
-    ec["t_e"] = xr.DataArray(np.zeros((ec.z.size, ne), dtype=np.float64),
-                             coords=dict(z=ec.z, err=err_range_ec))
+    ec["t_tt_var"] = xr.DataArray(np.zeros((ec.z.size, ne), dtype=np.float64),
+                                  coords=dict(z=ec.z, err=err_range_ec))
     # loop over error level
     for je, e in enumerate(err_range_ec):
         # loop over height
@@ -921,18 +973,18 @@ for ec in [Aecavg, Fecavg]:
                 ec["t_ww_var"][jz,je] = Tnew_ec[iww[0]]
             else:
                 ec["t_ww_var"][jz,je] = np.nan
-            # uh
-            iee = np.where(ec.e.isel(z=jz) <= e)[0]
+            # tt_var
+            itt = np.where(ec.tt_var.isel(z=jz) <= e)[0]
             # check for empty array
-            if np.size(iee) > 0:
-                ec["t_e"][jz,je] = Tnew_ec[iee[0]]
+            if np.size(itt) > 0:
+                ec["t_tt_var"][jz,je] = Tnew_ec[itt[0]]
             else:
-                ec["t_e"][jz,je] = np.nan
+                ec["t_tt_var"][jz,je] = np.nan
 
 #
 # plot covariances
 #
-fig5, ax5 = plt.subplots(nrows=2, ncols=4, sharex="col", sharey=True, 
+fig5, ax5 = plt.subplots(nrows=2, ncols=5, sharex="col", sharey=True, 
                         figsize=(14.8,7.5), constrained_layout=True)
 # loop over error levels
 for je, e in enumerate(err_range_ec):
@@ -946,8 +998,11 @@ for je, e in enumerate(err_range_ec):
     # u_var_rot
     ax5[0,2].plot(Aecavg.t_uu_var_rot.isel(err=je)/60., Aecavg.z/Aecavg.h,
                        ls=lines[je], c=colors[0], lw=2)
-    # w_var_rot
+    # w_var
     ax5[0,3].plot(Aecavg.t_ww_var.isel(err=je)/60., Aecavg.z/Aecavg.h,
+                       ls=lines[je], c=colors[0], lw=2)
+    # theta_var
+    ax5[0,4].plot(Aecavg.t_tt_var.isel(err=je)/60., Aecavg.z/Aecavg.h,
                        ls=lines[je], c=colors[0], lw=2)
     # F
     # ustar2
@@ -959,8 +1014,11 @@ for je, e in enumerate(err_range_ec):
     # u_var_rot
     ax5[1,2].plot(Fecavg.t_uu_var_rot.isel(err=je)/60., Fecavg.z/Fecavg.h,
                        ls=lines[je], c=colors[5], lw=2)
-    # w_var_rot
+    # w_var
     ax5[1,3].plot(Fecavg.t_ww_var.isel(err=je)/60., Fecavg.z/Fecavg.h,
+                       ls=lines[je], c=colors[5], lw=2)
+    # theta_var
+    ax5[1,4].plot(Fecavg.t_tt_var.isel(err=je)/60., Fecavg.z/Fecavg.h,
                        ls=lines[je], c=colors[5], lw=2)
 
 # create line handles to explain linestyle for error ranges
@@ -975,12 +1033,12 @@ l7=ax5[0,0].plot([], [], ls=lines[3], c="k",
 # combine
 ltot = l4 + l5 + l6 + l7
 # add legend
-ax5[0,0].legend(handles=ltot, loc="right",
+ax5[0,0].legend(handles=ltot, loc="right", handlelength=0.75,
                 labelspacing=0.10, handletextpad=0.4, shadow=True)
 # clean up
-for iax, p in zip(ax5.flatten(), list("abcdefgh")):
+for iax, p in zip(ax5.flatten(), list("abcdefghij")):
     iax.tick_params(which="both", direction="in", top=True, right=True, pad=8)
-    iax.text(0.85,0.05,f"$\\textbf{{({p})}}$",fontsize=20,
+    iax.text(0.80,0.05,f"$\\textbf{{({p})}}$",fontsize=20,
              transform=iax.transAxes)
 ax5[0,0].set_xlim([0, 120])
 ax5[0,0].xaxis.set_major_locator(MultipleLocator(30))
@@ -991,19 +1049,23 @@ ax5[0,0].set_ylim([0, 1])
 ax5[0,0].yaxis.set_major_locator(MultipleLocator(0.2))
 ax5[0,0].yaxis.set_minor_locator(MultipleLocator(0.05))
 ax5[1,0].set_ylabel("$z/h$")
-ax5[1,0].set_xlabel("$u_*^2$ Averaging Time [min]")
+ax5[1,0].set_xlabel("$u_*^2$ $T_{avg}$ [min]")
 ax5[1,1].set_xlim([0, 120])
 ax5[1,1].xaxis.set_major_locator(MultipleLocator(30))
 ax5[1,1].xaxis.set_minor_locator(MultipleLocator(5))
-ax5[1,1].set_xlabel("$\\overline{\\theta'w'}$ Averaging Time [min]")
+ax5[1,1].set_xlabel("$\\overline{\\theta'w'}$ $T_{avg}$ [min]")
 ax5[1,2].set_xlim([0, 120])
 ax5[1,2].xaxis.set_major_locator(MultipleLocator(30))
 ax5[1,2].xaxis.set_minor_locator(MultipleLocator(5))
-ax5[1,2].set_xlabel("$\\overline{u'u'}$ Averaging Time [min]")
+ax5[1,2].set_xlabel("$\\overline{u'u'}$ $T_{avg}$ [min]")
 ax5[1,3].set_xlim([0, 60])
 ax5[1,3].xaxis.set_major_locator(MultipleLocator(20))
 ax5[1,3].xaxis.set_minor_locator(MultipleLocator(5))
-ax5[1,3].set_xlabel("$\\overline{w'w'}$ Averaging Time [min]")
+ax5[1,3].set_xlabel("$\\overline{w'w'}$ $T_{avg}$ [min]")
+ax5[1,4].set_xlim([0, 120])
+ax5[1,4].xaxis.set_major_locator(MultipleLocator(30))
+ax5[1,4].xaxis.set_minor_locator(MultipleLocator(5))
+ax5[1,4].set_xlabel("$\\overline{\\theta'\\theta'}$ $T_{avg}$ [min]")
 # save and close
 fsave5 = f"{fdir_save}AF_tavg_covar_var.pdf"
 print(f"Saving figure: {fsave5}")

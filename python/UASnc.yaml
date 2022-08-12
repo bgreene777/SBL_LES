@@ -14,13 +14,13 @@ A:
     ax1_1: [180, 300]
     ax1_2: [262, 265]
     # figure 2: covariances - ustar2 and theta'w'
-    ax2_0: [0, 1.5]
-    ax2_1: [-1.5, 0]
-    # figure 3: variances - u_rot, v_rot, w, TKE
-    ax3_0: [0, 5]
+    ax2_0: [0, 2]
+    ax2_1: [-2, 0.5]
+    # figure 3: variances - u_rot, v_rot, w, theta
+    ax3_0: [0, 6]
     ax3_1: [0, 3]
     ax3_2: [0, 2]
-    ax3_3: [0, 5]
+    ax3_3: [0, 8]
   xmaj:
     # figure 1
     ax1_0: 2
@@ -28,12 +28,12 @@ A:
     ax1_2: 1
     # figure 2
     ax2_0: 0.5
-    ax2_1: 0.5
+    ax2_1: 1
     # figure 3
     ax3_0: 1
     ax3_1: 1
     ax3_2: 1
-    ax3_3: 1
+    ax3_3: 2
   xmin:
     # figure 1
     ax1_0: 0.5
@@ -46,7 +46,7 @@ A:
     ax3_0: 0.25
     ax3_1: 0.25
     ax3_2: 0.25
-    ax3_3: 0.25
+    ax3_3: 0.5
 F:
   xlim:
     # figure 1: uh, alpha, theta
