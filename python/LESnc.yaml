@@ -18,6 +18,8 @@ run_timeseries: False
 run_autocorr: True
 # number of blocks to use for autocorr
 nblock_ac: 1
+# factor by which to increase through spectral interpolation
+nint: 8
 # simulation resolution
 res: 192
 # string to label stability

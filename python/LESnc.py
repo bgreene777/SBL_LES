@@ -711,68 +711,125 @@ def autocorr_from_volume():
     t0 = config["t0"]
     t1 = config["t1"]
     dt = config["dt"]
-    delta_t = config["delta_t"]
-    # load volume data
-    dd, s = load_full(dnc, t0, t1, dt, delta_t, True, True)
-    # define exponential autocorrelation function for curve fitting
-    def acf(xx, Lint):
-        return np.exp(-np.abs(xx) / Lint)
+    nint = config["nint"]
+    # timestep array for loading files
+    timesteps = np.arange(t0, t1+1, dt, dtype=np.int32)
+    # determine files to read from timesteps
+    fall = [f"{dnc}all_{tt:07d}.nc" for tt in timesteps]
+    nf = len(fall)
+    # load stats file
+    s = load_stats(dnc+"average_statistics.nc")
+    # new size of arrays to use after spectral interpolation
+    nx2 = nint * s.nx
     # calculate atocorrelation function along x-dimension as pencils
     # integrate to calc length scale then average in y and t
     # initialize empty dataset for storing integral scales
-    L = xr.Dataset(data_vars=None, coords=dict(z=s.z[range(s.nzsbl)]), 
-                   attrs=dd.attrs)
-    print_both("Begin looping over all variables...", fprint)
-    ## BIG LOOP OVER VARIABLES HERE
-    vall = ["u", "v", "w", "theta"]
+    Lsave = xr.Dataset(data_vars=None, coords=dict(z=s.z[range(s.nzsbl)]), 
+                       attrs=s.attrs)
+    # variables to process
+    vall = ["u_rot", "v_rot", "w", "theta"]
+    # dictionary for cumulative values for each var
+    Lall = {}
     for v in vall:
-        print_both(f"Begin {v}", fprint)
-        # empty array to store values into before converting to DataArray
-        Lz = np.zeros(s.nzsbl, dtype=np.float64)
-        # loop over z - only within SBL
-        for jz in range(s.nzsbl):
-            print_both(f"jz={jz}/{s.nzsbl-1}", fprint)
-            # initialize empty PSD arrays
-            PSD = np.zeros(dd.nx, dtype=np.float64)
-            # initialize empty lengthscale == 0 to append and average later
-            Lall = 0
-            # loop over y
-            for jy in range(s.ny):
-                # loop over time
-                for jt in range(dd.time.size):
+        Lall[v] = np.zeros(s.nzsbl, dtype=np.float64)
+    # BEGIN LOOPING
+    # load one volume file at a time
+    for tfile in fall:
+        # load file
+        print_both(f"Loading file: {tfile}", fprint)
+        dd = xr.load_dataset(tfile)
+        # rotate velocities so <v>_xy = 0
+        u_mean = dd.u.mean(dim=("x","y"))
+        v_mean = dd.v.mean(dim=("x","y"))
+        angle = np.arctan2(v_mean, u_mean)
+        dd["u_rot"] = dd.u*np.cos(angle) + dd.v*np.sin(angle)
+        dd["v_rot"] =-dd.u*np.sin(angle) + dd.v*np.cos(angle)
+        print_both("Begin looping over all variables...", fprint)
+        ## BIG LOOP OVER VARIABLES HERE
+        for v in vall:
+            print_both(f"Begin {v}", fprint)
+            # loop over z - only within SBL
+            for jz in range(s.nzsbl):
+                print_both(f"jz={jz}/{s.nzsbl-1}", fprint)
+                # initialize empty PSD arrays
+                PSD = np.zeros(nx2, dtype=np.float64)
+                # initialize empty lengthscale == 0 to append and average later
+                Lcum = 0
+                # loop over y
+                for jy in range(s.ny):
                     # grab data
-                    d = dd[v].isel(time=jt, y=jy, z=jz).values
+                    d = dd[v].isel(y=jy, z=jz).to_numpy()
                     # detrend data linearly
-                    dat = detrend(d, axis=0, type="linear")
+                    d2 = detrend(d, axis=0, type="linear")
+                    # spectral interpolate
+                    dat, xnew = interp_spec(d2, s.Lx, nint)
                     # fft
                     f = fft(dat, axis=0)
                     # calculate PSD
-                    for jx in range(1, dd.nx//2):
+                    for jx in range(1, nx2//2):
                         PSD[jx] = np.real( f[jx] * np.conj(f[jx]) )
-                        PSD[dd.nx-jx] = np.real( f[dd.nx-jx] * np.conj(f[dd.nx-jx]) )
+                        PSD[nx2-jx] = np.real( f[nx2-jx] * np.conj(f[nx2-jx]) )
                     # normalize by variance
                     PSD /= np.var(dat)
                     # ifft to get autocorrelation and norm by nx
-                    R = np.real( ifft(PSD, axis=0) ) / dd.nx
-                    # fit exponential to autocorrelation to get integral scale
-                    LL, _ = curve_fit(f=acf, 
-                                    xdata=dd.x[:dd.nx//2],
-                                    ydata=R[:dd.nx//2])
-                    Lall += LL
-            # after looping over y and t, divide Lall to average
-            Lall /= (s.ny * dd.time.size)
-            # store in Lz array
-            Lz[jz] = Lall
-        # convert Lz into DataArray to store within L
-        L[v] = xr.DataArray(data=Lz, dims="z", coords=dict(z=L.z))
+                    R = np.real( ifft(PSD, axis=0) ) / nx2
+                    # integrate up through first zero crossing
+                    # find indices
+                    i0 = np.where(R < 0.)[0]
+                    if len(i0) == 0:
+                        i0 = 1
+                    else:
+                        i0 = i0[0]
+                    # integrate
+                    Lint = np.trapz(R[:i0], xnew[:i0])
+                    # store value
+                    Lcum += Lint
+                # after looping over y and t, divide Lcum to average
+                # store in Lall dictionary
+                Lall[v][jz] += Lcum / s.ny
+            print_both(f"L{v}: {Lall[v]}", fprint)
+    # after looping through files, average Lall in time
+    # convert to individual dataarrays to store in Lsave
+    for v in vall:
+        Lall[v] /= nf
+        Lsave[v] = xr.DataArray(data=Lall[v], dims="z", coords=dict(z=Lsave.z))
+
     # save L and return
     fsaveL = f"{dnc}L_vol.nc"
     print_both(f"Saving file: {fsaveL}", fprint)
     with ProgressBar():
-        L.to_netcdf(fsaveL, mode="w")    
+        Lsave.to_netcdf(fsaveL, mode="w")    
     print_both("Finshed with all processes!", fprint)
 
     return
+# ---------------------------------------------
+def interp_spec(d, Lx, nf):
+    """Interpolate a 1d array d spectrally
+    input d: original data
+    input Lx: length of domain
+    input nf: factor by which to increase number of points
+    output d2: interpolated array
+    output Lx2: interpolated array of x values
+    """
+    # define new parameters
+    nx = len(d)
+    nx2 = nf*nx
+    # new position array
+    Lx2 = np.linspace(0., Lx, nx2)
+    # initialize empty arrays for fft and ifft
+    f_big = np.zeros(nx2, dtype=np.complex128)
+    d2 = np.zeros(nx2, dtype=np.float64)
+    # begin interpolation
+    # take FFT
+    f_d = fft(d, axis=0)
+    # zero-pad fft array
+    f_big[0] = f_d[0]                  # zero wavenumber
+    f_big[1:nx//2] = f_d[1:nx//2]      # positive wavenumbers
+    f_big[nx2-nx//2:nx2] = f_d[nx//2:] # negative wavenumbers
+    # normalize by number of points and ifft
+    d2[:] = np.real( ifft(f_big * (nx2/nx)) )
+    # return
+    return [d2, Lx2]
 
 # --------------------------------
 # Run script if desired
