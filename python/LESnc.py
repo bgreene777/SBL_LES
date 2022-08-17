@@ -752,40 +752,43 @@ def autocorr_from_volume():
             for jz in range(s.nzsbl):
                 print_both(f"jz={jz}/{s.nzsbl-1}", fprint)
                 # initialize empty PSD arrays
-                PSD = np.zeros(nx2, dtype=np.float64)
-                # initialize empty lengthscale == 0 to append and average later
-                Lcum = 0
+                PSD = np.zeros((nx2, s.ny), dtype=np.float64)
+                # grab data
+                d = dd[v].isel(z=jz).to_numpy()
+                # detrend data linearly
+                d2 = detrend(d, axis=0, type="linear")
+                # spectral interpolate
+                dint = np.zeros((nx2, s.ny), dtype=np.float64)
                 # loop over y
                 for jy in range(s.ny):
-                    # grab data
-                    d = dd[v].isel(y=jy, z=jz).to_numpy()
-                    # detrend data linearly
-                    d2 = detrend(d, axis=0, type="linear")
-                    # spectral interpolate
-                    dat, xnew = interp_spec(d2, s.Lx, nint)
-                    # fft
-                    f = fft(dat, axis=0)
-                    # calculate PSD
-                    for jx in range(1, nx2//2):
-                        PSD[jx] = np.real( f[jx] * np.conj(f[jx]) )
-                        PSD[nx2-jx] = np.real( f[nx2-jx] * np.conj(f[nx2-jx]) )
-                    # normalize by variance
-                    PSD /= np.var(dat)
-                    # ifft to get autocorrelation and norm by nx
-                    R = np.real( ifft(PSD, axis=0) ) / nx2
+                    dint[:,jy], xnew = interp_spec(d2[:,jy], s.Lx, nint)
+                # fft
+                f = fft(dint, axis=0)
+                # calculate PSD
+                for jx in range(1, nx2//2):
+                    PSD[jx,:] = np.real( f[jx,:] * np.conj(f[jx,:]) )
+                    PSD[nx2-jx,:] = np.real( f[nx2-jx,:] * np.conj(f[nx2-jx,:]) )
+                # normalize by variance
+                PSD /= np.var(dint, axis=0)
+                # ifft to get autocorrelation and norm by nx
+                R = np.real( ifft(PSD, axis=0) ) / nx2
+                # initialize empty lengthscale == 0 to append and average later
+                Lcum = 0
+                # loopy over y to integrate autocorr for lengthscale
+                for jy in range(s.ny):
                     # integrate up through first zero crossing
                     # find indices
-                    i0 = np.where(R < 0.)[0]
+                    i0 = np.where(R[:,jy] < 0.)[0]
                     if len(i0) == 0:
                         i0 = 1
                     else:
                         i0 = i0[0]
                     # integrate
-                    Lint = np.trapz(R[:i0], xnew[:i0])
+                    Lint = np.trapz(R[:i0,jy], xnew[:i0])
                     # store value
                     Lcum += Lint
                 # after looping over y and t, divide Lcum to average
-                # store in Lall dictionary
+                # store in Lall dictionary by adding to average by nf later
                 Lall[v][jz] += Lcum / s.ny
             print_both(f"L{v}: {Lall[v]/(jt+1)}", fprint)
     # after looping through files, average Lall in time
