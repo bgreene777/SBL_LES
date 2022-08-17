@@ -727,7 +727,12 @@ def autocorr_from_volume():
     Lsave = xr.Dataset(data_vars=None, coords=dict(z=s.z[range(s.nzsbl)]), 
                        attrs=s.attrs)
     # variables to process
-    vall = ["u_rot", "v_rot", "w", "theta"]
+    # 1st order
+    vall1 = ["u_rot", "v_rot", "w", "theta"]
+    # 2nd order
+    vall2 = ["uw", "vw", "tw", "uu", "vv", "ww", "tt"]
+    # combine
+    vall = vall1 + vall2
     # dictionary for cumulative values for each var
     Lall = {}
     for v in vall:
@@ -744,7 +749,30 @@ def autocorr_from_volume():
         angle = np.arctan2(v_mean, u_mean)
         dd["u_rot"] = dd.u*np.cos(angle) + dd.v*np.sin(angle)
         dd["v_rot"] =-dd.u*np.sin(angle) + dd.v*np.cos(angle)
-        print_both("Begin looping over all variables...", fprint)
+        # SECOND ORDER PARAMETERS
+        # calculate instantaneous uw, vw, tw, uu, vv, ww, tt
+        # fluxes
+        w_mean = dd.w.mean(dim=("x","y"))
+        theta_mean = dd.theta.mean(dim=("x","y"))
+        dd["uw"] = (dd.u - u_mean) * (dd.w - w_mean) + dd.txz
+        dd["vw"] = (dd.v - v_mean) * (dd.w - w_mean) + dd.tyz
+        dd["tw"] = (dd.theta - theta_mean) * (dd.w - w_mean) + dd.q3
+        # variances - use urot, vrot
+        # detrend
+        udet = detrend(dd.u_rot, axis=0, type="linear")
+        vdet = detrend(dd.v_rot, axis=0, type="linear")
+        wdet = detrend(dd.w, axis=0, type="linear")
+        tdet = detrend(dd.theta, axis=0, type="linear")
+        dd["uu"] = xr.DataArray(data=udet*udet, dims=("x","y","z"), 
+                                coords=dict(x=dd.x, y=dd.y, z=dd.z))
+        dd["vv"] = xr.DataArray(data=vdet*vdet, dims=("x","y","z"), 
+                                coords=dict(x=dd.x, y=dd.y, z=dd.z))
+        dd["ww"] = xr.DataArray(data=wdet*wdet, dims=("x","y","z"), 
+                                coords=dict(x=dd.x, y=dd.y, z=dd.z))
+        dd["tt"] = xr.DataArray(data=tdet*tdet, dims=("x","y","z"), 
+                                coords=dict(x=dd.x, y=dd.y, z=dd.z))
+
+        print_both("Begin looping over all parameters...", fprint)
         ## BIG LOOP OVER VARIABLES HERE
         for v in vall:
             print_both(f"Begin {v}", fprint)
@@ -755,8 +783,11 @@ def autocorr_from_volume():
                 PSD = np.zeros((nx2, s.ny), dtype=np.float64)
                 # grab data
                 d = dd[v].isel(z=jz).to_numpy()
-                # detrend data linearly
-                d2 = detrend(d, axis=0, type="linear")
+                # detrend data linearly for first order
+                if v in vall1:
+                    d2 = detrend(d, axis=0, type="linear")
+                else:
+                    d2 = d
                 # spectral interpolate
                 dint = np.zeros((nx2, s.ny), dtype=np.float64)
                 # loop over y
