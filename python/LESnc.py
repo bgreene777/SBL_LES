@@ -734,7 +734,7 @@ def autocorr_from_volume():
         Lall[v] = np.zeros(s.nzsbl, dtype=np.float64)
     # BEGIN LOOPING
     # load one volume file at a time
-    for tfile in fall:
+    for jt, tfile in enumerate(fall):
         # load file
         print_both(f"Loading file: {tfile}", fprint)
         dd = xr.load_dataset(tfile)
@@ -787,7 +787,7 @@ def autocorr_from_volume():
                 # after looping over y and t, divide Lcum to average
                 # store in Lall dictionary
                 Lall[v][jz] += Lcum / s.ny
-            print_both(f"L{v}: {Lall[v]}", fprint)
+            print_both(f"L{v}: {Lall[v]/(jt+1)}", fprint)
     # after looping through files, average Lall in time
     # convert to individual dataarrays to store in Lsave
     for v in vall:
