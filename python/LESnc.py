@@ -380,7 +380,9 @@ def load_stats(fstats, SBL=True, display=False):
     print(f"Reading file: {fstats}")
     dd = xr.load_dataset(fstats)
     # define new label attr that removes "_"
-    dd.attrs["label"] = "-".join(dd.stability.split("_"))
+    dd.attrs["label2"] = "-".join(dd.stability.split("_"))
+    # another label for just the crX.XX part
+    dd.attrs["label"] = dd.stability.split("_")[0]
     # calculate ustar and h
     dd["ustar"] = ((dd.uw_cov_tot**2.) + (dd.vw_cov_tot**2.)) ** 0.25
     dd["ustar2"] = dd.ustar ** 2.
@@ -413,18 +415,25 @@ def load_stats(fstats, SBL=True, display=False):
         dd["he"] = dd.z.where(dd.e <= 0.05*dd.e[0], drop=True)[0]
         # calculate h/L as global stability parameter
         dd["hL"] = dd.he / dd.L
+        # create string for labels from hL
+        dd.attrs["label3"] = f"$h/L = {{{dd.hL.values:3.2f}}}$"
         # calculate Richardson numbers
         # sqrt((du_dz**2) + (dv_dz**2))
-        dd["du_dz"] = np.sqrt(dd.u_mean.differentiate("z", 2)**2. + dd.v_mean.differentiate("z", 2)**2.)
+        dd["du_dz"] = np.sqrt(dd.u_mean.differentiate("z", 2)**2. +\
+                              dd.v_mean.differentiate("z", 2)**2.)
         # Rig = N^2 / S^2
         dd["N2"] = dd.theta_mean.differentiate("z", 2) * 9.81 / dd.theta_mean.isel(z=0)
+        # flag negative values of N^2
+        dd.N2[dd.N2 < 0.] = np.nan
         dd["Rig"] = dd.N2 / dd.du_dz / dd.du_dz
         # Rif = beta * w'theta' / (u'w' du/dz + v'w' dv/dz)
         dd["Rif"] = (9.81/dd.theta_mean.isel(z=0)) * dd.tw_cov_tot /\
-                                (dd.uw_cov_tot*dd.u_mean.differentiate("z", 2) +\
-                                dd.vw_cov_tot*dd.v_mean.differentiate("z", 2))
+                    (dd.uw_cov_tot*dd.u_mean.differentiate("z", 2) +\
+                     dd.vw_cov_tot*dd.v_mean.differentiate("z", 2))
         # calc Ozmidov scale real quick
         dd["Lo"] = np.sqrt(-dd.dissip_mean / (dd.N2 ** (3./2.)))
+        # calculate Kolmogorov microscale: eta = (nu**3 / dissip) ** 0.25
+        dd["eta"] = ((1.14e-5)**3. / (-dd.dissip_mean)) ** 0.25
         # calculate gradient scales from Sorbjan 2017, Greene et al. 2022
         l0 = 19.22 # m
         l1 = 1./(dd.Rig**(3./2.)).where(dd.z <= dd.h, drop=True)
@@ -482,9 +491,12 @@ def load_full(dnc, t0, t1, dt, delta_t, use_stats, SBL):
     if use_stats:
         # load stats file
         s = load_stats(dnc+"average_statistics.nc", SBL=SBL)
-        # calculate rotated u, v based on alpha in stats
-        dd["u_rot"] = dd.u*np.cos(s.alpha) + dd.v*np.sin(s.alpha)
-        dd["v_rot"] =-dd.u*np.sin(s.alpha) + dd.v*np.cos(s.alpha)
+        # calculate rotated u, v based on xy mean at each timestep
+        uxy = dd.u.mean(dim=("x","y"))
+        vxy = dd.v.mean(dim=("x","y"))
+        angle = np.arctan2(vxy, uxy)
+        dd["u_rot"] = dd.u*np.cos(angle) + dd.v*np.sin(angle)
+        dd["v_rot"] =-dd.u*np.sin(angle) + dd.v*np.cos(angle)
         # return both dd and s
         return dd, s
     # just return dd if no SBL
