@@ -919,6 +919,145 @@ def LCS(dnc):
     return
 
 # --------------------------------
+# Define functions for conditional averaging
+# --------------------------------
+def cond_avg(dnc):
+    """
+    Calculate averages of SBL fields conditioned on u'(x,y,z=z(z/h=0.05)) < 2*sigma_u
+    Only load one file at a time
+    Input dnc: directory for netcdf files
+    Output netcdf file
+    """
+    # sim parameters
+    t0 = 1080000
+    t1 = 1260000
+    dt = 1000
+    # timesteps for loading files
+    timesteps = np.arange(t0, t1+1, dt, dtype=np.int32)
+    # determine files to read from timesteps
+    fall = [f"{dnc}all_{tt:07d}.nc" for tt in timesteps]
+    nf = len(fall)
+    # load stats file
+    s = load_stats(dnc+"average_statistics.nc")
+    # grab some useful params
+    dx = s.dx
+    nx = s.nx
+    ny = s.ny
+    nz = s.nz
+    # find closest z to z/h = 0.05: jz_
+    zh = s.z / s.he
+    close = min(zh.values, key=lambda x:abs(x-0.05))
+    jz_ = np.where(zh.values==close)[0][0]
+    print(f"z/h = 0.05 for jz={jz_}")
+    # read middle volume file to determine alpha_low cutoff
+    dd = xr.load_dataset(fall[nf//2])
+    # rotate velocities so <v>_xy = 0
+    u_mean = dd.u.mean(dim=("x","y"))
+    v_mean = dd.v.mean(dim=("x","y"))
+    angle = np.arctan2(v_mean, u_mean)
+    dd["u_rot"] = dd.u*np.cos(angle) + dd.v*np.sin(angle)
+    dd["v_rot"] =-dd.u*np.sin(angle) + dd.v*np.cos(angle)
+    # calculate u'/u*
+    dd["u_p"] = (dd.u_rot - dd.u_rot.mean(dim=("x","y"))) / s.ustar0
+    # calculate mean and std of u'/u*
+    mu_u = dd.u_p.mean(dim=("x","y"))
+    std_u = dd.u_p.std(dim=("x","y"))
+    # calculate alpha_low cutoff
+    alpha_lo = mu_u[jz_] - 2.0*std_u[jz_]
+    print(f"alpha- = {alpha_lo.values:5.4f}")
+    # max points to include in conditional average
+    n_delta = int(s.he/dx)
+    # number of points upstream and downstream to include in cond avg
+    n_min = 2*n_delta
+    n_max = 2*n_delta
+    # initialize conditionally averaged arrays
+    u_cond_u = np.zeros((n_min+n_max, nz), dtype=np.float64) # < u'/u* | u'/u* < 2*alpha >
+    w_cond_u = np.zeros((n_min+n_max, nz), dtype=np.float64) # < w'/u* | u'/u* < 2*alpha >
+    T_cond_u = np.zeros((n_min+n_max, nz), dtype=np.float64) # < T'/T* | u'/u* < 2*alpha >
+    # initialize counter for number of points satisfying condition
+    n_lo = 0
+    #
+    # BEGIN LOOP OVER FILES
+    #
+    for jt, tfile in enumerate(fall):
+        # load file
+        print(f"Loading file: {tfile}")
+        dd = xr.load_dataset(tfile)
+        # rotate velocities so <v>_xy = 0
+        u_mean = dd.u.mean(dim=("x","y"))
+        v_mean = dd.v.mean(dim=("x","y"))
+        angle = np.arctan2(v_mean, u_mean)
+        dd["u_rot"] = dd.u*np.cos(angle) + dd.v*np.sin(angle)
+        dd["v_rot"] =-dd.u*np.sin(angle) + dd.v*np.cos(angle)
+        # calculate u'/u*
+        dd["u_p"] = (dd.u_rot - dd.u_rot.mean(dim=("x","y"))) / s.ustar0
+        # calculate w'/u*
+        dd["w_p"] = (dd.w - dd.w.mean(dim=("x","y"))) / s.ustar0
+        # calculate theta'/theta*
+        dd["t_p"] = (dd.theta - dd.theta.mean(dim=("x","y"))) / s.tstar0
+        #Create big arrays so we don't have to deal with periodicity
+        # u
+        u_big = np.zeros((3*nx,ny,nz), dtype=np.float64)
+        u_big[0:nx,:,:] = dd.u_p[:,:,:].to_numpy()
+        u_big[nx:2*nx,:,:] = dd.u_p[:,:,:].to_numpy()
+        u_big[2*nx:3*nx,:,:] = dd.u_p[:,:,:].to_numpy()
+        # w
+        w_big = np.zeros((3*nx,ny,nz), dtype=np.float64)
+        w_big[0:nx,:,:] = dd.w_p[:,:,:].to_numpy()
+        w_big[nx:2*nx,:,:] = dd.w_p[:,:,:].to_numpy()
+        w_big[2*nx:3*nx,:,:] = dd.w_p[:,:,:].to_numpy()
+        # theta
+        theta_big = np.zeros((3*nx,ny,nz), dtype=np.float64)
+        theta_big[0:nx,:,:] = dd.t_p[:,:,:].to_numpy()
+        theta_big[nx:2*nx,:,:] = dd.t_p[:,:,:].to_numpy()
+        theta_big[2*nx:3*nx,:,:] = dd.t_p[:,:,:].to_numpy()
+        #
+        # Calculate conditional averages
+        #
+        # loop over y
+        for jy in range(ny):
+            # loop over x
+            for jx in range(nx):
+                # include points if meeting condition
+                if dd.u_p[jx,jy,jz_] < alpha_lo:
+                    n_lo += 1
+                    u_cond_u[:,:] += u_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    w_cond_u[:,:] += w_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    T_cond_u[:,:] += theta_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+    # Finished looping
+    print (f"Number of low momentum regions averaged: {n_lo}")
+    # Normalize by number of samples
+    u_cond_u[:,:] /= n_lo
+    w_cond_u[:,:] /= n_lo
+    T_cond_u[:,:] /= n_lo
+    # store these variables into Dataset for saving
+    # define array coordinates
+    xnew = np.linspace(-1*n_min*dx, n_max*dx, (n_min+n_max))
+    # initialize empty dataset
+    dsave = xr.Dataset(data_vars=None, coords=dict(x=xnew,z=s.z), attrs=s.attrs)
+    # store each variable as DataArray
+    dsave["u_cond_u"] = xr.DataArray(data=u_cond_u, dims=("x","z"),
+                                     coords=dict(x=xnew,z=s.z))
+    dsave["w_cond_u"] = xr.DataArray(data=w_cond_u, dims=("x","z"),
+                                     coords=dict(x=xnew,z=s.z))
+    dsave["T_cond_u"] = xr.DataArray(data=T_cond_u, dims=("x","z"),
+                                     coords=dict(x=xnew,z=s.z))
+    # add some additional attrs
+    dsave.attrs["alpha_lo"] = alpha_lo.values
+    dsave.attrs["n_lo"] = n_lo
+    # save and return
+    fsave = f"{dnc}cond_u.nc"
+    # delete old file for saving new one
+    if os.path.exists(fsave):
+        os.system(f"rm {fsave}")
+    print(f"Saving file: {fsave}")
+    with ProgressBar():
+        dsave.to_netcdf(fsave, mode="w")
+    print("Finished processing conditional averaging!")
+
+    return
+
+# --------------------------------
 # main
 # --------------------------------
 if __name__ == "__main__":
@@ -937,12 +1076,13 @@ if __name__ == "__main__":
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}/output/netcdf/"
         ncdirlist.append(ncdir)
-        calc_spectra(ncdir)
+        # calc_spectra(ncdir)
         # plot_1D_spectra(ncdir, figdir)
-        amp_mod(ncdir)
-        calc_quadrant(ncdir)
+        # amp_mod(ncdir)
+        # calc_quadrant(ncdir)
         # calc_corr2d(ncdir)
         # plot_corr2d(ncdir, figdir_corr2d)
-        LCS(ncdir)
+        # LCS(ncdir)
+        cond_avg(ncdir)
         print(f"---End Sim {sim}---")
-    plot_AM(ncdirlist, figdir_AM)
+    # plot_AM(ncdirlist, figdir_AM)
