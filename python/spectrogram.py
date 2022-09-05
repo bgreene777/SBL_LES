@@ -37,30 +37,33 @@ def calc_spectra(dnc):
     #
     print("Begin power spectrum calculations...")
     # u_rot
-    E_uu = xrft.power_spectrum(dd.u_rot, dim="x", true_phase=True, true_amplitude=True)
+    E_uu = xrft.power_spectrum(dd.u_rot, dim="x", true_phase=True, 
+                               true_amplitude=True, detrend="linear")
     # average in time and y
     E_uu_ytmean = E_uu.mean(dim=("time","y"))
     # w
-    E_ww = xrft.power_spectrum(dd.w, dim="x", true_phase=True, true_amplitude=True)
+    E_ww = xrft.power_spectrum(dd.w, dim="x", true_phase=True, 
+                               true_amplitude=True, detrend="linear")
     # average in time and y
     E_ww_ytmean = E_ww.mean(dim=("time","y"))
     # theta
-    E_tt = xrft.power_spectrum(dd.theta, dim="x", true_phase=True, true_amplitude=True)
+    E_tt = xrft.power_spectrum(dd.theta, dim="x", true_phase=True, 
+                               true_amplitude=True, detrend="linear")
     # average in time and y
     E_tt_ytmean = E_tt.mean(dim=("time","y"))
     # u'w'
     E_uw = xrft.cross_spectrum(dd.u_rot, dd.w, dim="x", scaling="density",
-                               true_phase=True, true_amplitude=True)
+                               true_phase=True, true_amplitude=True, detrend="linear")
     # average in time and y, only take real component
     E_uw_ytmean = np.real(E_uw.mean(dim=("time","y")))
     # theta'w'
     E_tw = xrft.cross_spectrum(dd.theta, dd.w, dim="x", scaling="density",
-                               true_phase=True, true_amplitude=True)
+                               true_phase=True, true_amplitude=True, detrend="linear")
     # average in time and y, only take real component
     E_tw_ytmean = np.real(E_tw.mean(dim=("time","y")))
     # theta'u'
     E_tu = xrft.cross_spectrum(dd.theta, dd.u_rot, dim="x", scaling="density",
-                               true_phase=True, true_amplitude=True)
+                               true_phase=True, true_amplitude=True, detrend="linear")
     # average in time and y, only take real component
     E_tu_ytmean = np.real(E_tu.mean(dim=("time","y")))
 
@@ -83,6 +86,9 @@ def calc_spectra(dnc):
     E_save = E_save.where(E_save.freq_x > 0., drop=True)
     # save file
     fsavenc = f"{dnc}spectrogram.nc"
+    # delete old file for saving new one
+    if os.path.exists(fsavenc):
+        os.system(f"rm {fsavenc}")
     print(f"Saving file: {fsavenc}")
     with ProgressBar():
         E_save.to_netcdf(fsavenc, mode="w")
@@ -325,6 +331,9 @@ def amp_mod(dnc):
 
     # save file
     fsavenc = f"{dnc}AM_coefficients.nc"
+    # delete old file for saving new one
+    if os.path.exists(fsavenc):
+        os.system(f"rm {fsavenc}")
     print(f"Saving file: {fsavenc}")
     with ProgressBar():
         R.to_netcdf(fsavenc, mode="w")
@@ -463,7 +472,7 @@ def plot_AM(dnclist, figdir):
 # --------------------------------
 def calc_quadrant(dnc):
     """
-    Calculate quadrant components of u'w' and theta'w'
+    Calculate quadrant components of u'w', theta'w', theta'u'
     and save single netcdf file for plotting later
     Input dnc: string path directory for location of netcdf files
     Output netcdf file in dnc
@@ -472,9 +481,9 @@ def calc_quadrant(dnc):
     dd, s = load_full(dnc, 1080000, 1260000, 1000, 0.02, True, True)
 
     # get instantaneous u, w, theta perturbations
-    u = dd.u_rot - s.u_mean_rot
-    w = dd.w - s.w_mean
-    theta = dd.theta - s.theta_mean
+    u = dd.u_rot - dd.u_rot.mean(dim=("x","y"))
+    w = dd.w - dd.w.mean(dim=("x","y"))
+    theta = dd.theta - dd.theta.mean(dim=("x","y"))
 
     # calculate four quadrants
     quad = xr.Dataset(data_vars=None,
@@ -510,8 +519,26 @@ def calc_quadrant(dnc):
     quad["tw_np"] = tw_np.mean(dim=("time","x","y"))
     quad["tw_nn"] = tw_nn.mean(dim=("time","x","y"))
 
+    # 3) theta'u'
+    # theta'>0, u'>0
+    tu_pp = theta.where(theta > 0.) * u.where(u > 0.)
+    # theta'>0, w'<0
+    tu_pn = theta.where(theta > 0.) * u.where(u < 0.)
+    # theta'<0, w'>0
+    tu_np = theta.where(theta < 0.) * u.where(u > 0.)
+    # theta'<0, w'<0
+    tu_nn = theta.where(theta < 0.) * u.where(u < 0.)
+    # calculate averages and store in dataset
+    quad["tu_pp"] = tu_pp.mean(dim=("time","x","y"))
+    quad["tu_pn"] = tu_pn.mean(dim=("time","x","y"))
+    quad["tu_np"] = tu_np.mean(dim=("time","x","y"))
+    quad["tu_nn"] = tu_nn.mean(dim=("time","x","y"))
+
     # save quad Dataset as netcdf file for plotting later
-    fsave = f"{dnc}uw_tw_quadrant.nc"
+    fsave = f"{dnc}uw_tw_tu_quadrant.nc"
+    # delete old file for saving new one
+    if os.path.exists(fsave):
+        os.system(f"rm {fsave}")
     print(f"Saving file: {fsave}")
     with ProgressBar():
         quad.to_netcdf(fsave, mode="w")
@@ -540,6 +567,9 @@ def calc_quadrant(dnc):
     quad2d["theta"] = thetalong
     # save
     fsave = f"{dnc}u_w_theta_2d_quadrant.nc"
+    # delete old file for saving new one
+    if os.path.exists(fsave):
+        os.system(f"rm {fsave}")
     print(f"Saving file: {fsave}")
     with ProgressBar():
         quad2d.to_netcdf(fsave, mode="w")
@@ -812,9 +842,9 @@ def LCS(dnc):
     # load data
     dd, s = load_full(dnc, 1080000, 1260000, 1000, 0.02, True, True) 
     # forward FFT   
-    F_uu = xrft.fft(dd.u_rot, dim="x", true_phase=True, true_amplitude=True)
-    F_ww = xrft.fft(dd.w, dim="x", true_phase=True, true_amplitude=True)
-    F_tt = xrft.fft(dd.theta, dim="x", true_phase=True, true_amplitude=True)
+    F_uu = xrft.fft(dd.u_rot, dim="x", true_phase=True, true_amplitude=True, detrend="linear")
+    F_ww = xrft.fft(dd.w, dim="x", true_phase=True, true_amplitude=True, detrend="linear")
+    F_tt = xrft.fft(dd.theta, dim="x", true_phase=True, true_amplitude=True, detrend="linear")
     # first use z = z[0] as reference
     # u
     G2u0 = np.absolute((F_uu * F_uu.isel(z=0).conj()).mean(dim=("y","time"))) ** 2. /\
@@ -866,13 +896,21 @@ def LCS(dnc):
     G2tw = np.absolute((F_tt * F_ww.conj()).mean(dim=("y","time"))) ** 2. /\
            ((np.absolute(F_tt)**2.).mean(dim=("y","time")) *\
             (np.absolute(F_ww)**2.).mean(dim=("y","time")))    
+    # tu
+    G2tu = np.absolute((F_tt * F_uu.conj()).mean(dim=("y","time"))) ** 2. /\
+           ((np.absolute(F_tt)**2.).mean(dim=("y","time")) *\
+            (np.absolute(F_uu)**2.).mean(dim=("y","time")))    
     # store in Gsave
     Gsave["uw"] = G2uw
     Gsave["tw"] = G2tw
+    Gsave["tu"] = G2tu
     # only keep freqs > 0
     Gsave = Gsave.where(Gsave.freq_x > 0., drop=True)
     # save file
     fsavenc = f"{dnc}G2.nc"
+    # delete old file for saving new one
+    if os.path.exists(fsavenc):
+        os.system(f"rm {fsavenc}")
     print(f"Saving file: {fsavenc}")
     with ProgressBar():
         Gsave.to_netcdf(fsavenc, mode="w")
@@ -899,12 +937,12 @@ if __name__ == "__main__":
         print(f"---Begin Sim {sim}---")
         ncdir = f"/home/bgreene/simulations/{sim}/output/netcdf/"
         ncdirlist.append(ncdir)
-        # calc_spectra(ncdir)
+        calc_spectra(ncdir)
         # plot_1D_spectra(ncdir, figdir)
-        # amp_mod(ncdir)
-        # calc_quadrant(ncdir)
+        amp_mod(ncdir)
+        calc_quadrant(ncdir)
         # calc_corr2d(ncdir)
         # plot_corr2d(ncdir, figdir_corr2d)
         LCS(ncdir)
         print(f"---End Sim {sim}---")
-    # plot_AM(ncdirlist, figdir_AM)
+    plot_AM(ncdirlist, figdir_AM)
