@@ -924,6 +924,7 @@ def LCS(dnc):
 def cond_avg(dnc):
     """
     Calculate averages of SBL fields conditioned on u'(x,y,z=z(z/h=0.05)) < 2*sigma_u
+    Also calculate conditions on w'(x,y,z=z(z/zj=1)) < 2*sigma_w
     Only load one file at a time
     Input dnc: directory for netcdf files
     Output netcdf file
@@ -946,9 +947,12 @@ def cond_avg(dnc):
     nz = s.nz
     # find closest z to z/h = 0.05: jz_
     zh = s.z / s.he
-    close = min(zh.values, key=lambda x:abs(x-0.05))
-    jz_ = np.where(zh.values==close)[0][0]
+    jz_ = np.argmin(abs(zh.values - 0.05))
     print(f"z/h = 0.05 for jz={jz_}")
+    # find closest z to z/zh = 1: jz2
+    zzj = s.z / s.zj
+    jz2 = np.argmin(abs(zzj.values - 1))
+    print(f"z/zj = 1 for jz={jz2}")
     # read middle volume file to determine alpha_low cutoff
     dd = xr.load_dataset(fall[nf//2])
     # rotate velocities so <v>_xy = 0
@@ -965,17 +969,29 @@ def cond_avg(dnc):
     # calculate alpha_low cutoff
     alpha_lo = mu_u[jz_] - 2.0*std_u[jz_]
     print(f"alpha- = {alpha_lo.values:5.4f}")
+    # do the same for w' cutoff
+    dd["w_p"] = (dd.w - dd.w.mean(dim=("x","y"))) / s.ustar0
+    mu_w = dd.w_p.mean(dim=("x","y"))
+    std_w = dd.w_p.std(dim=("x","y"))
+    alpha_lo_w = mu_w[jz2] - 2.0*std_w[jz2]
+    print(f"alphaw- = {alpha_lo_w.values:5.4f}")
     # max points to include in conditional average
     n_delta = int(s.he/dx)
     # number of points upstream and downstream to include in cond avg
     n_min = 2*n_delta
     n_max = 2*n_delta
     # initialize conditionally averaged arrays
+    # condition on u
     u_cond_u = np.zeros((n_min+n_max, nz), dtype=np.float64) # < u'/u* | u'/u* < 2*alpha >
     w_cond_u = np.zeros((n_min+n_max, nz), dtype=np.float64) # < w'/u* | u'/u* < 2*alpha >
     T_cond_u = np.zeros((n_min+n_max, nz), dtype=np.float64) # < T'/T* | u'/u* < 2*alpha >
+    # condition on w
+    u_cond_w = np.zeros((n_min+n_max, nz), dtype=np.float64) # < u'/u* | w'/u* < 2*alpha >
+    w_cond_w = np.zeros((n_min+n_max, nz), dtype=np.float64) # < w'/u* | w'/u* < 2*alpha >
+    T_cond_w = np.zeros((n_min+n_max, nz), dtype=np.float64) # < T'/T* | w'/u* < 2*alpha >
     # initialize counter for number of points satisfying condition
     n_lo = 0
+    n_lo_w = 0
     #
     # BEGIN LOOP OVER FILES
     #
@@ -1019,17 +1035,27 @@ def cond_avg(dnc):
             # loop over x
             for jx in range(nx):
                 # include points if meeting condition
+                # condition on u
                 if dd.u_p[jx,jy,jz_] < alpha_lo:
                     n_lo += 1
                     u_cond_u[:,:] += u_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
                     w_cond_u[:,:] += w_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
                     T_cond_u[:,:] += theta_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                # condition on w
+                if dd.w_p[jx,jy,jz2] < alpha_lo_w:
+                    n_lo_w += 1
+                    u_cond_w[:,:] += u_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    w_cond_w[:,:] += w_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    T_cond_w[:,:] += theta_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
     # Finished looping
     print (f"Number of low momentum regions averaged: {n_lo}")
     # Normalize by number of samples
     u_cond_u[:,:] /= n_lo
     w_cond_u[:,:] /= n_lo
     T_cond_u[:,:] /= n_lo
+    u_cond_w[:,:] /= n_lo_w
+    w_cond_w[:,:] /= n_lo_w
+    T_cond_w[:,:] /= n_lo_w
     # store these variables into Dataset for saving
     # define array coordinates
     xnew = np.linspace(-1*n_min*dx, n_max*dx, (n_min+n_max))
@@ -1042,11 +1068,19 @@ def cond_avg(dnc):
                                      coords=dict(x=xnew,z=s.z))
     dsave["T_cond_u"] = xr.DataArray(data=T_cond_u, dims=("x","z"),
                                      coords=dict(x=xnew,z=s.z))
+    dsave["u_cond_w"] = xr.DataArray(data=u_cond_w, dims=("x","z"),
+                                     coords=dict(x=xnew,z=s.z))
+    dsave["w_cond_w"] = xr.DataArray(data=w_cond_w, dims=("x","z"),
+                                     coords=dict(x=xnew,z=s.z))
+    dsave["T_cond_w"] = xr.DataArray(data=T_cond_w, dims=("x","z"),
+                                     coords=dict(x=xnew,z=s.z))
     # add some additional attrs
     dsave.attrs["alpha_lo"] = alpha_lo.values
     dsave.attrs["n_lo"] = n_lo
+    dsave.attrs["alpha_lo_w"] = alpha_lo_w.values
+    dsave.attrs["n_lo_w"] = n_lo_w
     # save and return
-    fsave = f"{dnc}cond_u.nc"
+    fsave = f"{dnc}cond_avg.nc"
     # delete old file for saving new one
     if os.path.exists(fsave):
         os.system(f"rm {fsave}")
