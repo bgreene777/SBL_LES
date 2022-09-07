@@ -923,8 +923,13 @@ def LCS(dnc):
 # --------------------------------
 def cond_avg(dnc):
     """
-    Calculate averages of SBL fields conditioned on u'(x,y,z=z(z/h=0.05)) < 2*sigma_u
-    Also calculate conditions on w'(x,y,z=z(z/zj=1)) < 2*sigma_w
+    Calculate averages of SBL fields (u, w, theta) conditioned on: 
+    u'(x,y,z=jz) <-2*sigma_u
+    u'(x,y,z=jz) > 2*sigma_u
+    w'(x,y,z=jz) <-2*sigma_w
+    w'(x,y,z=jz) > 2*sigma_w
+    jz for: z/h = 0.05, z/h = 0.50, z/zj = 1.00
+    Warning: lots of hardcoding :)
     Only load one file at a time
     Input dnc: directory for netcdf files
     Output netcdf file
@@ -945,15 +950,24 @@ def cond_avg(dnc):
     nx = s.nx
     ny = s.ny
     nz = s.nz
-    # find closest z to z/h = 0.05: jz_
+    #
+    # Find jz indices to use for conditioning
+    #
+    # find closest z to z/h = 0.05: jz1
     zh = s.z / s.he
-    jz_ = np.argmin(abs(zh.values - 0.05))
-    print(f"z/h = 0.05 for jz={jz_}")
+    jz1 = np.argmin(abs(zh.values - 0.05))
+    print(f"z/h = 0.05 for jz={jz1}")
+    # find closest z to z/h = 0.50: jz1
+    jz2 = np.argmin(abs(zh.values - 0.50))
+    print(f"z/h = 0.50 for jz={jz2}")
     # find closest z to z/zh = 1: jz2
     zzj = s.z / s.zj
-    jz2 = np.argmin(abs(zzj.values - 1))
-    print(f"z/zj = 1 for jz={jz2}")
-    # read middle volume file to determine alpha_low cutoff
+    jz3 = np.argmin(abs(zzj.values - 1.0))
+    print(f"z/zj = 1.0 for jz={jz3}")
+    #
+    # Determine hi and lo cutoffs based on u and w
+    #
+    # read middle volume file to determine alpha cutoffs
     dd = xr.load_dataset(fall[nf//2])
     # rotate velocities so <v>_xy = 0
     u_mean = dd.u.mean(dim=("x","y"))
@@ -966,32 +980,72 @@ def cond_avg(dnc):
     # calculate mean and std of u'/u*
     mu_u = dd.u_p.mean(dim=("x","y"))
     std_u = dd.u_p.std(dim=("x","y"))
-    # calculate alpha_low cutoff
-    alpha_lo = mu_u[jz_] - 2.0*std_u[jz_]
-    print(f"alpha- = {alpha_lo.values:5.4f}")
-    # do the same for w' cutoff
+    # calculate alpha cutoffs from u
+    # lo
+    alpha_u_lo_1 = mu_u[jz1] - 2.0*std_u[jz1]
+    alpha_u_lo_2 = mu_u[jz2] - 2.0*std_u[jz2]
+    alpha_u_lo_3 = mu_u[jz3] - 2.0*std_u[jz3]
+    # hi
+    alpha_u_hi_1 = mu_u[jz1] + 2.0*std_u[jz1]
+    alpha_u_hi_2 = mu_u[jz2] + 2.0*std_u[jz2]
+    alpha_u_hi_3 = mu_u[jz3] + 2.0*std_u[jz3]
+    #
+    # do the same for w' cutoffs
+    #
     dd["w_p"] = (dd.w - dd.w.mean(dim=("x","y"))) / s.ustar0
     mu_w = dd.w_p.mean(dim=("x","y"))
     std_w = dd.w_p.std(dim=("x","y"))
-    alpha_lo_w = mu_w[jz2] - 2.0*std_w[jz2]
-    print(f"alphaw- = {alpha_lo_w.values:5.4f}")
+    # calculate alpha cutoffs from u
+    # lo
+    alpha_w_lo_1 = mu_w[jz1] - 2.0*std_w[jz1]
+    alpha_w_lo_2 = mu_w[jz2] - 2.0*std_w[jz2]
+    alpha_w_lo_3 = mu_w[jz3] - 2.0*std_w[jz3]
+    # hi
+    alpha_w_hi_1 = mu_w[jz1] + 2.0*std_w[jz1]
+    alpha_w_hi_2 = mu_w[jz2] + 2.0*std_w[jz2]
+    alpha_w_hi_3 = mu_w[jz3] + 2.0*std_w[jz3]
+    #
+    # Prepare arrays for conditional averaging
+    #
     # max points to include in conditional average
     n_delta = int(s.he/dx)
     # number of points upstream and downstream to include in cond avg
     n_min = 2*n_delta
     n_max = 2*n_delta
     # initialize conditionally averaged arrays
-    # condition on u
-    u_cond_u = np.zeros((n_min+n_max, nz), dtype=np.float64) # < u'/u* | u'/u* < 2*alpha >
-    w_cond_u = np.zeros((n_min+n_max, nz), dtype=np.float64) # < w'/u* | u'/u* < 2*alpha >
-    T_cond_u = np.zeros((n_min+n_max, nz), dtype=np.float64) # < T'/T* | u'/u* < 2*alpha >
+    # condition on u lo and hi
+    # < u'/u* | u'/u* < 2*alpha > and < u'/u* | u'/u* > 2*alpha > for each jz
+    u_cond_u_lo_1, u_cond_u_lo_2, u_cond_u_lo_3,\
+    u_cond_u_hi_1, u_cond_u_hi_2, u_cond_u_hi_3 =\
+        [np.zeros((n_min+n_max, nz), dtype=np.float64) for _ in range(6)]
+    # < w'/u* | u'/u* < 2*alpha > and < w'/u* | u'/u* > 2*alpha > for each jz
+    w_cond_u_lo_1, w_cond_u_lo_2, w_cond_u_lo_3,\
+    w_cond_u_hi_1, w_cond_u_hi_2, w_cond_u_hi_3 =\
+        [np.zeros((n_min+n_max, nz), dtype=np.float64) for _ in range(6)]
+    # < T'/T* | u'/u* < 2*alpha > and < T'/T* | u'/u* > 2*alpha > for each jz
+    T_cond_u_lo_1, T_cond_u_lo_2, T_cond_u_lo_3,\
+    T_cond_u_hi_1, T_cond_u_hi_2, T_cond_u_hi_3 =\
+        [np.zeros((n_min+n_max, nz), dtype=np.float64) for _ in range(6)]
     # condition on w
-    u_cond_w = np.zeros((n_min+n_max, nz), dtype=np.float64) # < u'/u* | w'/u* < 2*alpha >
-    w_cond_w = np.zeros((n_min+n_max, nz), dtype=np.float64) # < w'/u* | w'/u* < 2*alpha >
-    T_cond_w = np.zeros((n_min+n_max, nz), dtype=np.float64) # < T'/T* | w'/u* < 2*alpha >
-    # initialize counter for number of points satisfying condition
-    n_lo = 0
-    n_lo_w = 0
+    # < u'/u* | w'/u* < 2*alpha > and < u'/u* | w'/u* > 2*alpha > for each jz
+    u_cond_w_lo_1, u_cond_w_lo_2, u_cond_w_lo_3,\
+    u_cond_w_hi_1, u_cond_w_hi_2, u_cond_w_hi_3 =\
+        [np.zeros((n_min+n_max, nz), dtype=np.float64) for _ in range(6)]
+    # < w'/u* | w'/u* < 2*alpha > and < w'/u* | w'/u* > 2*alpha > for each jz
+    w_cond_w_lo_1, w_cond_w_lo_2, w_cond_w_lo_3,\
+    w_cond_w_hi_1, w_cond_w_hi_2, w_cond_w_hi_3 =\
+        [np.zeros((n_min+n_max, nz), dtype=np.float64) for _ in range(6)]
+    # < T'/T* | w'/u* < 2*alpha > and < T'/T* | w'/u* > 2*alpha > for each jz
+    T_cond_w_lo_1, T_cond_w_lo_2, T_cond_w_lo_3,\
+    T_cond_w_hi_1, T_cond_w_hi_2, T_cond_w_hi_3 =\
+        [np.zeros((n_min+n_max, nz), dtype=np.float64) for _ in range(6)]
+    # initialize counters for number of points satisfying each condition
+    n_u_lo_1 = 0; n_u_hi_1 = 0
+    n_u_lo_2 = 0; n_u_hi_2 = 0
+    n_u_lo_3 = 0; n_u_hi_3 = 0
+    n_w_lo_1 = 0; n_w_hi_1 = 0
+    n_w_lo_2 = 0; n_w_hi_2 = 0
+    n_w_lo_3 = 0; n_w_hi_3 = 0
     #
     # BEGIN LOOP OVER FILES
     #
@@ -1035,50 +1089,204 @@ def cond_avg(dnc):
             # loop over x
             for jx in range(nx):
                 # include points if meeting condition
-                # condition on u
-                if dd.u_p[jx,jy,jz_] < alpha_lo:
-                    n_lo += 1
-                    u_cond_u[:,:] += u_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
-                    w_cond_u[:,:] += w_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
-                    T_cond_u[:,:] += theta_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
-                # condition on w
-                if dd.w_p[jx,jy,jz2] < alpha_lo_w:
-                    n_lo_w += 1
-                    u_cond_w[:,:] += u_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
-                    w_cond_w[:,:] += w_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
-                    T_cond_w[:,:] += theta_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                #
+                # u
+                #
+                # condition on u lo
+                # jz1
+                if dd.u_p[jx,jy,jz1] < alpha_u_lo_1:
+                    n_u_lo_1 += 1
+                    u_cond_u_lo_1[:,:] += u_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    w_cond_u_lo_1[:,:] += w_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    T_cond_u_lo_1[:,:] += theta_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                # jz2
+                if dd.u_p[jx,jy,jz2] < alpha_u_lo_2:
+                    n_u_lo_2 += 1
+                    u_cond_u_lo_2[:,:] += u_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    w_cond_u_lo_2[:,:] += w_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    T_cond_u_lo_2[:,:] += theta_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                # jz3
+                if dd.u_p[jx,jy,jz3] < alpha_u_lo_3:
+                    n_u_lo_3 += 1
+                    u_cond_u_lo_3[:,:] += u_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    w_cond_u_lo_3[:,:] += w_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    T_cond_u_lo_3[:,:] += theta_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                # condition on u hi
+                # jz1
+                if dd.u_p[jx,jy,jz1] > alpha_u_hi_1:
+                    n_u_hi_1 += 1
+                    u_cond_u_hi_1[:,:] += u_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    w_cond_u_hi_1[:,:] += w_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    T_cond_u_hi_1[:,:] += theta_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                # jz2
+                if dd.u_p[jx,jy,jz2] > alpha_u_hi_2:
+                    n_u_hi_2 += 1
+                    u_cond_u_hi_2[:,:] += u_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    w_cond_u_hi_2[:,:] += w_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    T_cond_u_hi_2[:,:] += theta_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                # jz3
+                if dd.u_p[jx,jy,jz3] > alpha_u_hi_3:
+                    n_u_hi_3 += 1
+                    u_cond_u_hi_3[:,:] += u_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    w_cond_u_hi_3[:,:] += w_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    T_cond_u_hi_3[:,:] += theta_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                #
+                # w
+                #                
+                # condition on w lo
+                # jz1
+                if dd.w_p[jx,jy,jz1] < alpha_w_lo_1:
+                    n_w_lo_1 += 1
+                    u_cond_w_lo_1[:,:] += u_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    w_cond_w_lo_1[:,:] += w_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    T_cond_w_lo_1[:,:] += theta_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                # jz2
+                if dd.w_p[jx,jy,jz2] < alpha_w_lo_2:
+                    n_w_lo_2 += 1
+                    u_cond_w_lo_2[:,:] += u_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    w_cond_w_lo_2[:,:] += w_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    T_cond_w_lo_2[:,:] += theta_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                # jz3
+                if dd.w_p[jx,jy,jz3] < alpha_w_lo_3:
+                    n_w_lo_3 += 1
+                    u_cond_w_lo_3[:,:] += u_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    w_cond_w_lo_3[:,:] += w_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    T_cond_w_lo_3[:,:] += theta_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                # condition on w hi
+                # jz1
+                if dd.w_p[jx,jy,jz1] > alpha_w_hi_1:
+                    n_w_hi_1 += 1
+                    u_cond_w_hi_1[:,:] += u_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    w_cond_w_hi_1[:,:] += w_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    T_cond_w_hi_1[:,:] += theta_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                # jz2
+                if dd.w_p[jx,jy,jz2] > alpha_w_hi_2:
+                    n_w_hi_2 += 1
+                    u_cond_w_hi_2[:,:] += u_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    w_cond_w_hi_2[:,:] += w_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    T_cond_w_hi_2[:,:] += theta_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                # jz3
+                if dd.w_p[jx,jy,jz3] > alpha_w_hi_3:
+                    n_w_hi_3 += 1
+                    u_cond_w_hi_3[:,:] += u_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    w_cond_w_hi_3[:,:] += w_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
+                    T_cond_w_hi_3[:,:] += theta_big[(jx+nx-n_min):(jx+nx+n_max),jy,:]
     # Finished looping
-    print (f"Number of low momentum regions averaged: {n_lo}")
-    # Normalize by number of samples
-    u_cond_u[:,:] /= n_lo
-    w_cond_u[:,:] /= n_lo
-    T_cond_u[:,:] /= n_lo
-    u_cond_w[:,:] /= n_lo_w
-    w_cond_w[:,:] /= n_lo_w
-    T_cond_w[:,:] /= n_lo_w
+    print ("Finished processing all timesteps")
+    # Normalize each by number of samples
+    # u lo 1
+    u_cond_u_lo_1[:,:] /= n_u_lo_1
+    w_cond_u_lo_1[:,:] /= n_u_lo_1
+    T_cond_u_lo_1[:,:] /= n_u_lo_1
+    # u lo 2
+    u_cond_u_lo_2[:,:] /= n_u_lo_2
+    w_cond_u_lo_2[:,:] /= n_u_lo_2
+    T_cond_u_lo_2[:,:] /= n_u_lo_2
+    # u lo 3
+    u_cond_u_lo_3[:,:] /= n_u_lo_3
+    w_cond_u_lo_3[:,:] /= n_u_lo_3
+    T_cond_u_lo_3[:,:] /= n_u_lo_3
+    # w lo 1
+    u_cond_w_lo_1[:,:] /= n_w_lo_1
+    w_cond_w_lo_1[:,:] /= n_w_lo_1
+    T_cond_w_lo_1[:,:] /= n_w_lo_1
+    # w lo 2
+    u_cond_w_lo_2[:,:] /= n_w_lo_2
+    w_cond_w_lo_2[:,:] /= n_w_lo_2
+    T_cond_w_lo_2[:,:] /= n_w_lo_2
+    # w lo 3
+    u_cond_w_lo_3[:,:] /= n_w_lo_3
+    w_cond_w_lo_3[:,:] /= n_w_lo_3
+    T_cond_w_lo_3[:,:] /= n_w_lo_3
     # store these variables into Dataset for saving
     # define array coordinates
     xnew = np.linspace(-1*n_min*dx, n_max*dx, (n_min+n_max))
     # initialize empty dataset
     dsave = xr.Dataset(data_vars=None, coords=dict(x=xnew,z=s.z), attrs=s.attrs)
     # store each variable as DataArray
-    dsave["u_cond_u"] = xr.DataArray(data=u_cond_u, dims=("x","z"),
-                                     coords=dict(x=xnew,z=s.z))
-    dsave["w_cond_u"] = xr.DataArray(data=w_cond_u, dims=("x","z"),
-                                     coords=dict(x=xnew,z=s.z))
-    dsave["T_cond_u"] = xr.DataArray(data=T_cond_u, dims=("x","z"),
-                                     coords=dict(x=xnew,z=s.z))
-    dsave["u_cond_w"] = xr.DataArray(data=u_cond_w, dims=("x","z"),
-                                     coords=dict(x=xnew,z=s.z))
-    dsave["w_cond_w"] = xr.DataArray(data=w_cond_w, dims=("x","z"),
-                                     coords=dict(x=xnew,z=s.z))
-    dsave["T_cond_w"] = xr.DataArray(data=T_cond_w, dims=("x","z"),
-                                     coords=dict(x=xnew,z=s.z))
-    # add some additional attrs
-    dsave.attrs["alpha_lo"] = alpha_lo.values
-    dsave.attrs["n_lo"] = n_lo
-    dsave.attrs["alpha_lo_w"] = alpha_lo_w.values
-    dsave.attrs["n_lo_w"] = n_lo_w
+    # conditioned on u
+    # u lo 1
+    dsave["u_cond_u_lo_1"] = xr.DataArray(data=u_cond_u_lo_1, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["w_cond_u_lo_1"] = xr.DataArray(data=w_cond_u_lo_1, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["T_cond_u_lo_1"] = xr.DataArray(data=T_cond_u_lo_1, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    # u lo 2
+    dsave["u_cond_u_lo_2"] = xr.DataArray(data=u_cond_u_lo_2, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["w_cond_u_lo_2"] = xr.DataArray(data=w_cond_u_lo_2, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["T_cond_u_lo_2"] = xr.DataArray(data=T_cond_u_lo_2, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    # u lo 3
+    dsave["u_cond_u_lo_3"] = xr.DataArray(data=u_cond_u_lo_3, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["w_cond_u_lo_3"] = xr.DataArray(data=w_cond_u_lo_3, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["T_cond_u_lo_3"] = xr.DataArray(data=T_cond_u_lo_3, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    # conditioned on w
+    # w lo 1
+    dsave["u_cond_w_lo_1"] = xr.DataArray(data=u_cond_w_lo_1, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["w_cond_w_lo_1"] = xr.DataArray(data=w_cond_w_lo_1, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["T_cond_w_lo_1"] = xr.DataArray(data=T_cond_w_lo_1, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    # w lo 2
+    dsave["u_cond_w_lo_2"] = xr.DataArray(data=u_cond_w_lo_2, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["w_cond_w_lo_2"] = xr.DataArray(data=w_cond_w_lo_2, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["T_cond_w_lo_2"] = xr.DataArray(data=T_cond_w_lo_2, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    # w lo 3
+    dsave["u_cond_w_lo_3"] = xr.DataArray(data=u_cond_w_lo_3, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["w_cond_w_lo_3"] = xr.DataArray(data=w_cond_w_lo_3, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["T_cond_w_lo_3"] = xr.DataArray(data=T_cond_w_lo_3, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    # include attrs for each variable: z, n, alpha
+    # z values
+    dsave.attrs["z1"] = "$z/h = 0.05$"
+    dsave.attrs["z2"] = "$z/h = 0.50$"
+    dsave.attrs["z3"] = "$z/z_j = 1.00$"
+    # corresponding jz values
+    dsave.attrs["jz1"] = jz1
+    dsave.attrs["jz2"] = jz2
+    dsave.attrs["jz3"] = jz3
+    # number of events
+    # u
+    dsave.attrs["n_u_lo_1"] = n_u_lo_1
+    dsave.attrs["n_u_lo_2"] = n_u_lo_2
+    dsave.attrs["n_u_lo_3"] = n_u_lo_3
+    dsave.attrs["n_u_hi_1"] = n_u_hi_1
+    dsave.attrs["n_u_hi_2"] = n_u_hi_2
+    dsave.attrs["n_u_hi_3"] = n_u_hi_3
+    # w
+    dsave.attrs["n_w_lo_1"] = n_w_lo_1
+    dsave.attrs["n_w_lo_2"] = n_w_lo_2
+    dsave.attrs["n_w_lo_3"] = n_w_lo_3
+    dsave.attrs["n_w_hi_1"] = n_w_hi_1
+    dsave.attrs["n_w_hi_2"] = n_w_hi_2
+    dsave.attrs["n_w_hi_3"] = n_w_hi_3
+    # alpha
+    # u
+    dsave.attrs["alpha_u_lo_1"] = alpha_u_lo_1.values
+    dsave.attrs["alpha_u_lo_2"] = alpha_u_lo_2.values
+    dsave.attrs["alpha_u_lo_3"] = alpha_u_lo_3.values
+    dsave.attrs["alpha_u_hi_1"] = alpha_u_hi_1.values
+    dsave.attrs["alpha_u_hi_2"] = alpha_u_hi_2.values
+    dsave.attrs["alpha_u_hi_3"] = alpha_u_hi_3.values
+    # w
+    dsave.attrs["alpha_w_lo_1"] = alpha_w_lo_1.values
+    dsave.attrs["alpha_w_lo_2"] = alpha_w_lo_2.values
+    dsave.attrs["alpha_w_lo_3"] = alpha_w_lo_3.values
+    dsave.attrs["alpha_w_hi_1"] = alpha_w_hi_1.values
+    dsave.attrs["alpha_w_hi_2"] = alpha_w_hi_2.values
+    dsave.attrs["alpha_w_hi_3"] = alpha_w_hi_3.values
     # save and return
     fsave = f"{dnc}cond_avg.nc"
     # delete old file for saving new one
