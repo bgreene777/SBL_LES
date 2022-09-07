@@ -389,7 +389,8 @@ def load_stats(fstats, SBL=True, display=False):
     if SBL:
         dd["h"] = dd.z.where(dd.ustar2 <= 0.05*dd.ustar2[0], drop=True)[0] / 0.95
     else:
-        dd["h"] = 0. # TODO: fix this later
+        # CBL definition TODO: rename variables to work with h or zi
+        dd["h"] = dd.z.isel(z=dd.tw_cov_tot.argmin())
     # grab ustar0 and calc tstar0 for normalizing in plotting
     dd["ustar0"] = dd.ustar.isel(z=0)
     dd["tstar0"] = -dd.tw_cov_tot.isel(z=0)/dd.ustar0
@@ -410,6 +411,23 @@ def load_stats(fstats, SBL=True, display=False):
     # calculate eddy turnover time TL
     dd["TL"] = dd.h / dd.ustar0
     dd["nTL"] = 3600. / dd.TL
+    # calculate MOST dimensionless functions phim, phih
+    kz = 0.4 * dd.z # kappa * z
+    dd["phim"] = (kz/dd.ustar) * np.sqrt(dd.u_mean.differentiate("z", 2)**2.+\
+                                         dd.v_mean.differentiate("z", 2)**2.)
+    dd["phih"] = (kz/dd.tstar) * dd.theta_mean.differentiate("z", 2)
+    # MOST stability parameter z/L
+    dd["zL"] = dd.z / dd.L
+    # energetics
+    # shear production: P = - <tau_xz>du/dz - <tau_yz>dv/dz
+    dd["P"] = (-1 * dd.uw_cov_tot * dd.u_mean.differentiate("z", 2)) +\
+              (-1 * dd.vw_cov_tot * dd.v_mean.differentiate("z", 2))
+    # buoyant descruction: B = -g/theta0 <theta'w'>
+    dd["B"] = (-1 * 9.81 / dd.theta_mean[0]) * dd.tw_cov_tot
+    # viscous dissipation: define as in Huang and Bou-Zeid (2013): epsilon = Pi - B_sgs
+    Bsgs = (-1 * 9.81 / dd.theta_mean[0]) * (dd.tw_cov_tot - dd.tw_cov_res)
+    dd["epsilon"] = -dd.dissip_mean - Bsgs
+    # TODO: turbulent transport d<e'w'>/dz (will need to rerun calc_stats)
     if SBL:
         # calculate TKE-based sbl depth
         dd["he"] = dd.z.where(dd.e <= 0.05*dd.e[0], drop=True)[0]
@@ -434,6 +452,8 @@ def load_stats(fstats, SBL=True, display=False):
         dd["Lo"] = np.sqrt(-dd.dissip_mean / (dd.N2 ** (3./2.)))
         # calculate Kolmogorov microscale: eta = (nu**3 / dissip) ** 0.25
         dd["eta"] = ((1.14e-5)**3. / (-dd.dissip_mean)) ** 0.25
+        # calculate MOST dimensionless dissipation rate: kappa*z*epsilon/ustar^3
+        dd["phie"] = -1*dd.dissip_mean*kz / (dd.ustar**3.)
         # calculate gradient scales from Sorbjan 2017, Greene et al. 2022
         l0 = 19.22 # m
         l1 = 1./(dd.Rig**(3./2.)).where(dd.z <= dd.h, drop=True)
