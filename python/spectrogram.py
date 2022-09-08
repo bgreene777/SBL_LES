@@ -9,9 +9,9 @@
 import os
 import xrft
 import seaborn
-import cmocean
 import numpy as np
 import xarray as xr
+from datetime import datetime
 from scipy.signal import hilbert
 from scipy.stats import gmean
 from dask.diagnostics import ProgressBar
@@ -1050,6 +1050,8 @@ def cond_avg(dnc):
     # BEGIN LOOP OVER FILES
     #
     for jt, tfile in enumerate(fall):
+        # print timestep
+        print(datetime.utcnow())
         # load file
         print(f"Loading file: {tfile}")
         dd = xr.load_dataset(tfile)
@@ -1226,6 +1228,27 @@ def cond_avg(dnc):
                                           coords=dict(x=xnew,z=s.z))
     dsave["T_cond_u_lo_3"] = xr.DataArray(data=T_cond_u_lo_3, dims=("x","z"),
                                           coords=dict(x=xnew,z=s.z))
+    # u hi 1
+    dsave["u_cond_u_hi_1"] = xr.DataArray(data=u_cond_u_hi_1, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["w_cond_u_hi_1"] = xr.DataArray(data=w_cond_u_hi_1, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["T_cond_u_hi_1"] = xr.DataArray(data=T_cond_u_hi_1, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    # u hi 2
+    dsave["u_cond_u_hi_2"] = xr.DataArray(data=u_cond_u_hi_2, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["w_cond_u_hi_2"] = xr.DataArray(data=w_cond_u_hi_2, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["T_cond_u_hi_2"] = xr.DataArray(data=T_cond_u_hi_2, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    # u hi 3
+    dsave["u_cond_u_hi_3"] = xr.DataArray(data=u_cond_u_hi_3, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["w_cond_u_hi_3"] = xr.DataArray(data=w_cond_u_hi_3, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["T_cond_u_hi_3"] = xr.DataArray(data=T_cond_u_hi_3, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
     # conditioned on w
     # w lo 1
     dsave["u_cond_w_lo_1"] = xr.DataArray(data=u_cond_w_lo_1, dims=("x","z"),
@@ -1247,6 +1270,27 @@ def cond_avg(dnc):
     dsave["w_cond_w_lo_3"] = xr.DataArray(data=w_cond_w_lo_3, dims=("x","z"),
                                           coords=dict(x=xnew,z=s.z))
     dsave["T_cond_w_lo_3"] = xr.DataArray(data=T_cond_w_lo_3, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    # w hi 1
+    dsave["u_cond_w_hi_1"] = xr.DataArray(data=u_cond_w_hi_1, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["w_cond_w_hi_1"] = xr.DataArray(data=w_cond_w_hi_1, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["T_cond_w_hi_1"] = xr.DataArray(data=T_cond_w_hi_1, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    # w hi 2
+    dsave["u_cond_w_hi_2"] = xr.DataArray(data=u_cond_w_hi_2, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["w_cond_w_hi_2"] = xr.DataArray(data=w_cond_w_hi_2, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["T_cond_w_hi_2"] = xr.DataArray(data=T_cond_w_hi_2, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    # w hi 3
+    dsave["u_cond_w_hi_3"] = xr.DataArray(data=u_cond_w_hi_3, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["w_cond_w_hi_3"] = xr.DataArray(data=w_cond_w_hi_3, dims=("x","z"),
+                                          coords=dict(x=xnew,z=s.z))
+    dsave["T_cond_w_hi_3"] = xr.DataArray(data=T_cond_w_hi_3, dims=("x","z"),
                                           coords=dict(x=xnew,z=s.z))
     # include attrs for each variable: z, n, alpha
     # z values
