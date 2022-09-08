@@ -26,3 +26,6 @@ python/__pycache__
 
 # fortran executables
 fortran/executables
+
+# shell scripts and output
+shell
