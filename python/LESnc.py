@@ -418,16 +418,6 @@ def load_stats(fstats, SBL=True, display=False):
     dd["phih"] = (kz/dd.tstar) * dd.theta_mean.differentiate("z", 2)
     # MOST stability parameter z/L
     dd["zL"] = dd.z / dd.L
-    # energetics
-    # shear production: P = - <tau_xz>du/dz - <tau_yz>dv/dz
-    dd["P"] = (-1 * dd.uw_cov_tot * dd.u_mean.differentiate("z", 2)) +\
-              (-1 * dd.vw_cov_tot * dd.v_mean.differentiate("z", 2))
-    # buoyant descruction: B = -g/theta0 <theta'w'>
-    dd["B"] = (-1 * 9.81 / dd.theta_mean[0]) * dd.tw_cov_tot
-    # viscous dissipation: define as in Huang and Bou-Zeid (2013): epsilon = Pi - B_sgs
-    Bsgs = (-1 * 9.81 / dd.theta_mean[0]) * (dd.tw_cov_tot - dd.tw_cov_res)
-    dd["epsilon"] = -dd.dissip_mean - Bsgs
-    # TODO: turbulent transport d<e'w'>/dz (will need to rerun calc_stats)
     if SBL:
         # calculate TKE-based sbl depth
         dd["he"] = dd.z.where(dd.e <= 0.05*dd.e[0], drop=True)[0]
@@ -896,6 +886,70 @@ def interp_spec(d, Lx, nf):
     d2[:] = np.real( ifft(f_big * (nx2/nx)) )
     # return
     return [d2, Lx2]
+# ---------------------------------------------
+def calc_TKE_budget():
+    """
+    Calculate TKE budget components from volume data
+    P = Shear production
+    B = Buoyancy production
+    T = Turbulent transport
+    D = 3D Dissipation (as in Huang and Bou-Zeid (2013), JAS)
+    R = Residual
+    Can calculate all but Turbulent transport based on stats file
+    """
+    # directories and configuration
+    dnc = config["dnc"]
+    # load data and stats file
+    dd, s = load_full(dnc, config["t0"], config["t1"], config["dt"],
+                      config["delta_t"], True, True)
+    # calculate components
+    # P = -<u'w'>du/dz - <v'w'>dv/dz - <w'w'> dw/dz (last term ~= 0)
+    P = (-1. * s.uw_cov_tot * s.u_mean.differentiate("z", 2)) +\
+        (-1. * s.vw_cov_tot * s.v_mean.differentiate("z", 2))
+    # B = g/theta <w'theta'>
+    B = (9.81 / s.theta_mean[0]) * s.tw_cov_tot
+    # D = <Pi> - <B_sgs>
+    D = s.dissip_mean + (s.tw_cov_tot - s.tw_cov_res)
+    # T = -d<e'w'>/dz = -0.5(d<u'u'w'>/dz + d<v'v'w'>/dz + d<w'w'w'>/dz)
+    # Need to use volume files to calculate
+    # don't need to rotate, just use vel as is
+    up = dd.u - dd.u.mean(dim=("x","y"))
+    vp = dd.v - dd.v.mean(dim=("x","y"))
+    wp = dd.w - dd.w.mean(dim=("x","y"))
+    # calculate third order components
+    uuw = up * up * wp
+    vvw = vp * vp * wp
+    www = wp * wp * wp
+    # combine and store in ew
+    ew = 0.5 * (uuw + vvw + www).mean(dim=("time","x","y"))
+    # calculate vertical gradient to get T
+    T = -1. * ew.differentiate("z", 2)
+    # finally, calculate residual R such that:
+    # P + T + B + D + R = 0 (recall buoyancy < 0 in SBL; D < 0 in general)
+    R = -1 * (D + P + T + B)
+    # combine each into a dataset
+    dsave = xr.Dataset(data_vars=None, coords=dict(z=s.z), attrs=s.attrs)
+    dsave["P"] = P
+    dsave["P"].attrs["description"] = "Shear Production"
+    dsave["B"] = B
+    dsave["B"].attrs["description"] = "Buoyancy Production"
+    dsave["T"] = T
+    dsave["T"].attrs["description"] = "Turbulent Transport"
+    dsave["D"] = D
+    dsave["D"].attrs["description"] = "3D Dissipation"
+    dsave["R"] = R
+    dsave["R"].attrs["description"] = "Residual"
+    # save and return
+    # save file
+    fsavenc = f"{dnc}TKE_budget.nc"
+    # delete old file for saving new one
+    if os.path.exists(fsavenc):
+        os.system(f"rm {fsavenc}")
+    print(f"Saving file: {fsavenc}")
+    with ProgressBar():
+        dsave.to_netcdf(fsavenc, mode="w")
+    
+    return
 
 # --------------------------------
 # Run script if desired
@@ -921,3 +975,6 @@ if __name__ == "__main__":
     # run autocorr_from_volume
     if config["run_autocorr"]:
         autocorr_from_volume()
+    # run calc_TKE_budget
+    if config["run_TKE"]:
+        calc_TKE_budget()
