@@ -1200,6 +1200,30 @@ def cond_avg(dnc):
     u_cond_w_lo_3[:,:] /= n_w_lo_3
     w_cond_w_lo_3[:,:] /= n_w_lo_3
     T_cond_w_lo_3[:,:] /= n_w_lo_3
+    # u hi 1
+    u_cond_u_hi_1[:,:] /= n_u_hi_1
+    w_cond_u_hi_1[:,:] /= n_u_hi_1
+    T_cond_u_hi_1[:,:] /= n_u_hi_1
+    # u hi 2
+    u_cond_u_hi_2[:,:] /= n_u_hi_2
+    w_cond_u_hi_2[:,:] /= n_u_hi_2
+    T_cond_u_hi_2[:,:] /= n_u_hi_2
+    # u hi 3
+    u_cond_u_hi_3[:,:] /= n_u_hi_3
+    w_cond_u_hi_3[:,:] /= n_u_hi_3
+    T_cond_u_hi_3[:,:] /= n_u_hi_3
+    # w hi 1
+    u_cond_w_hi_1[:,:] /= n_w_hi_1
+    w_cond_w_hi_1[:,:] /= n_w_hi_1
+    T_cond_w_hi_1[:,:] /= n_w_hi_1
+    # w hi 2
+    u_cond_w_hi_2[:,:] /= n_w_hi_2
+    w_cond_w_hi_2[:,:] /= n_w_hi_2
+    T_cond_w_hi_2[:,:] /= n_w_hi_2
+    # w hi 3
+    u_cond_w_hi_3[:,:] /= n_w_hi_3
+    w_cond_w_hi_3[:,:] /= n_w_hi_3
+    T_cond_w_hi_3[:,:] /= n_w_hi_3
     # store these variables into Dataset for saving
     # define array coordinates
     xnew = np.linspace(-1*n_min*dx, n_max*dx, (n_min+n_max))
