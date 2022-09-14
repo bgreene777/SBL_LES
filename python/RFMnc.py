@@ -20,7 +20,7 @@ from scipy.optimize import curve_fit
 from datetime import datetime, timedelta
 from matplotlib import pyplot as plt
 from dask.diagnostics import ProgressBar
-from LESnc import load_stats, print_both
+from LESnc import load_stats, load_full, print_both
 # --------------------------------
 # Define Functions
 # --------------------------------
@@ -33,7 +33,7 @@ def autocorrelation(f):
     dt0 = datetime.utcnow()
     print_both(f"Calculating autocorrelation for: {f.name}", fprint)
     # calculate normalized perturbations
-    temp = (f - f.mean("x")) / f.std("x")
+    temp = (f - f.mean(dim=("x","y"))) / f.std(dim=("x","y"))
     # fftconvolve along axis=1, i.e. x
     corr_xx = fftconvolve(temp, temp[:,::-1,:,:]/f.x.size, mode="full", axes=1)
     # average along y and t
@@ -132,58 +132,29 @@ def main():
                    fprint)
         return
     
-    # load average statistics netcdf file
-    fstat = config["fstat"]
-    stat = xr.load_dataset(fdir+fstat)
-    # calculate important parameters
-    # ustar
-    stat["ustar"] = ((stat.uw_cov_tot ** 2.) + (stat.vw_cov_tot ** 2.)) ** 0.25
-    stat["ustar2"] = stat.ustar ** 2.
-    # SBL height
-    stat["h"] = stat.z.where(stat.ustar2 <= 0.05*stat.ustar2[0], drop=True)[0]/0.95
+    # load average statistics and all volume files
+    dd, stat = load_full(fdir, config["t0"], config["t1"], config["dt"], True, config["is_sbl"])
     # z indices within sbl
     isbl = np.where(stat.z <= stat.h)[0]
     nz_sbl = len(isbl)
 
-    #
-    # Load files and clean up
-    #
-    # prepare to load all individual netcdf timestep files
-    timesteps = np.arange(config["t0"], config["t1"]+1, config["dt"], dtype=np.int32)
-    # determine files to read from timesteps
-    fall = [f"{fdir}all_{tt:07d}.nc" for tt in timesteps]
-    nf = len(fall)
-    # calculate array of times represented by each file
-    times = np.array([i*config["delta_t"]*config["dt"] for i in range(nf)])
-    # load all files into mfdataset
-    print_both("Reading files...", fprint)
-    dd = xr.open_mfdataset(fall, combine="nested", concat_dim="time")
-    dd.coords["time"] = times
-    dd.time.attrs["units"] = "s"
     # array of delta_x spaced logarithmic from dx to Lx
     nfilt = config["nfilt"]
     delta_x = np.logspace(np.log10(dd.dx), np.log10(dd.Lx),
                           num=nfilt, base=10.0, dtype=np.float64)
 
     #
-    # Rotate instantaneous (u,v) using u_mean and v_mean from stat
-    #
-    angle = np.arctan2(stat.v_mean, stat.u_mean)
-    dd["u_rot"] = dd.u*np.cos(angle) + dd.v*np.sin(angle)  # xarray takes care of dimensions
-    dd["v_rot"] =-dd.u*np.sin(angle) + dd.v*np.cos(angle)
-
-    #
     # Calculate "instantaneous" vars and covars to store in dd
     #
     print_both("Calculate 'instantaneous' vars and covars", fprint)
     # u'w'
-    dd["uw_cov_res"] = (dd.u - stat.u_mean) * (dd.w - stat.w_mean)
+    dd["uw_cov_res"] = (dd.u - dd.u.mean(dim=("x","y"))) * (dd.w - dd.w.mean(dim=("x","y")))
     dd["uw_cov_tot"] = dd.uw_cov_res + dd.txz
     # v'w'
-    dd["vw_cov_res"] = (dd.v - stat.v_mean) * (dd.w - stat.w_mean)
+    dd["vw_cov_res"] = (dd.v - dd.v.mean(dim=("x","y"))) * (dd.w - dd.w.mean(dim=("x","y")))
     dd["vw_cov_tot"] = dd.vw_cov_res + dd.tyz
     # t'w'
-    dd["tw_cov_res"] = (dd.theta - stat.theta_mean) * (dd.w - stat.w_mean)
+    dd["tw_cov_res"] = (dd.theta - dd.theta.mean(dim=("x","y"))) * (dd.w - dd.w.mean(dim=("x","y")))
     dd["tw_cov_tot"] = dd.tw_cov_res + dd.q3
     # u'u' UNROTATED
     # recalc planar averages so resulting instantaneous vars are detrended
@@ -308,13 +279,7 @@ def main2(plot_MSE=True):
     # config loaded in global scope
     # load average statistics netcdf file
     fstat = config["fstat"]
-    stat = xr.load_dataset(fdir+fstat)
-    # calculate important parameters
-    # ustar
-    stat["ustar"] = ((stat.uw_cov_tot ** 2.) + (stat.vw_cov_tot ** 2.)) ** 0.25
-    stat["ustar2"] = stat.ustar ** 2.
-    # SBL height
-    stat["h"] = stat.z.where(stat.ustar2 <= 0.05*stat.ustar2[0], drop=True)[0]/0.95
+    stat = load_stats(fdir+fstat)
     # z indices within sbl
     isbl = np.where(stat.z <= stat.h)[0]
     nz_sbl = len(isbl)    
@@ -323,10 +288,6 @@ def main2(plot_MSE=True):
     var4 = xr.load_dataset(f"{fdir}variances_4_order.nc")
     R = xr.load_dataset(f"{fdir}autocorr.nc")
     RFM = xr.load_dataset(f"{fdir}RFM.nc")
-    # calculate Ozmidov scale Lo = sqrt[<dissipation>/(N^2)^3/2]
-    dtheta_dz = stat.theta_mean.differentiate("z", 2)
-    N2 = dtheta_dz * 9.81 / stat.theta_mean.isel(z=0)
-    stat["Lo"] = np.sqrt(-stat.dissip_mean / (N2 ** (3./2.)))
     
     #
     # plot MSE versus filter width
@@ -609,13 +570,7 @@ def main3(reprocess):
     figdir = config["figdir"]
     # load average statistics netcdf file
     fstat = config["fstat"]
-    stat = xr.load_dataset(fdir+fstat)
-    # calculate important parameters
-    # ustar
-    stat["ustar"] = ((stat.uw_cov_tot ** 2.) + (stat.vw_cov_tot ** 2.)) ** 0.25
-    stat["ustar2"] = stat.ustar ** 2.
-    # SBL height
-    stat["h"] = stat.z.where(stat.ustar2 <= 0.05*stat.ustar2[0], drop=True)[0]/0.95
+    stat = load_stats(fdir+fstat)
     # calculate wind angle alpha (NOTE: THE ALPHA STORED IN STAT IS *NOT* WDIR)
     stat["alpha"] = np.arctan2(-stat.u_mean, -stat.v_mean)
     ineg = np.where(stat.alpha < 0)

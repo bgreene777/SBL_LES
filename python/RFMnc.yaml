@@ -9,6 +9,8 @@
 
 stability: "cr2.50_u08_192"
 fstat: "average_statistics.nc"
+# flag for SBL
+is_sbl: True
 # figure save directory
 figdir: "/home/bgreene/SBL_LES/figures/RFMnc/"
 # start and end timesteps to read: last 1 hour
