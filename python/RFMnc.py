@@ -133,7 +133,8 @@ def main():
         return
     
     # load average statistics and all volume files
-    dd, stat = load_full(fdir, config["t0"], config["t1"], config["dt"], True, config["is_sbl"])
+    dd, stat = load_full(fdir, config["t0"], config["t1"], config["dt"],
+                         config["delta_t"], True, config["is_sbl"])
     # z indices within sbl
     isbl = np.where(stat.z <= stat.h)[0]
     nz_sbl = len(isbl)
@@ -279,7 +280,7 @@ def main2(plot_MSE=True):
     # config loaded in global scope
     # load average statistics netcdf file
     fstat = config["fstat"]
-    stat = load_stats(fdir+fstat)
+    stat = load_stats(fdir+fstat, SBL=config["is_sbl"])
     # z indices within sbl
     isbl = np.where(stat.z <= stat.h)[0]
     nz_sbl = len(isbl)    
@@ -570,7 +571,7 @@ def main3(reprocess):
     figdir = config["figdir"]
     # load average statistics netcdf file
     fstat = config["fstat"]
-    stat = load_stats(fdir+fstat)
+    stat = load_stats(fdir+fstat, SBL=config["is_sbl"])
     # calculate wind angle alpha (NOTE: THE ALPHA STORED IN STAT IS *NOT* WDIR)
     stat["alpha"] = np.arctan2(-stat.u_mean, -stat.v_mean)
     ineg = np.where(stat.alpha < 0)
@@ -787,7 +788,7 @@ def recalc_err(stability, Tnew, Tnew_ec=None):
     # define directories based on stability
     fdir = f"/home/bgreene/simulations/{stability}/output/netcdf/"
     # load stat file to convert Tnew to Xnew and to renormalize new errors
-    stat = load_stats(fdir+"average_statistics.nc")
+    stat = load_stats(fdir+"average_statistics.nc", SBL=config["is_sbl"])
     # calculate wind angle alpha (NOTE: THE ALPHA STORED IN STAT IS *NOT* WDIR)
     stat["alpha"] = np.arctan2(-stat.u_mean, -stat.v_mean)
     ineg = np.where(stat.alpha < 0)
@@ -932,13 +933,15 @@ if __name__ == "__main__":
     # load yaml file in global scope
     with open("/home/bgreene/SBL_LES/python/RFMnc.yaml") as f:
         config = yaml.safe_load(f)
-    stability = config["stability"]
-    fdir = f"/home/bgreene/simulations/{stability}/output/netcdf/"
-    # text file to save print statements
-    fprint = f"/home/bgreene/SBL_LES/output/Print/RFMnc_{stability}.txt"
-    dt0 = datetime.utcnow()
-    main()
-    main2(plot_MSE=config["plot_MSE"])
-    main3(reprocess=config["reprocess"])
-    dt1 = datetime.utcnow()
-    print_both(f"Total run time for RFMnc.py: {(dt1-dt0).total_seconds()/60.:5.2f} min", fprint)
+
+    for stability in config["stability"]:
+    # stability = config["stability"]
+        fdir = f"/home/bgreene/simulations/{stability}/output/netcdf/"
+        # text file to save print statements
+        fprint = f"/home/bgreene/SBL_LES/output/Print/RFMnc_{stability}.txt"
+        dt0 = datetime.utcnow()
+        main()
+        main2(plot_MSE=config["plot_MSE"])
+        main3(reprocess=config["reprocess"])
+        dt1 = datetime.utcnow()
+        print_both(f"Total run time for RFMnc.py: {(dt1-dt0).total_seconds()/60.:5.2f} min", fprint)

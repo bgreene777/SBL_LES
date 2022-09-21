@@ -7,7 +7,7 @@
 # relaxed filtering method (RFM) from Dias et al. 2018
 # --------------------------------
 
-stability: "cr2.50_u08_192"
+stability: ["cr0.10_u08_192", "cr0.25_u08_192", "cr2.50_u08_192"]
 fstat: "average_statistics.nc"
 # flag for SBL
 is_sbl: True
