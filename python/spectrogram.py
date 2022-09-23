@@ -184,10 +184,10 @@ def amp_mod(dnc):
     # cutoff frequency from Taylor hypothesis - use same for all heights
     f_c = 1./(delta/d.u_mean_rot)
     # calculate FFT of u, v, w, theta, uw, tw
-    f_u = xrft.fft(d.u_rot, dim="t", true_phase=True, true_amplitude=True, detrend="linear")
-    f_v = xrft.fft(d.v_rot, dim="t", true_phase=True, true_amplitude=True, detrend="linear")
-    f_w = xrft.fft(d.w, dim="t", true_phase=True, true_amplitude=True, detrend="linear")
-    f_t = xrft.fft(d.theta, dim="t", true_phase=True, true_amplitude=True, detrend="linear")
+    f_u = xrft.fft(d.udr, dim="t", true_phase=True, true_amplitude=True)
+    f_v = xrft.fft(d.vdr, dim="t", true_phase=True, true_amplitude=True)
+    f_w = xrft.fft(d.wd, dim="t", true_phase=True, true_amplitude=True)
+    f_t = xrft.fft(d.td, dim="t", true_phase=True, true_amplitude=True)
     f_uw = xrft.fft(d.uw, dim="t", true_phase=True, true_amplitude=True)
     f_tw = xrft.fft(d.tw, dim="t", true_phase=True, true_amplitude=True)
     # loop over heights and lowpass filter
@@ -230,10 +230,11 @@ def amp_mod(dnc):
     tw_l["t"] = d.t
 
     # calculate small-scale component by subtracting large-scale from full
-    u_s = d.u_rot - u_l
-    v_s = d.v_rot - v_l
-    w_s = d.w - w_l
-    t_s = d.theta - t_l
+    # USE DETRENDED FULL TIMESERIES OR HILBERT TRANSFORMS WILL BE NONPHYSICAL
+    u_s = d.udr - u_l
+    v_s = d.vdr - v_l
+    w_s = d.wd - w_l
+    t_s = d.td - t_l
     uw_s = d.uw - uw_l
     tw_s = d.tw - tw_l
 
@@ -258,10 +259,10 @@ def amp_mod(dnc):
                                     z=tw_s.z)    ) 
     # lowpass filter the small-scale envelope
     # fft the envelopes
-    f_Eu = xrft.fft(E_u, dim="t", true_phase=True, true_amplitude=True)
-    f_Ev = xrft.fft(E_v, dim="t", true_phase=True, true_amplitude=True)
-    f_Ew = xrft.fft(E_w, dim="t", true_phase=True, true_amplitude=True)
-    f_Et = xrft.fft(E_t, dim="t", true_phase=True, true_amplitude=True)
+    f_Eu = xrft.fft(E_u, dim="t", true_phase=True, true_amplitude=True, detrend="linear")
+    f_Ev = xrft.fft(E_v, dim="t", true_phase=True, true_amplitude=True, detrend="linear")
+    f_Ew = xrft.fft(E_w, dim="t", true_phase=True, true_amplitude=True, detrend="linear")
+    f_Et = xrft.fft(E_t, dim="t", true_phase=True, true_amplitude=True, detrend="linear")
     f_Euw = xrft.fft(E_uw, dim="t", true_phase=True, true_amplitude=True)
     f_Etw = xrft.fft(E_tw, dim="t", true_phase=True, true_amplitude=True)
     # loop over heights and lowpass filter - copied from above
@@ -340,137 +341,10 @@ def amp_mod(dnc):
 
     return
 
-def plot_AM(dnclist, figdir):
-    """
-    Input list of directories for plotting to loop over
-    Output figures
-    """
-    # initialize figure before looping
-    fig1, ax1 = plt.subplots(nrows=5, ncols=3, sharex=True, sharey=True,
-                            figsize=(12, 16), constrained_layout=True)
-    # define color palette
-    nsim = len(dnclist)
-    colors = seaborn.color_palette("cubehelix", nsim)
-    for isim, dnc in enumerate(dnclist):
-        # load stats file
-        stat = load_stats(dnc+"average_statistics.nc")    
-        # load AM coeff file
-        R = xr.open_dataset(dnc+"AM_coefficients.nc")
-        # add z/h as coordinate and swap with z
-        # define array of z/h
-        # NOTE: using z/zj now, kept variable names for ease
-        zh = R.z / stat.zj
-        # assign coupled with z
-        R = R.assign_coords(zh=("z",zh.values))
-        # swap
-        R = R.swap_dims({"z": "zh"})
-        # define new array of z/h logspace for bin averaging
-        zhbin = np.logspace(-2, 0.2, 25)
-        # from this, also need len(zhbin)-1 with midpoints of bins for plotting
-        zhnew = [] # define empty array
-        for iz in range(24):
-            zhnew.append(gmean([zhbin[iz], zhbin[iz+1]]))
-        zhnew = np.array(zhnew)
-        # group by zh bins and calculate mean in one line
-        Rbin = R.groupby_bins("zh", zhbin).mean("zh", skipna=True)
-        # create new coordinate "zh_bins", then swap and drop
-        Rbin = Rbin.assign_coords({"zh": ("zh_bins", zhnew)}).swap_dims({"zh_bins": "zh"})
-        # interpolate empty values for better plotting
-        Rbin = Rbin.interpolate_na(dim="zh")
-        # calculate h/L parameter for plotting
-        hL = (stat.he/stat.L).values
-        # Plot ------------------------------------------------
-        print(f"Figure 1 - Sim {isim}")
-        # figure 1 - fifteen panels - modulation by u_l and w_l and t_l
-        # col 1 - modulation by u_l
-        # col 2 - modulation by w_l
-        # col 3 - modulation by t_l
-        # row 1 - modulation of small-scale u by large-scale u&w&t
-        # row 2 - modulation of small-scale w by large-scale u&w&t
-        # row 3 - modulation of small-scale theta by large-scale u&w&t
-        # row 4 - modulation of small-scale uw by large-scale u&w&t
-        # row 5 - modulation of small-scale tw by large-scale u&w&t
-        # (a) R_ul_Eu
-        ax1[0,0].plot(Rbin.zh, Rbin.ul_Eu, ls="-", c=colors[isim], lw=2,
-                      label=f"$h/L={{{hL:3.1f}}}$")
-        # (b) R_wl_Eu
-        ax1[0,1].plot(Rbin.zh, Rbin.wl_Eu, ls="-", c=colors[isim], lw=2)
-        # (c) R_tl_Eu
-        ax1[0,2].plot(Rbin.zh, Rbin.tl_Eu, ls="-", c=colors[isim], lw=2)
-        # (d) R_ul_Ew
-        ax1[1,0].plot(Rbin.zh, Rbin.ul_Ew, ls="-", c=colors[isim], lw=2)
-        # (e) R_wl_Ew
-        ax1[1,1].plot(Rbin.zh, Rbin.wl_Ew, ls="-", c=colors[isim], lw=2)
-        # (f) R_tl_Ew
-        ax1[1,2].plot(Rbin.zh, Rbin.tl_Ew, ls="-", c=colors[isim], lw=2)
-        # (g) R_ul_Et
-        ax1[2,0].plot(Rbin.zh, Rbin.ul_Et, ls="-", c=colors[isim], lw=2)
-        # (h) R_wl_Et
-        ax1[2,1].plot(Rbin.zh, Rbin.wl_Et, ls="-", c=colors[isim], lw=2)
-        # (i) R_tl_Et
-        ax1[2,2].plot(Rbin.zh, Rbin.tl_Et, ls="-", c=colors[isim], lw=2)
-        # (j) R_ul_Euw
-        ax1[3,0].plot(Rbin.zh, Rbin.ul_Euw, ls="-", c=colors[isim], lw=2)
-        # (k) R_wl_Euw
-        ax1[3,1].plot(Rbin.zh, Rbin.wl_Euw, ls="-", c=colors[isim], lw=2)
-        # (l) R_tl_Euw
-        ax1[3,2].plot(Rbin.zh, Rbin.tl_Euw, ls="-", c=colors[isim], lw=2)
-        # (m) R_ul_Etw
-        ax1[4,0].plot(Rbin.zh, Rbin.ul_Etw, ls="-", c=colors[isim], lw=2)
-        # (n) R_wl_Etw
-        ax1[4,1].plot(Rbin.zh, Rbin.wl_Etw, ls="-", c=colors[isim], lw=2)
-        # (o) R_wl_Etw
-        ax1[4,2].plot(Rbin.zh, Rbin.tl_Etw, ls="-", c=colors[isim], lw=2)
-
-    # OUTSIDE LOOP
-    # clean up fig 1
-    ax1[4,0].set_xlabel("$z/z_j$")
-    ax1[4,0].set_xlim([1e-2, 1.5e0])
-    ax1[0,0].set_ylim([-0.5, 0.5])
-    ax1[0,0].yaxis.set_major_locator(MultipleLocator(0.2))
-    ax1[0,0].yaxis.set_minor_locator(MultipleLocator(0.05))
-    ax1[0,0].set_xscale("log")
-    ax1[4,1].set_xlabel("$z/z_j$")
-    ax1[4,2].set_xlabel("$z/z_j$")
-    ax1[0,0].legend(loc="lower left", labelspacing=0.10, 
-                    handletextpad=0.4, handlelength=0.75,
-                    fontsize=14)
-    # plot ref lines
-    for iax in ax1.flatten():
-        iax.axhline(0, c="k", ls="-", alpha=0.5)
-        iax.axvline(0.5, c="k", ls="-", alpha=0.5)
-    # y-axis labels
-    for iax in ax1[:,0]:
-        iax.set_ylabel("$R$")
-    # text labels
-    ax1[0,0].text(0.03, 0.90, "$R_{u_l,u_s}$", fontsize=16, transform=ax1[0,0].transAxes)
-    ax1[0,1].text(0.03, 0.90, "$R_{w_l,u_s}$", fontsize=16, transform=ax1[0,1].transAxes)
-    ax1[0,2].text(0.03, 0.90, "$R_{\\theta_l,u_s}$", fontsize=16, transform=ax1[0,2].transAxes)
-    ax1[1,0].text(0.03, 0.90, "$R_{u_l,w_s}$", fontsize=16, transform=ax1[1,0].transAxes)
-    ax1[1,1].text(0.03, 0.90, "$R_{w_l,w_s}$", fontsize=16, transform=ax1[1,1].transAxes)
-    ax1[1,2].text(0.03, 0.90, "$R_{\\theta_l,w_s}$", fontsize=16, transform=ax1[1,2].transAxes)
-    ax1[2,0].text(0.03, 0.90, "$R_{u_l,\\theta_s}$", fontsize=16, transform=ax1[2,0].transAxes)
-    ax1[2,1].text(0.03, 0.90, "$R_{w_l,\\theta_s}$", fontsize=16, transform=ax1[2,1].transAxes)
-    ax1[2,2].text(0.03, 0.90, "$R_{\\theta_l,\\theta_s}$", fontsize=16, transform=ax1[2,2].transAxes)
-    ax1[3,0].text(0.03, 0.90, "$R_{u_l,(uw)_s}$", fontsize=16, transform=ax1[3,0].transAxes)
-    ax1[3,1].text(0.03, 0.90, "$R_{w_l,(uw)_s}$", fontsize=16, transform=ax1[3,1].transAxes)
-    ax1[3,2].text(0.03, 0.90, "$R_{\\theta_l,(uw)_s}$", fontsize=16, transform=ax1[3,2].transAxes)
-    ax1[4,0].text(0.03, 0.90, "$R_{u_l,(\\theta w)_s}$", fontsize=16, transform=ax1[4,0].transAxes)
-    ax1[4,1].text(0.03, 0.90, "$R_{w_l,(\\theta w)_s}$", fontsize=16, transform=ax1[4,1].transAxes)
-    ax1[4,2].text(0.03, 0.90, "$R_{\\theta_l,(\\theta w)_s}$", fontsize=16, transform=ax1[4,2].transAxes)
-
-    # save
-    fsave1 = f"{figdir}all_amp_mod.png"
-    print(f"Saving figure {fsave1}")
-    fig1.savefig(fsave1, dpi=300)
-    plt.close(fig1)
-
-    return
-
 # --------------------------------
 # Define function to perform quadrant analysis of resolved fluxes
 # --------------------------------
-def calc_quadrant(dnc):
+def calc_quadrant(dnc, save_2d_hist=False):
     """
     Calculate quadrant components of u'w', theta'w', theta'u'
     and save single netcdf file for plotting later
@@ -481,9 +355,12 @@ def calc_quadrant(dnc):
     dd, s = load_full(dnc, 1080000, 1260000, 1000, 0.02, True, True)
 
     # get instantaneous u, w, theta perturbations
-    u = dd.u_rot - dd.u_rot.mean(dim=("x","y"))
+    u = dd.u - dd.u.mean(dim=("x","y"))
     w = dd.w - dd.w.mean(dim=("x","y"))
     theta = dd.theta - dd.theta.mean(dim=("x","y"))
+    # also get subgrid components
+    txz = dd.txz
+    q3 = dd.q3
 
     # calculate four quadrants
     quad = xr.Dataset(data_vars=None,
@@ -491,13 +368,17 @@ def calc_quadrant(dnc):
                       attrs=s.attrs)
     # 1) u'w'
     # u'>0, w'>0
-    uw_pp = u.where(u > 0.) * w.where(w > 0.)
+    uw_pp = (u.where(u > 0.) * w.where(w > 0.)) +\
+             txz.where((u > 0.) & (w > 0.))
     # u'>0, w'<0
-    uw_pn = u.where(u > 0.) * w.where(w < 0.)
+    uw_pn = (u.where(u > 0.) * w.where(w < 0.)) +\
+             txz.where((u > 0.) & (w < 0.))
     # u'<0, w'>0
-    uw_np = u.where(u < 0.) * w.where(w > 0.)
+    uw_np = (u.where(u < 0.) * w.where(w > 0.)) +\
+             txz.where((u < 0.) & (w > 0.))
     # u'<0, w'<0
-    uw_nn = u.where(u < 0.) * w.where(w < 0.)
+    uw_nn = (u.where(u < 0.) * w.where(w < 0.)) +\
+             txz.where((u < 0.) & (w < 0.))
     # calculate averages and store in dataset
     quad["uw_pp"] = uw_pp.mean(dim=("time","x","y"))
     quad["uw_pn"] = uw_pn.mean(dim=("time","x","y"))
@@ -506,36 +387,40 @@ def calc_quadrant(dnc):
 
     # 2) theta'w'
     # theta'>0, w'>0
-    tw_pp = theta.where(theta > 0.) * w.where(w > 0.)
+    tw_pp = (theta.where(theta > 0.) * w.where(w > 0.)) +\
+             q3.where((theta > 0.) & (w > 0.))
     # theta'>0, w'<0
-    tw_pn = theta.where(theta > 0.) * w.where(w < 0.)
+    tw_pn = (theta.where(theta > 0.) * w.where(w < 0.)) +\
+             q3.where((theta > 0.) & (w < 0.))
     # theta'<0, w'>0
-    tw_np = theta.where(theta < 0.) * w.where(w > 0.)
+    tw_np = (theta.where(theta < 0.) * w.where(w > 0.)) +\
+             q3.where((theta < 0.) & (w > 0.))
     # theta'<0, w'<0
-    tw_nn = theta.where(theta < 0.) * w.where(w < 0.)
+    tw_nn = (theta.where(theta < 0.) * w.where(w < 0.)) +\
+             q3.where((theta < 0.) & (w < 0.))
     # calculate averages and store in dataset
     quad["tw_pp"] = tw_pp.mean(dim=("time","x","y"))
     quad["tw_pn"] = tw_pn.mean(dim=("time","x","y"))
     quad["tw_np"] = tw_np.mean(dim=("time","x","y"))
     quad["tw_nn"] = tw_nn.mean(dim=("time","x","y"))
 
-    # 3) theta'u'
-    # theta'>0, u'>0
-    tu_pp = theta.where(theta > 0.) * u.where(u > 0.)
-    # theta'>0, w'<0
-    tu_pn = theta.where(theta > 0.) * u.where(u < 0.)
-    # theta'<0, w'>0
-    tu_np = theta.where(theta < 0.) * u.where(u > 0.)
-    # theta'<0, w'<0
-    tu_nn = theta.where(theta < 0.) * u.where(u < 0.)
-    # calculate averages and store in dataset
-    quad["tu_pp"] = tu_pp.mean(dim=("time","x","y"))
-    quad["tu_pn"] = tu_pn.mean(dim=("time","x","y"))
-    quad["tu_np"] = tu_np.mean(dim=("time","x","y"))
-    quad["tu_nn"] = tu_nn.mean(dim=("time","x","y"))
+    # # 3) theta'u'
+    # # theta'>0, u'>0
+    # tu_pp = theta.where(theta > 0.) * u.where(u > 0.)
+    # # theta'>0, w'<0
+    # tu_pn = theta.where(theta > 0.) * u.where(u < 0.)
+    # # theta'<0, w'>0
+    # tu_np = theta.where(theta < 0.) * u.where(u > 0.)
+    # # theta'<0, w'<0
+    # tu_nn = theta.where(theta < 0.) * u.where(u < 0.)
+    # # calculate averages and store in dataset
+    # quad["tu_pp"] = tu_pp.mean(dim=("time","x","y"))
+    # quad["tu_pn"] = tu_pn.mean(dim=("time","x","y"))
+    # quad["tu_np"] = tu_np.mean(dim=("time","x","y"))
+    # quad["tu_nn"] = tu_nn.mean(dim=("time","x","y"))
 
     # save quad Dataset as netcdf file for plotting later
-    fsave = f"{dnc}uw_tw_tu_quadrant.nc"
+    fsave = f"{dnc}uw_tw_quadrant.nc"
     # delete old file for saving new one
     if os.path.exists(fsave):
         os.system(f"rm {fsave}")
@@ -547,33 +432,34 @@ def calc_quadrant(dnc):
     # Additionally save out u, w, theta at various heights in 1-d arrays
     # to plot in joint distribution 2d histograms
     #
-    # first add z/h dimension for u, w, theta
-    zh = s.z/s.he
-    u = u.assign_coords(zh=("z",zh.values)).swap_dims({"z": "zh"})
-    w = w.assign_coords(zh=("z",zh.values)).swap_dims({"z": "zh"})
-    theta = theta.assign_coords(zh=("z",zh.values)).swap_dims({"z": "zh"})
-    # grab data at z/h = 0.10, 0.50, 0.90
-    # reshape by stacking along x, y, time
-    ulong = u.sel(zh=(0.10,0.50,0.90), method="nearest").stack(index=("x","y","time")).reset_index("index", drop=True)
-    wlong = w.sel(zh=(0.10,0.50,0.90), method="nearest").stack(index=("x","y","time")).reset_index("index", drop=True)
-    thetalong = theta.sel(zh=(0.10,0.50,0.90), method="nearest").stack(index=("x","y","time")).reset_index("index", drop=True)
-    # combine into dataset to save
-    quad2d = xr.Dataset(data_vars=None,
-                        coords=dict(zh=ulong.zh,
-                                    index=ulong.index),
-                        attrs=s.attrs)
-    quad2d["u"] = ulong
-    quad2d["w"] = wlong
-    quad2d["theta"] = thetalong
-    # save
-    fsave = f"{dnc}u_w_theta_2d_quadrant.nc"
-    # delete old file for saving new one
-    if os.path.exists(fsave):
-        os.system(f"rm {fsave}")
-    print(f"Saving file: {fsave}")
-    with ProgressBar():
-        quad2d.to_netcdf(fsave, mode="w")
-    print("Finished!")
+    if save_2d_hist:
+        # first add z/h dimension for u, w, theta
+        zh = s.z/s.he
+        u = u.assign_coords(zh=("z",zh.values)).swap_dims({"z": "zh"})
+        w = w.assign_coords(zh=("z",zh.values)).swap_dims({"z": "zh"})
+        theta = theta.assign_coords(zh=("z",zh.values)).swap_dims({"z": "zh"})
+        # grab data at z/h = 0.10, 0.50, 0.90
+        # reshape by stacking along x, y, time
+        ulong = u.sel(zh=(0.10,0.50,0.90), method="nearest").stack(index=("x","y","time")).reset_index("index", drop=True)
+        wlong = w.sel(zh=(0.10,0.50,0.90), method="nearest").stack(index=("x","y","time")).reset_index("index", drop=True)
+        thetalong = theta.sel(zh=(0.10,0.50,0.90), method="nearest").stack(index=("x","y","time")).reset_index("index", drop=True)
+        # combine into dataset to save
+        quad2d = xr.Dataset(data_vars=None,
+                            coords=dict(zh=ulong.zh,
+                                        index=ulong.index),
+                            attrs=s.attrs)
+        quad2d["u"] = ulong
+        quad2d["w"] = wlong
+        quad2d["theta"] = thetalong
+        # save
+        fsave = f"{dnc}u_w_theta_2d_quadrant.nc"
+        # delete old file for saving new one
+        if os.path.exists(fsave):
+            os.system(f"rm {fsave}")
+        print(f"Saving file: {fsave}")
+        with ProgressBar():
+            quad2d.to_netcdf(fsave, mode="w")
+        print("Finished!")
 
     return
 
@@ -1389,10 +1275,9 @@ if __name__ == "__main__":
         # calc_spectra(ncdir)
         # plot_1D_spectra(ncdir, figdir)
         # amp_mod(ncdir)
-        # calc_quadrant(ncdir)
+        calc_quadrant(ncdir, save_2d_hist=False)
         # calc_corr2d(ncdir)
         # plot_corr2d(ncdir, figdir_corr2d)
         # LCS(ncdir)
-        cond_avg(ncdir)
+        # cond_avg(ncdir)
         print(f"---End Sim {sim}---")
-    # plot_AM(ncdirlist, figdir_AM)
