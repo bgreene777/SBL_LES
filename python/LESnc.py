@@ -538,11 +538,6 @@ def load_timeseries(dnc, detrend=True, tavg="1h"):
     # rotate instantaneous u and v
     d["u_rot"] = d.u*np.cos(angle) + d.v*np.sin(angle)
     d["v_rot"] =-d.u*np.sin(angle) + d.v*np.cos(angle)
-    # calculate "inst" covars
-    # covars not affected by detrend
-    d["uw"] = (d.u - d.u_mean) * (d.w - d.w_mean) + d.txz
-    d["vw"] = (d.v - d.v_mean) * (d.w - d.w_mean) + d.tyz
-    d["tw"] = (d.theta - d.theta_mean) * (d.w - d.w_mean) + d.q3
     # calculate "inst" vars
     if detrend:
         ud = xrft.detrend(d.u, dim="t", detrend_type="linear")
@@ -565,6 +560,10 @@ def load_timeseries(dnc, detrend=True, tavg="1h"):
         d["vvr"] = vdr * vdr
         d["ww"] = wd * wd
         d["tt"] = td * td
+        # calculate "inst" covars
+        d["uw"] = (ud * wd) + d.txz
+        d["vw"] = (vd * wd) + d.tyz
+        d["tw"] = (td * wd) + d.q3
     else:
         d["uu"] = (d.u - d.u_mean) * (d.u - d.u_mean)
         d["uur"] = (d.u_rot - d.u_mean_rot) * (d.u_rot - d.u_mean_rot)
@@ -572,6 +571,10 @@ def load_timeseries(dnc, detrend=True, tavg="1h"):
         d["vvr"] = (d.v_rot - d.v_mean_rot) * (d.v_rot - d.v_mean_rot)
         d["ww"] = (d.w - d.w_mean) * (d.w - d.w_mean)
         d["tt"] = (d.theta - d.theta_mean) * (d.theta - d.theta_mean)
+        # calculate "inst" covars
+        d["uw"] = (d.u - d.u_mean) * (d.w - d.w_mean) + d.txz
+        d["vw"] = (d.v - d.v_mean) * (d.w - d.w_mean) + d.tyz
+        d["tw"] = (d.theta - d.theta_mean) * (d.w - d.w_mean) + d.q3
     
     return d
 # ---------------------------------------------
