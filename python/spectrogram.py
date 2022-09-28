@@ -358,9 +358,6 @@ def calc_quadrant(dnc, save_2d_hist=False):
     u = dd.u - dd.u.mean(dim=("x","y"))
     w = dd.w - dd.w.mean(dim=("x","y"))
     theta = dd.theta - dd.theta.mean(dim=("x","y"))
-    # also get subgrid components
-    txz = dd.txz
-    q3 = dd.q3
 
     # calculate four quadrants
     quad = xr.Dataset(data_vars=None,
@@ -368,17 +365,13 @@ def calc_quadrant(dnc, save_2d_hist=False):
                       attrs=s.attrs)
     # 1) u'w'
     # u'>0, w'>0
-    uw_pp = (u.where(u > 0.) * w.where(w > 0.)) +\
-             txz.where((u > 0.) & (w > 0.))
+    uw_pp = u.where(u > 0.) * w.where(w > 0.)
     # u'>0, w'<0
-    uw_pn = (u.where(u > 0.) * w.where(w < 0.)) +\
-             txz.where((u > 0.) & (w < 0.))
+    uw_pn = u.where(u > 0.) * w.where(w < 0.)
     # u'<0, w'>0
-    uw_np = (u.where(u < 0.) * w.where(w > 0.)) +\
-             txz.where((u < 0.) & (w > 0.))
+    uw_np = u.where(u < 0.) * w.where(w > 0.)
     # u'<0, w'<0
-    uw_nn = (u.where(u < 0.) * w.where(w < 0.)) +\
-             txz.where((u < 0.) & (w < 0.))
+    uw_nn = u.where(u < 0.) * w.where(w < 0.)
     # calculate averages and store in dataset
     quad["uw_pp"] = uw_pp.mean(dim=("time","x","y"))
     quad["uw_pn"] = uw_pn.mean(dim=("time","x","y"))
@@ -387,17 +380,13 @@ def calc_quadrant(dnc, save_2d_hist=False):
 
     # 2) theta'w'
     # theta'>0, w'>0
-    tw_pp = (theta.where(theta > 0.) * w.where(w > 0.)) +\
-             q3.where((theta > 0.) & (w > 0.))
+    tw_pp = theta.where(theta > 0.) * w.where(w > 0.)
     # theta'>0, w'<0
-    tw_pn = (theta.where(theta > 0.) * w.where(w < 0.)) +\
-             q3.where((theta > 0.) & (w < 0.))
+    tw_pn = theta.where(theta > 0.) * w.where(w < 0.)
     # theta'<0, w'>0
-    tw_np = (theta.where(theta < 0.) * w.where(w > 0.)) +\
-             q3.where((theta < 0.) & (w > 0.))
+    tw_np = theta.where(theta < 0.) * w.where(w > 0.)
     # theta'<0, w'<0
-    tw_nn = (theta.where(theta < 0.) * w.where(w < 0.)) +\
-             q3.where((theta < 0.) & (w < 0.))
+    tw_nn = theta.where(theta < 0.) * w.where(w < 0.)
     # calculate averages and store in dataset
     quad["tw_pp"] = tw_pp.mean(dim=("time","x","y"))
     quad["tw_pn"] = tw_pn.mean(dim=("time","x","y"))
