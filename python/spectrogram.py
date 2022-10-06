@@ -355,7 +355,7 @@ def calc_quadrant(dnc, save_2d_hist=False):
     dd, s = load_full(dnc, 1080000, 1260000, 1000, 0.02, True, True)
 
     # get instantaneous u, w, theta perturbations
-    u = dd.u - dd.u.mean(dim=("x","y"))
+    u = dd.u_rot - dd.u_rot.mean(dim=("x","y"))
     w = dd.w - dd.w.mean(dim=("x","y"))
     theta = dd.theta - dd.theta.mean(dim=("x","y"))
 
@@ -393,20 +393,27 @@ def calc_quadrant(dnc, save_2d_hist=False):
     quad["tw_np"] = tw_np.mean(dim=("time","x","y"))
     quad["tw_nn"] = tw_nn.mean(dim=("time","x","y"))
 
-    # # 3) theta'u'
-    # # theta'>0, u'>0
-    # tu_pp = theta.where(theta > 0.) * u.where(u > 0.)
-    # # theta'>0, w'<0
-    # tu_pn = theta.where(theta > 0.) * u.where(u < 0.)
-    # # theta'<0, w'>0
-    # tu_np = theta.where(theta < 0.) * u.where(u > 0.)
-    # # theta'<0, w'<0
-    # tu_nn = theta.where(theta < 0.) * u.where(u < 0.)
-    # # calculate averages and store in dataset
-    # quad["tu_pp"] = tu_pp.mean(dim=("time","x","y"))
-    # quad["tu_pn"] = tu_pn.mean(dim=("time","x","y"))
-    # quad["tu_np"] = tu_np.mean(dim=("time","x","y"))
-    # quad["tu_nn"] = tu_nn.mean(dim=("time","x","y"))
+    # calculate correlation coeffs and mixing efficiencies
+    # uw and tw covariances - resolved only
+    uw_cov_res = xr.cov(u, w, dim=("time","x","y"))
+    tw_cov_res = xr.cov(theta, w, dim=("time","x","y"))
+    # u, w, theta variances
+    uvar = u.var(dim=("time","x","y"))
+    wvar = w.var(dim=("time","x","y"))
+    tvar = theta.var(dim=("time","x","y"))
+    # R_ab = <a'b'> / (sigma_a * sigma_b)
+    quad["Ruw"] = np.abs(uw_cov_res / np.sqrt(uvar) / np.sqrt(wvar))
+    quad["Rtw"] = np.abs(tw_cov_res / np.sqrt(tvar) / np.sqrt(wvar))
+    # eta_uw = <u'w'> / (u-w+ + u+w-)
+    quad["eta_uw"] = np.abs(uw_cov_res) / np.abs(quad.uw_np + quad.uw_pn)
+    # eta_tw = <theta'w'> / (t+w- + t-w+)
+    quad["eta_tw"] = np.abs(tw_cov_res) / np.abs(quad.tw_pn + quad.tw_np)
+
+    # calculate sum of quadrants
+    quad["uw_sum"] = np.abs(quad.uw_pp) + np.abs(quad.uw_pn) +\
+                     np.abs(quad.uw_np) + np.abs(quad.uw_nn)
+    quad["tw_sum"] = np.abs(quad.tw_pp) + np.abs(quad.tw_pn) +\
+                     np.abs(quad.tw_np) + np.abs(quad.tw_nn)
 
     # save quad Dataset as netcdf file for plotting later
     fsave = f"{dnc}uw_tw_quadrant.nc"
@@ -423,7 +430,7 @@ def calc_quadrant(dnc, save_2d_hist=False):
     #
     if save_2d_hist:
         # first add z/h dimension for u, w, theta
-        zh = s.z/s.he
+        zh = s.z/s.h
         u = u.assign_coords(zh=("z",zh.values)).swap_dims({"z": "zh"})
         w = w.assign_coords(zh=("z",zh.values)).swap_dims({"z": "zh"})
         theta = theta.assign_coords(zh=("z",zh.values)).swap_dims({"z": "zh"})
@@ -748,6 +755,23 @@ def LCS(dnc):
     G2t1 = np.absolute((F_tt * F_tt.isel(z=izr).conj()).mean(dim=("y","time"))) ** 2. /\
           ((np.absolute(F_tt)**2.).mean(dim=("y","time")) *\
            (np.absolute(F_tt.isel(z=izr))**2.).mean(dim=("y","time")))
+    # use zr = h/2 as reference
+    zh = s.z / s.h
+    izr2 = abs(zh - 0.50).argmin()
+    # calculate G2
+    # u
+    G2u2 = np.absolute((F_uu * F_uu.isel(z=izr2).conj()).mean(dim=("y","time"))) ** 2. /\
+          ((np.absolute(F_uu)**2.).mean(dim=("y","time")) *\
+           (np.absolute(F_uu.isel(z=izr2))**2.).mean(dim=("y","time")))
+    # w
+    G2w2 = np.absolute((F_ww * F_ww.isel(z=izr2).conj()).mean(dim=("y","time"))) ** 2. /\
+          ((np.absolute(F_ww)**2.).mean(dim=("y","time")) *\
+           (np.absolute(F_ww.isel(z=izr2))**2.).mean(dim=("y","time")))
+    # theta
+    G2t2 = np.absolute((F_tt * F_tt.isel(z=izr2).conj()).mean(dim=("y","time"))) ** 2. /\
+          ((np.absolute(F_tt)**2.).mean(dim=("y","time")) *\
+           (np.absolute(F_tt.isel(z=izr2))**2.).mean(dim=("y","time")))
+
     # combine Gs into dataset to save as netcdf
     Gsave = xr.Dataset(data_vars=None,
                        coords=dict(z=G2u0.z, freq_x=G2u0.freq_x),
@@ -758,9 +782,13 @@ def LCS(dnc):
     Gsave["u1"] = G2u1
     Gsave["w1"] = G2w1
     Gsave["theta1"] = G2t1
+    Gsave["u2"] = G2u2
+    Gsave["w2"] = G2w2
+    Gsave["theta2"] = G2t2
     # add attr for reference heights
     Gsave.attrs["zr0"] = dd.z.isel(z=0).values
     Gsave.attrs["zr1"] = dd.z.isel(z=izr).values
+    Gsave.attrs["zr2"] = dd.z.isel(z=izr2).values
 
     # calculate G2 for different variables at *same* height
     # uw
@@ -829,7 +857,7 @@ def cond_avg(dnc):
     # Find jz indices to use for conditioning
     #
     # find closest z to z/h = 0.05: jz1
-    zh = s.z / s.he
+    zh = s.z / s.h
     jz1 = np.argmin(abs(zh.values - 0.05))
     print(f"z/h = 0.05 for jz={jz1}")
     # find closest z to z/h = 0.50: jz1
@@ -883,10 +911,10 @@ def cond_avg(dnc):
     # Prepare arrays for conditional averaging
     #
     # max points to include in conditional average
-    n_delta = int(s.he/dx)
+    n_delta = int(s.h/dx)
     # number of points upstream and downstream to include in cond avg
-    n_min = 2*n_delta
-    n_max = 2*n_delta
+    n_min = 3*n_delta
+    n_max = 3*n_delta
     # initialize conditionally averaged arrays
     # condition on u lo and hi
     # < u'/u* | u'/u* < 2*alpha > and < u'/u* | u'/u* > 2*alpha > for each jz
@@ -944,20 +972,23 @@ def cond_avg(dnc):
         dd["t_p"] = (dd.theta - dd.theta.mean(dim=("x","y"))) / s.tstar0
         #Create big arrays so we don't have to deal with periodicity
         # u
-        u_big = np.zeros((3*nx,ny,nz), dtype=np.float64)
+        u_big = np.zeros((4*nx,ny,nz), dtype=np.float64)
         u_big[0:nx,:,:] = dd.u_p[:,:,:].to_numpy()
         u_big[nx:2*nx,:,:] = dd.u_p[:,:,:].to_numpy()
         u_big[2*nx:3*nx,:,:] = dd.u_p[:,:,:].to_numpy()
+        u_big[3*nx:4*nx,:,:] = dd.u_p[:,:,:].to_numpy()
         # w
         w_big = np.zeros((3*nx,ny,nz), dtype=np.float64)
         w_big[0:nx,:,:] = dd.w_p[:,:,:].to_numpy()
         w_big[nx:2*nx,:,:] = dd.w_p[:,:,:].to_numpy()
         w_big[2*nx:3*nx,:,:] = dd.w_p[:,:,:].to_numpy()
+        w_big[3*nx:4*nx,:,:] = dd.w_p[:,:,:].to_numpy()
         # theta
         theta_big = np.zeros((3*nx,ny,nz), dtype=np.float64)
         theta_big[0:nx,:,:] = dd.t_p[:,:,:].to_numpy()
         theta_big[nx:2*nx,:,:] = dd.t_p[:,:,:].to_numpy()
         theta_big[2*nx:3*nx,:,:] = dd.t_p[:,:,:].to_numpy()
+        theta_big[3*nx:4*nx,:,:] = dd.t_p[:,:,:].to_numpy()
         #
         # Calculate conditional averages
         #
@@ -1264,9 +1295,9 @@ if __name__ == "__main__":
         # calc_spectra(ncdir)
         # plot_1D_spectra(ncdir, figdir)
         # amp_mod(ncdir)
-        calc_quadrant(ncdir, save_2d_hist=False)
+        # calc_quadrant(ncdir, save_2d_hist=False)
         # calc_corr2d(ncdir)
         # plot_corr2d(ncdir, figdir_corr2d)
-        # LCS(ncdir)
-        # cond_avg(ncdir)
+        LCS(ncdir)
+        cond_avg(ncdir)
         print(f"---End Sim {sim}---")

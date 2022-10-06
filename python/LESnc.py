@@ -383,6 +383,12 @@ def load_stats(fstats, SBL=True, display=False):
     dd.attrs["label2"] = "-".join(dd.stability.split("_"))
     # another label for just the crX.XX part
     dd.attrs["label"] = dd.stability.split("_")[0]
+    # load yaml file with labels for plotting
+    flabel = "/home/bgreene/SBL_LES/python/labels.yaml"
+    with open(flabel) as f:
+        lab = yaml.safe_load(f)
+    # assign to attrs
+    dd.attrs["lab"] = lab[dd.stability]
     # calculate ustar and h
     dd["ustar"] = ((dd.uw_cov_tot**2.) + (dd.vw_cov_tot**2.)) ** 0.25
     dd["ustar2"] = dd.ustar ** 2.
@@ -422,9 +428,11 @@ def load_stats(fstats, SBL=True, display=False):
         # calculate TKE-based sbl depth
         dd["he"] = dd.z.where(dd.e <= 0.05*dd.e[0], drop=True)[0]
         # calculate h/L as global stability parameter
-        dd["hL"] = dd.he / dd.L
+        dd["hL"] = dd.h / dd.L
         # create string for labels from hL
         dd.attrs["label3"] = f"$h/L = {{{dd.hL.values:3.2f}}}$"
+        # save number of points within sbl
+        dd.attrs["nzsbl"] = dd.z.where(dd.z <= dd.h, drop=True).size
         # calculate Richardson numbers
         # sqrt((du_dz**2) + (dv_dz**2))
         dd["du_dz"] = np.sqrt(dd.u_mean.differentiate("z", 2)**2. +\
@@ -438,6 +446,12 @@ def load_stats(fstats, SBL=True, display=False):
         dd["Rif"] = (9.81/dd.theta_mean.isel(z=0)) * dd.tw_cov_tot /\
                     (dd.uw_cov_tot*dd.u_mean.differentiate("z", 2) +\
                      dd.vw_cov_tot*dd.v_mean.differentiate("z", 2))
+        # # bulk Richardson number Rib based on values at top of sbl and sfc
+        # dz = dd.z[dd.nzsbl] - dd.z[0]
+        # dTdz = (dd.theta_mean[dd.nzsbl] - dd.theta_mean[0]) / dz
+        # dUdz = (dd.u_mean[dd.nzsbl] - dd.u_mean[0]) / dz
+        # dVdz = (dd.v_mean[dd.nzsbl] - dd.v_mean[0]) / dz
+        # dd.attrs["Rib"] = (dTdz * 9.81 / dd.theta_mean[0]) / (dUdz**2. + dVdz**2.)
         # calc Ozmidov scale real quick
         dd["Lo"] = np.sqrt(-dd.dissip_mean / (dd.N2 ** (3./2.)))
         # calculate Kolmogorov microscale: eta = (nu**3 / dissip) ** 0.25
@@ -455,8 +469,6 @@ def load_stats(fstats, SBL=True, display=False):
         dd["LL"] = -(dd.ustar**3.) * dd.theta_mean / (0.4 * 9.81 * dd.tw_cov_tot)
         # calculate level of LLJ: zj
         dd["zj"] = dd.z.isel(z=dd.uh.argmax())
-        # save number of points within sbl
-        dd.attrs["nzsbl"] = dd.z.where(dd.z <= dd.he, drop=True).size
     # print table statistics
     if display:
         print(f"---{dd.stability}---")
@@ -466,6 +478,7 @@ def load_stats(fstats, SBL=True, display=False):
         print(f"h: {dd.h.values:4.3f} m")
         print(f"L: {dd.L.values:4.3f} m")
         print(f"h/L: {(dd.h/dd.L).values:4.3f}")
+        print(f"Rib: {dd.Rib.values:4.3f}")
         print(f"zj/h: {(dd.z.isel(z=dd.uh.argmax())/dd.h).values:4.3f}")
         print(f"dT/dz: {1000*dd.dT_dz.values:4.1f} K/km")
         print(f"TL: {dd.TL.values:4.1f} s")
