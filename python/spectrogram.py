@@ -355,9 +355,14 @@ def calc_quadrant(dnc, save_2d_hist=False):
     dd, s = load_full(dnc, 1080000, 1260000, 1000, 0.02, True, True)
 
     # get instantaneous u, w, theta perturbations
-    u = dd.u_rot - dd.u_rot.mean(dim=("x","y"))
+    u = dd.u - dd.u.mean(dim=("x","y"))
+    v = dd.v - dd.v.mean(dim=("x","y"))
     w = dd.w - dd.w.mean(dim=("x","y"))
     theta = dd.theta - dd.theta.mean(dim=("x","y"))
+    # get SGS
+    txz = dd.txz
+    tyz = dd.tyz
+    q3 = dd.q3
 
     # calculate four quadrants
     quad = xr.Dataset(data_vars=None,
@@ -377,8 +382,33 @@ def calc_quadrant(dnc, save_2d_hist=False):
     quad["uw_pn"] = uw_pn.mean(dim=("time","x","y"))
     quad["uw_np"] = uw_np.mean(dim=("time","x","y"))
     quad["uw_nn"] = uw_nn.mean(dim=("time","x","y"))
+    # calculate instantaneous u'w'+txz
+    uw_inst = (u * w) + txz
+    # compute mean instances of positive and negative
+    quad["uw_p_mean"] = uw_inst.where(uw_inst > 0.).mean(dim=("time","x","y"))
+    quad["uw_n_mean"] = uw_inst.where(uw_inst < 0.).mean(dim=("time","x","y"))
 
-    # 2) theta'w'
+    # 2) v'w'
+    # v'>0, w'>0
+    vw_pp = v.where(v > 0.) * w.where(w > 0.)
+    # v'>0, w'<0
+    vw_pn = v.where(v > 0.) * w.where(w < 0.)
+    # v'<0, w'>0
+    vw_np = v.where(v < 0.) * w.where(w > 0.)
+    # v'<0, w'<0
+    vw_nn = v.where(v < 0.) * w.where(w < 0.)
+    # calculate averages and store in dataset
+    quad["vw_pp"] = vw_pp.mean(dim=("time","x","y"))
+    quad["vw_pn"] = vw_pn.mean(dim=("time","x","y"))
+    quad["vw_np"] = vw_np.mean(dim=("time","x","y"))
+    quad["vw_nn"] = vw_nn.mean(dim=("time","x","y"))
+    # calculate instantaneous v'w'+tyz
+    vw_inst = (v * w) + tyz
+    # compute mean instances of positive and negative
+    quad["vw_p_mean"] = vw_inst.where(vw_inst > 0.).mean(dim=("time","x","y"))
+    quad["vw_n_mean"] = vw_inst.where(vw_inst < 0.).mean(dim=("time","x","y"))
+
+    # 3) theta'w'
     # theta'>0, w'>0
     tw_pp = theta.where(theta > 0.) * w.where(w > 0.)
     # theta'>0, w'<0
@@ -392,22 +422,39 @@ def calc_quadrant(dnc, save_2d_hist=False):
     quad["tw_pn"] = tw_pn.mean(dim=("time","x","y"))
     quad["tw_np"] = tw_np.mean(dim=("time","x","y"))
     quad["tw_nn"] = tw_nn.mean(dim=("time","x","y"))
+    # calculate instantaneous t'w'+q3
+    tw_inst = (theta * w) + q3
+    # compute mean instances of positive and negative
+    quad["tw_p_mean"] = tw_inst.where(tw_inst > 0.).mean(dim=("time","x","y"))
+    quad["tw_n_mean"] = tw_inst.where(tw_inst < 0.).mean(dim=("time","x","y"))
 
     # calculate correlation coeffs and mixing efficiencies
-    # uw and tw covariances - resolved only
-    uw_cov_res = xr.cov(u, w, dim=("time","x","y"))
-    tw_cov_res = xr.cov(theta, w, dim=("time","x","y"))
-    # u, w, theta variances
-    uvar = u.var(dim=("time","x","y"))
-    wvar = w.var(dim=("time","x","y"))
-    tvar = theta.var(dim=("time","x","y"))
-    # R_ab = <a'b'> / (sigma_a * sigma_b)
-    quad["Ruw"] = np.abs(uw_cov_res / np.sqrt(uvar) / np.sqrt(wvar))
-    quad["Rtw"] = np.abs(tw_cov_res / np.sqrt(tvar) / np.sqrt(wvar))
-    # eta_uw = <u'w'> / (u-w+ + u+w-)
-    quad["eta_uw"] = np.abs(uw_cov_res) / np.abs(quad.uw_np + quad.uw_pn)
-    # eta_tw = <theta'w'> / (t+w- + t-w+)
-    quad["eta_tw"] = np.abs(tw_cov_res) / np.abs(quad.tw_pn + quad.tw_np)
+    # # uw and tw covariances - resolved only
+    # uw_cov_res = s.uw_cov_res
+    # vw_cov_res = s.vw_cov_res
+    # tw_cov_res = s.tw_cov_res
+    # # mean SGS values
+    # txz_mean = s.uw_cov_tot - s.uw_cov_res
+    # tyz_mean = s.vw_cov_tot - s.vw_cov_res
+    # q3_mean = s.tw_cov_tot - s.tw_cov_res
+    # # u, w, theta variances
+    # uvar = u.var(dim=("time","x","y"))
+    # wvar = w.var(dim=("time","x","y"))
+    # tvar = theta.var(dim=("time","x","y"))
+    # # R_ab = <a'b'> / (sigma_a * sigma_b)
+    # quad["Ruw"] = np.abs(uw_cov_res / np.sqrt(uvar) / np.sqrt(wvar))
+    # quad["Rtw"] = np.abs(tw_cov_res / np.sqrt(tvar) / np.sqrt(wvar))
+    # eta_uw = <u'w' + txz> / (u-w+ + u+w- + txz_n)
+    quad["eta_uw"] = np.abs(s.uw_cov_tot) / np.abs(quad.uw_n_mean)
+    # eta_vw = <v'w' + tyz> / (v-w+ + v+w- + tyz_n)
+    quad["eta_vw"] = np.abs(s.vw_cov_tot) / np.abs(quad.vw_n_mean)    
+    # eta_tw = <theta'w' + q3> / (t+w- + t-w+ + q3_n)
+    quad["eta_tw"] = np.abs(s.tw_cov_tot) / np.abs(quad.tw_n_mean)
+    # attempt to calculate combined eta_ustar2
+    uw_downgrad = quad.uw_n_mean
+    vw_downgrad = quad.vw_n_mean
+    ustar2_downgrad = (uw_downgrad**2. + vw_downgrad**2.) ** 0.5
+    quad["eta_ustar2"] = s.ustar2 / ustar2_downgrad
 
     # calculate sum of quadrants
     quad["uw_sum"] = np.abs(quad.uw_pp) + np.abs(quad.uw_pn) +\
@@ -416,7 +463,7 @@ def calc_quadrant(dnc, save_2d_hist=False):
                      np.abs(quad.tw_np) + np.abs(quad.tw_nn)
 
     # save quad Dataset as netcdf file for plotting later
-    fsave = f"{dnc}uw_tw_quadrant.nc"
+    fsave = f"{dnc}uw_tw_quadrant_SGS.nc"
     # delete old file for saving new one
     if os.path.exists(fsave):
         os.system(f"rm {fsave}")
@@ -978,13 +1025,13 @@ def cond_avg(dnc):
         u_big[2*nx:3*nx,:,:] = dd.u_p[:,:,:].to_numpy()
         u_big[3*nx:4*nx,:,:] = dd.u_p[:,:,:].to_numpy()
         # w
-        w_big = np.zeros((3*nx,ny,nz), dtype=np.float64)
+        w_big = np.zeros((4*nx,ny,nz), dtype=np.float64)
         w_big[0:nx,:,:] = dd.w_p[:,:,:].to_numpy()
         w_big[nx:2*nx,:,:] = dd.w_p[:,:,:].to_numpy()
         w_big[2*nx:3*nx,:,:] = dd.w_p[:,:,:].to_numpy()
         w_big[3*nx:4*nx,:,:] = dd.w_p[:,:,:].to_numpy()
         # theta
-        theta_big = np.zeros((3*nx,ny,nz), dtype=np.float64)
+        theta_big = np.zeros((4*nx,ny,nz), dtype=np.float64)
         theta_big[0:nx,:,:] = dd.t_p[:,:,:].to_numpy()
         theta_big[nx:2*nx,:,:] = dd.t_p[:,:,:].to_numpy()
         theta_big[2*nx:3*nx,:,:] = dd.t_p[:,:,:].to_numpy()
@@ -1295,9 +1342,9 @@ if __name__ == "__main__":
         # calc_spectra(ncdir)
         # plot_1D_spectra(ncdir, figdir)
         # amp_mod(ncdir)
-        # calc_quadrant(ncdir, save_2d_hist=False)
+        calc_quadrant(ncdir, save_2d_hist=False)
         # calc_corr2d(ncdir)
         # plot_corr2d(ncdir, figdir_corr2d)
-        LCS(ncdir)
-        cond_avg(ncdir)
+        # LCS(ncdir)
+        # cond_avg(ncdir)
         print(f"---End Sim {sim}---")
