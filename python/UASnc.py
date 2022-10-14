@@ -296,8 +296,10 @@ Fts = load_timeseries(ftsF)
 # Ferr = xr.load_dataset(ferrF)
 
 # calc error based on config file
-Aerr = recalc_err("cr0.25_u08_192", config["Tavg_uv"], config["Tavg_ec"])
-Ferr = recalc_err("cr2.50_u08_192", config["Tavg_uv"], config["Tavg_ec"])
+Aerr = recalc_err("cr0.25_u08_192", config["Tavg_uv"], 
+                  config["Tavg_ec"], is_sbl=config["is_sbl"])
+Ferr = recalc_err("cr2.50_u08_192", config["Tavg_uv"], 
+                  config["Tavg_ec"], is_sbl=config["is_sbl"])
 err_all = [Aerr, Ferr]
 
 # --------------------------------
@@ -773,8 +775,8 @@ Tnew1 = config["recalc_hi"]
 Tnewdt = config["recalc_dt"]
 Tnew = np.arange(Tnew0, Tnew1, Tnewdt, dtype=np.float64)
 # recalc errors within this range for cases A and F
-Aasc = recalc_err("cr0.25_u08_192", Tnew)
-Fasc = recalc_err("cr2.50_u08_192", Tnew)
+Aasc = recalc_err("cr0.25_u08_192", Tnew, is_sbl=config["is_sbl"])
+Fasc = recalc_err("cr2.50_u08_192", Tnew, is_sbl=config["is_sbl"])
 # grab error ranges for comparison
 err_range = config["err_range"]
 ne = len(err_range)
@@ -913,8 +915,8 @@ Tnew1ec = config["recalc_hi_ec"]
 Tnewdtec = config["recalc_dt_ec"]
 Tnew_ec = np.arange(Tnew0ec, Tnew1ec, Tnewdtec, dtype=np.float64)
 # recalc errors within this range for cases A and F
-Aecavg = recalc_err("cr0.25_u08_192", config["Tavg_uv"], Tnew_ec)
-Fecavg = recalc_err("cr2.50_u08_192", config["Tavg_uv"], Tnew_ec)
+Aecavg = recalc_err("cr0.25_u08_192", config["Tavg_uv"], Tnew_ec=Tnew_ec, is_sbl=config["is_sbl"])
+Fecavg = recalc_err("cr2.50_u08_192", config["Tavg_uv"], Tnew_ec=Tnew_ec, is_sbl=config["is_sbl"])
 # grab err_range_ec
 err_range_ec = config["err_range_ec"]
 
@@ -1058,8 +1060,8 @@ ax5[1,2].set_xlim([0, 120])
 ax5[1,2].xaxis.set_major_locator(MultipleLocator(30))
 ax5[1,2].xaxis.set_minor_locator(MultipleLocator(5))
 ax5[1,2].set_xlabel("$\\overline{u'u'}$ $T_{avg}$ [min]")
-ax5[1,3].set_xlim([0, 60])
-ax5[1,3].xaxis.set_major_locator(MultipleLocator(20))
+ax5[1,3].set_xlim([0, 120])
+ax5[1,3].xaxis.set_major_locator(MultipleLocator(30))
 ax5[1,3].xaxis.set_minor_locator(MultipleLocator(5))
 ax5[1,3].set_xlabel("$\\overline{w'w'}$ $T_{avg}$ [min]")
 ax5[1,4].set_xlim([0, 120])

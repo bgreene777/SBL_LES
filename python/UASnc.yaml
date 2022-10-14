@@ -6,6 +6,8 @@
 # Purpose: parameters for plotting emulated UAS profiles
 # in UASnc.py
 # --------------------------------
+# define whether we are in sbl
+is_sbl: True
 
 A:
   xlim:

@@ -778,7 +778,7 @@ def main3(reprocess):
 # --------------------------------
 # recalc_err: recalculate random errors with coefficients for given sample time
 # --------------------------------
-def recalc_err(stability, Tnew, Tnew_ec=None):
+def recalc_err(stability, Tnew, Tnew_ec=None, is_sbl=False):
     # input stability (string) new sampling time (float), and level (integer)
     # if Tnew is array, then loop through each
     # if Tnew_ec is none, skip recalculating 2nd order moments
@@ -788,7 +788,7 @@ def recalc_err(stability, Tnew, Tnew_ec=None):
     # define directories based on stability
     fdir = f"/home/bgreene/simulations/{stability}/output/netcdf/"
     # load stat file to convert Tnew to Xnew and to renormalize new errors
-    stat = load_stats(fdir+"average_statistics.nc", SBL=config["is_sbl"])
+    stat = load_stats(fdir+"average_statistics.nc", SBL=is_sbl)
     # calculate wind angle alpha (NOTE: THE ALPHA STORED IN STAT IS *NOT* WDIR)
     stat["alpha"] = np.arctan2(-stat.u_mean, -stat.v_mean)
     ineg = np.where(stat.alpha < 0)

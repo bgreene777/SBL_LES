@@ -478,7 +478,7 @@ def load_stats(fstats, SBL=True, display=False):
         print(f"h: {dd.h.values:4.3f} m")
         print(f"L: {dd.L.values:4.3f} m")
         print(f"h/L: {(dd.h/dd.L).values:4.3f}")
-        print(f"Rib: {dd.Rib.values:4.3f}")
+        # print(f"Rib: {dd.Rib.values:4.3f}")
         print(f"zj/h: {(dd.z.isel(z=dd.uh.argmax())/dd.h).values:4.3f}")
         print(f"dT/dz: {1000*dd.dT_dz.values:4.1f} K/km")
         print(f"TL: {dd.TL.values:4.1f} s")
