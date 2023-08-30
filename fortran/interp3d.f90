@@ -5,63 +5,56 @@ IMPLICIT NONE
 ! define same kind as in abl_les
 integer, parameter :: rprec = kind (1.d0)
 
-INTEGER,PARAMETER :: nx = 96
-INTEGER,PARAMETER :: ny = 96
-INTEGER,PARAMETER :: nz = 97
+INTEGER,PARAMETER :: nx = 64
+INTEGER,PARAMETER :: ny = 64
+INTEGER,PARAMETER :: nz = 65
 INTEGER,PARAMETER :: lh=nx/2+1,ld=2*lh
-INTEGER,PARAMETER :: nx_new = 192
-INTEGER,PARAMETER :: ny_new = 192
-INTEGER,PARAMETER :: nz_new = 192
+INTEGER,PARAMETER :: nx_new = 128
+INTEGER,PARAMETER :: ny_new = 128
+INTEGER,PARAMETER :: nz_new = 128
 INTEGER,PARAMETER :: lh_new=nx_new/2+1,ld_new=2*lh_new
 REAL(KIND=rprec) :: lx, ly, lz, lz0
 
 CHARACTER(len=128) :: fname
-REAL(KIND=rprec),DIMENSION(ld,ny,nz) :: u
-REAL(KIND=rprec),DIMENSION(ld,ny,nz) :: v
-REAL(KIND=rprec),DIMENSION(ld,ny,nz) :: w
-REAL(KIND=rprec),DIMENSION(ld,ny,nz) :: theta
-REAL(KIND=rprec),DIMENSION(ld,ny,nz) :: RHSx
-REAL(KIND=rprec),DIMENSION(ld,ny,nz) :: RHSy
-REAL(KIND=rprec),DIMENSION(ld,ny,nz) :: RHSz
-REAL(KIND=rprec),DIMENSION(ld,ny,nz) :: RHS_T
-REAL(KIND=rprec),DIMENSION(ld,ny,1)  :: sgs_t3
-REAL(KIND=rprec),DIMENSION(ld,ny)    :: sgs_t3_2d
+REAL(KIND=rprec),DIMENSION(ld,ny,nz) :: u, v, w, theta, q
+REAL(KIND=rprec),DIMENSION(ld,ny,nz) :: RHSx, RHSy, RHSz, RHS_T, RHS_q
+REAL(KIND=rprec),DIMENSION(ld,ny,1)  :: sgs_t3, sgs_q3
+REAL(KIND=rprec),DIMENSION(ld,ny)    :: sgs_t3_2d, sgs_q3_2d
 REAL(KIND=rprec),DIMENSION(nx,ny)    :: psi_m
 REAL(KIND=rprec),DIMENSION(ld,ny,nz) :: Cs_opt2
-REAL(KIND=rprec),DIMENSION(ld,ny,nz) :: F_LM
-REAL(KIND=rprec),DIMENSION(ld,ny,nz) :: F_MM
-REAL(KIND=rprec),DIMENSION(ld,ny,nz) :: F_QN
-REAL(KIND=rprec),DIMENSION(ld,ny,nz) :: F_NN
-REAL(KIND=rprec),DIMENSION(nx,ny)    :: T_s_init
+REAL(KIND=rprec),DIMENSION(ld,ny,nz) :: F_LM, F_MM, F_QN, F_NN
+REAL(KIND=rprec),DIMENSION(nx,ny)    :: T_s_init, q_s_init
 
+INTEGER :: jt
 REAL(KIND=rprec),DIMENSION(nx) :: xx
 REAL(KIND=rprec),DIMENSION(ny) :: yy
 REAL(KIND=rprec),DIMENSION(nz) :: zz
-REAL(KIND=rprec),DIMENSION(nx_new,ny_new,nz_new) :: u_new, v_new, w_new, theta_new, &
+REAL(KIND=rprec),DIMENSION(nx_new,ny_new,nz_new) :: u_new, v_new, w_new, theta_new, q_new, &
                                                 RHSx_new, RHSy_new, RHSz_new, &
                                                 RHS_T_new, Cs_opt2_new, F_LM_new, &
-                                                F_MM_new, F_QN_new, F_NN_new
+                                                F_MM_new, F_QN_new, F_NN_new, RHS_q_new
 ! same variables but with x dimension of ld_new for saving
-REAL(KIND=rprec),DIMENSION(ld_new,ny_new,nz_new+1) :: u_new_ld, v_new_ld, w_new_ld, theta_new_ld, &
+REAL(KIND=rprec),DIMENSION(ld_new,ny_new,nz_new+1) :: u_new_ld, v_new_ld, w_new_ld, theta_new_ld,q_new_ld, &
                                                 RHSx_new_ld, RHSy_new_ld, RHSz_new_ld, &
                                                 RHS_T_new_ld, Cs_opt2_new_ld, F_LM_new_ld, &
-                                                F_MM_new_ld, F_QN_new_ld, F_NN_new_ld 
-REAL(KIND=rprec),DIMENSION(ld_new,ny_new,1) :: sgs_t3_new
-REAL(KIND=rprec),DIMENSION(nx_new,ny_new) :: psi_m_new, sgs_t3_2d_new, T_s_init_new
+                                                F_MM_new_ld, F_QN_new_ld, F_NN_new_ld, &
+                                                RHS_q_new_ld
+REAL(KIND=rprec),DIMENSION(ld_new,ny_new,1) :: sgs_t3_new, sgs_q3_new
+REAL(KIND=rprec),DIMENSION(nx_new,ny_new) :: psi_m_new, sgs_t3_2d_new, T_s_init_new, sgs_q3_2d_new, q_s_init_new
 REAL(KIND=rprec),DIMENSION(nx_new) :: xx_new
 REAL(KIND=rprec),DIMENSION(ny_new) :: yy_new
 REAL(KIND=rprec),DIMENSION(nz_new) :: zz_new
 REAL(KIND=rprec),DIMENSION(nx_new,ny_new,1) :: theta_new_2d
 
 character(len=128) :: fout, fout2, fout3, fout4, fout5, fout6, fout7      !Name of output files
-
-fname='/home/bgreene/simulations/cr0.25_u01_192/vel_sc_spinup.out'
+! fname='/home/bgreene/simulations/cr0.33_u08_240/vel_sc_spinup.out'
+fname = '/home/bgreene/simulations/test_checkpoint/checkpoint02/output/checkpoint_0010000.out'
 print*,"Reading file: ", fname
-open(10,file=TRIM(fname),form='unformatted')
-READ (10) u(:,:,1:nz),v(:,:,1:nz),w(:,:,1:nz), theta(:,:,1:nz),   &
+open(10,file=TRIM(fname),form='unformatted',access='stream')
+READ (10) jt, u(:,:,1:nz),v(:,:,1:nz),w(:,:,1:nz), theta(:,:,1:nz), q(:,:,1:nz),  &
           RHSx(:,:,1:nz), RHSy(:,:,1:nz), RHSz(:,:,1:nz), RHS_T(:,:,1:nz), &
           sgs_t3(:,:,1), psi_m, Cs_opt2(:,:,1:nz), F_LM(:,:,1:nz), &
-          F_MM(:,:,1:nz), F_QN(:,:,1:nz), F_NN(:,:,1:nz), T_s_init
+          F_MM(:,:,1:nz), F_QN(:,:,1:nz), F_NN(:,:,1:nz), RHS_q(:,:,1:nz), sgs_q3(:,:,1)
                 
 print *,"Shape of sgs_t3: ", SHAPE(sgs_t3)
 print *,"Shape of psi_m: ", SHAPE(psi_m)
@@ -73,10 +66,11 @@ print *,"Shape of F_NN: ", SHAPE(F_NN)
 
 ! sgs_t3 is (nx, ny, 1) so convert to 2d for interpolating then can add 3d after
 sgs_t3_2d(:,:) = sgs_t3(:,:,1)
+sgs_q3_2d(:,:) = sgs_q3(:,:,1)
 
-lx = 800.
-ly = 800.
-lz = 400.
+lx = 12000.
+ly = 12000.
+lz = 12000.
 
 ! u
 print *,"Begin interpolating u"
@@ -102,6 +96,12 @@ call interpolate(nx, ny, nz-1, lx, ly, lz, theta(1:nx,:,1:nz-1), nx_new, ny_new,
 theta_new_ld(:,:,:) = 0.
 theta_new_ld(1:nx_new,:,1:nz_new) = theta_new(:,:,:)
 print *,"Finished interpolating theta"
+! q
+print *,"Begin interpolating q"
+call interpolate(nx, ny, nz-1, lx, ly, lz, q(1:nx,:,1:nz-1), nx_new, ny_new, nz_new, q_new)
+q_new_ld(:,:,:) = 0.
+q_new_ld(1:nx_new,:,1:nz_new) = q_new(:,:,:)
+print *,"Finished interpolating q"
 ! RHSx
 print *,"Begin interpolating RHSx"
 call interpolate(nx, ny, nz-1, lx, ly, lz, RHSx(1:nx,:,1:nz-1), nx_new, ny_new, nz_new, RHSx_new)
@@ -126,11 +126,22 @@ call interpolate(nx, ny, nz-1, lx, ly, lz, RHS_T(1:nx,:,1:nz-1), nx_new, ny_new,
 RHS_T_new_ld(:,:,:) = 0.
 RHS_T_new_ld(1:nx_new,:,1:nz_new) = RHS_T_new(:,:,:)
 print *,"Finished interpolating RHS_T"
+! RHS_q
+print *,"Begin interpolating RHS_q"
+call interpolate(nx, ny, nz-1, lx, ly, lz, RHS_q(1:nx,:,1:nz-1), nx_new, ny_new, nz_new, RHS_q_new)
+RHS_q_new_ld(:,:,:) = 0.
+RHS_q_new_ld(1:nx_new,:,1:nz_new) = RHS_q_new(:,:,:)
+print *,"Finished interpolating RHS_q"
 ! sgs_t3
 print *,"Begin interpolating sgs_t3"
 call interpolate2d(nx, ny, lx, ly, sgs_t3_2d(1:nx,:), nx_new, ny_new, sgs_t3_2d_new)
 sgs_t3_new(1:nx_new,:,1) = sgs_t3_2d_new(:,:) ! add back the 3rd dimension
 print *,"Finished interpolating sgs_t3"
+! sgs_q3
+print *,"Begin interpolating sgs_q3"
+call interpolate2d(nx, ny, lx, ly, sgs_q3_2d(1:nx,:), nx_new, ny_new, sgs_q3_2d_new)
+sgs_q3_new(1:nx_new,:,1) = sgs_q3_2d_new(:,:) ! add back the 3rd dimension
+print *,"Finished interpolating sgs_q3"
 ! psi_m
 print *,"Begin interpolating psi_m"
 call interpolate2d(nx, ny, lx, ly, psi_m(1:nx,:), nx_new, ny_new, psi_m_new)
@@ -165,10 +176,14 @@ call interpolate(nx, ny, nz-1, lx, ly, lz, F_NN(1:nx,:,1:nz-1), nx_new, ny_new, 
 F_NN_new_ld(:,:,:) = 0.
 F_NN_new_ld(1:nx_new,:,1:nz_new) = F_NN_new(:,:,:)
 print *,"Finished interpolating F_NN"
-! T_s_init
-print *,"Begin interpolating T_s_init"
-call interpolate2d(nx, ny, lx, ly, T_s_init(1:nx,:), nx_new, ny_new, T_s_init_new)
-print *,"Finished interpolating T_s_init"
+! ! T_s_init
+! print *,"Begin interpolating T_s_init"
+! call interpolate2d(nx, ny, lx, ly, T_s_init(1:nx,:), nx_new, ny_new, T_s_init_new)
+! print *,"Finished interpolating T_s_init"
+! ! q_s_init
+! print *,"Begin interpolating q_s_init"
+! call interpolate2d(nx, ny, lx, ly, q_s_init(1:nx,:), nx_new, ny_new, q_s_init_new)
+! print *,"Finished interpolating q_s_init"
 
 print *,"All parameters finished interpolating!"
 !print*,"Shape of u: ", SHAPE(u)
@@ -223,16 +238,17 @@ print *,"All parameters finished interpolating!"
 !print*,"Finished saving ", fout6
 
 ! now try saving new interpolated vel_sc.out so new simulation can use
-fout7='/home/bgreene/simulations/cr0.25_u01_192/vel_sc.out'
+! fout7='/home/bgreene/simulations/cr0.33_u08_240/vel_sc.out'
+fout7 = '/home/bgreene/simulations/test_checkpoint/output/checkpoint_0010000_interp.out'
 print*,"Saving file: ", fout7
 open(1007,file=TRIM(fout7),access='stream',status='unknown')
-write(1007) u_new_ld(:,:,1:nz_new+1), v_new_ld(:,:,1:nz_new+1), &
-                  w_new_ld(:,:,1:nz_new+1), theta_new_ld(:,:,1:nz_new+1), &
-                  RHSx_new_ld(:,:,1:nz_new+1), RHSy_new_ld(:,:,1:nz_new+1), &
-                  RHSz_new_ld(:,:,1:nz_new+1), RHS_T_new_ld(:,:,1:nz_new+1), &
-                  sgs_t3_new(:,:,1), psi_m_new, Cs_opt2_new_ld, &
-                  F_LM_new_ld, F_MM_new_ld, F_QN_new_ld, F_NN_new_ld, &
-                  T_s_init_new
+write(1007) jt, u_new_ld(:,:,1:nz_new+1), v_new_ld(:,:,1:nz_new+1), w_new_ld(:,:,1:nz_new+1), &
+            theta_new_ld(:,:,1:nz_new+1), q_new_ld(:,:,1:nz_new+1), &
+            RHSx_new_ld(:,:,1:nz_new+1), RHSy_new_ld(:,:,1:nz_new+1), &
+            RHSz_new_ld(:,:,1:nz_new+1), RHS_T_new_ld(:,:,1:nz_new+1), &
+            sgs_t3_new(:,:,1), psi_m_new, Cs_opt2_new_ld, &
+            F_LM_new_ld, F_MM_new_ld, F_QN_new_ld, F_NN_new_ld, &
+            RHS_q_new_ld(:,:,1:nz_new+1), sgs_q3_new(:,:,1)
 close(1007)
 print*,"Finished saving ", fout7
 
